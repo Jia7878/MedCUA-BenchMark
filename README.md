@@ -4,9 +4,6 @@ A medical-domain GUI benchmark built on top of [BrowserGym](https://github.com/S
 Evaluates Computer-Use Agents (CUA) on **18 clinical scenarios** across 10 medical domains,
 with **216 base tasks × 2 goal settings = 432 registered gymnasium environments**.
 
-Every scenario is grounded in a real open-source medical UI, published product documentation,
-or peer-reviewed clinical standards (see [REFERENCES.md](REFERENCES.md) for full citations).
-
 Agents see **only browser screenshots** — no DOM, no accessibility tree — and operate via
 pixel-coordinate actions (`mouse_click(x,y)`, `keyboard_type`, etc.), matching a pure CUA setup.
 
@@ -69,7 +66,6 @@ See [SCENARIOS.md](SCENARIOS.md) for per-scenario task lists and checker logic.
 ```
 medgym/
 ├── README.md
-├── REFERENCES.md                    # Real-world citations for every scenario
 ├── SCENARIOS.md                     # Per-scenario task & checker documentation
 ├── pyproject.toml
 ├── requirements.txt
@@ -192,33 +188,6 @@ env = gym.make("browsergym/medgym.pacs_radiology.open_ct_study.step", headless=T
 ```
 
 All registered task IDs are available as `browsergym.medgym.ALL_MEDGYM_TASK_IDS`.
-
----
-
-## Scenario Reference Summary
-
-Every scenario is grounded in real-world systems. Full citations in [REFERENCES.md](REFERENCES.md).
-
-| Scenario | Reference Type | Primary Reference |
-|----------|---------------|-------------------|
-| `openemr` | Open-source UI | OpenEMR v7.0.2 (GPL-3.0, ONC-certified) |
-| `pacs_radiology` | Open-source UI | OHIF Viewer (MIT) |
-| `pathology_viewer` | Open-source UI | OHIF Viewer (MIT) — WSI mode |
-| `emergency_triage` | Clinical standard | AHRQ ESI Implementation Handbook v4 |
-| `outpatient_pharmacy` | Clinical standard | ASHP Best Practices + NCPDP SCRIPT |
-| `doctor_prescription` | Product doc | SmartCare Rx + IHS RPMS Surescripts eRx |
-| `bed_management` | Product doc | Epic BedTracking + HL7 v2.x ADT |
-| `nurse_station` | Product doc | Cerner PowerChart + Care Compass |
-| `nursing_documentation` | Clinical standard | ANA Nursing Informatics + IHI SBAR |
-| `nursing_assessment` | Peer-reviewed | Braden / Morse / GCS / NRS scales |
-| `icu_central` | Product doc | Philips PIIC iX + IEC 60601-1-8 |
-| `icu_bedside` | Product doc | Philips IntelliVue MX800 + Dräger IACS |
-| `infusion_pump` | Product doc | BD Alaris 8100 + IEC 60601-2-24 |
-| `imaging_console` | Product doc | Siemens syngo + ACR Dose Index Registry |
-| `radiation_tps` | Product doc + OSS | Varian Eclipse + matRad + AAPM TG-53 |
-| `ecg_workstation` | Product doc | Cardiology workstation + AHA/ACC ECG guidelines |
-| `endoscopy` | Product doc | Olympus EVIS X1 + ASGE Quality Indicators |
-| `ultrasound` | Product doc | GE LOGIQ E10s + ACR TI-RADS / BI-RADS |
 
 ---
 
