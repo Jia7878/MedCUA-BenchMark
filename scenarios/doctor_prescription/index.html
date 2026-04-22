@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Doctor Prescription — Rx Module (SmartCare-style)
+
+  REAL-WORLD REFERENCES:
+  1. CalMHSA Specialty Mental Health Services Clinical Documentation User Guide
+     — Prescription Support Services
+  2. SmartCare EHR Rx module workflows
+  3. NCPDP SCRIPT Standard for electronic prescriptions
+
+  PAGE DEPTH (per manual):
+  - Login / Search for Rx Module
+  - Patient Search (name, DOB, ID)
+  - Patient Summary Screen:
+      A. Patient info (name, DOB, insurance, diagnosis)
+      B. Preferred Pharmacies (up to 3, search/save)
+      C. Medication List (current meds, print, change, re-order, discontinue)
+      D. Allergies / Intolerances / Failed Trials
+      E. Action bar: New Order, Patient Consent, Change Order, Re-Order, Medication History
+  - New Medication Order Screen:
+      Order section (Send to Pharmacy / Print Script, prescriber info, DEA#)
+      Medication section (drug search, strength, dose, directions, days, qty, refills)
+      Insert → Review list → Prescribe → Confirm → Submit
+  - Add Medication (Prescribed Elsewhere)
+  - Patient Consent (sign by prescriber + client)
+  - Change Medication Order (modify dose/directions/days)
+  - Re-Order Medication
+  - Discontinue Medication (reason, letter method)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SmartCare Rx — Prescription Management</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;background:#f0f4f8;color:#212121}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 12px;text-align:left}
+.hidden{display:none!important}
+:root{
+  --bg:#f0f4f8;--surface:#fff;
+  --hdr:#1a3a5c;--hdr-t:#e3edf7;
+  --pri:#2563a8;--pri-d:#1a3a5c;--pri-l:#3b82d6;
+  --acc:#d97706;--suc:#16803c;--warn:#f59e0b;--err:#dc2626;
+  --txt:#212121;--txt2:#616161;--txt3:#9e9e9e;
+  --bdr:#c5cdd6;--bdr-l:#e2e8f0;
+  --row-h:#eef4fb;
+  --rad:6px;
+  --font-mono:Consolas,'Courier New',monospace
+}
+/* Header */
+.header{background:var(--hdr);color:var(--hdr-t);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.header .t{font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.header .r{display:flex;align-items:center;gap:14px;font-size:11px}
+.header .r .clk{font-family:var(--font-mono);font-size:12px}
+/* Login */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1a3a5c,#2563a8)}
+.login-box{background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:40px 36px;width:420px}
+.login-box .logo{text-align:center;margin-bottom:24px}
+.login-box .logo .icon{font-size:48px;margin-bottom:8px}
+.login-box .logo .title{font-size:22px;font-weight:700;color:var(--pri-d)}
+.login-box .logo .sub{font-size:11px;color:var(--txt2);margin-top:4px}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.fc{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--rad);outline:none;font-size:13px;background:#fafcff}
+.fc:focus{border-color:var(--pri);box-shadow:0 0 0 2px rgba(37,99,168,.2)}
+.err{color:var(--err);font-size:12px;margin-top:6px;display:none}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;border:1px solid transparent;border-radius:var(--rad);font-size:12px;font-weight:600;transition:.15s}
+.btn-p{background:var(--pri);color:#fff}.btn-p:hover{background:var(--pri-d)}
+.btn-s{background:var(--suc);color:#fff}.btn-s:hover{background:#12692f}
+.btn-w{background:var(--warn);color:#fff}.btn-w:hover{background:#d97706}
+.btn-d{background:var(--err);color:#fff}.btn-d:hover{background:#b91c1c}
+.btn-out{background:#fff;border:1px solid var(--bdr);color:var(--txt)}.btn-out:hover{background:var(--bg)}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 24px;font-size:14px}.btn-block{width:100%}
+/* Toast */
+.toast-container{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:var(--rad);font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);animation:slideIn .3s ease;color:#fff}
+.toast-success{background:var(--suc)}.toast-error{background:var(--err)}.toast-info{background:#0071bc}.toast-warn{background:var(--warn)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:8px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal-header{padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;background:var(--hdr);color:#fff;border-radius:8px 8px 0 0}
+.modal-header .close-btn{background:none;border:none;color:rgba(255,255,255,.8);font-size:18px;cursor:pointer}
+.modal-body{padding:20px}
+/* App shell */
+#app{display:flex;flex-direction:column;min-height:100vh}
+.main-layout{display:flex;flex:1;overflow:hidden}
+/* Sidebar */
+.sidebar{width:220px;background:#fff;border-right:1px solid var(--bdr-l);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar .shdr{padding:14px 16px;font-size:13px;font-weight:700;color:var(--pri-d);border-bottom:1px solid var(--bdr-l)}
+.nav-item{padding:10px 16px;font-size:12px;font-weight:600;color:var(--txt2);cursor:pointer;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:.15s}
+.nav-item:hover{background:var(--row-h);color:var(--txt)}
+.nav-item.active{background:var(--row-h);color:var(--pri-d);border-left-color:var(--pri)}
+.nav-item .badge{margin-left:auto;background:var(--acc);color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700}
+/* Content */
+.content{flex:1;overflow-y:auto;padding:16px 20px}
+/* Card */
+.card{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:12px}
+.card-h{padding:12px 16px;font-size:13px;font-weight:700;color:var(--pri-d);border-bottom:1px solid var(--bdr-l);display:flex;align-items:center;justify-content:space-between}
+.card-b{padding:16px}
+/* Table */
+.dt{width:100%;font-size:12px}
+.dt thead th{background:var(--row-h);color:var(--pri-d);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:2px solid var(--pri);white-space:nowrap}
+.dt tbody tr{border-bottom:1px solid var(--bdr-l);transition:.15s}
+.dt tbody tr:hover{background:var(--row-h)}
+.dt tbody td{padding:7px 12px}
+/* Status badges */
+.st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
+.st-active{background:#e8f5e9;color:#2e7d32}
+.st-pending{background:#e3f2fd;color:#1565c0}
+.st-discontinued{background:#fce4ec;color:#c62828}
+.st-queued{background:#fff3e0;color:#e65100}
+.st-consent-yes{background:#e8f5e9;color:#2e7d32}
+.st-consent-no{background:#fff8e1;color:#f57f17}
+.st-outside{background:#f3e5f5;color:#6a1b9a}
+/* Patient banner */
+.pt-banner{background:linear-gradient(135deg,#e3edf7,#f0f4f8);border:1px solid var(--bdr-l);border-radius:var(--rad);padding:14px 18px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap}
+.pt-banner .sec{flex:1;min-width:180px}
+.pt-banner .nm{font-size:16px;font-weight:700;color:var(--pri-d)}
+.pt-banner .dt2{font-size:11px;color:var(--txt2);margin-top:2px}
+.pt-banner .lbl{font-size:10px;color:var(--txt3);text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+.pt-banner .val{font-size:12px;color:var(--txt);margin-top:2px}
+/* Allergy */
+.allergy-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;margin:2px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a}
+.allergy-tag.intolerance{background:#fff8e1;color:#e65100;border-color:#ffcc80}
+.allergy-tag.failed{background:#e8eaf6;color:#3949ab;border-color:#9fa8da}
+/* Pharmacy card */
+.pharm-card{background:#f8fafb;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:10px 14px;font-size:12px;margin-bottom:6px;display:flex;align-items:center;gap:12px}
+.pharm-card .rank{background:var(--pri);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+/* Search results */
+.search-row{padding:10px 14px;border-bottom:1px solid var(--bdr-l);cursor:pointer;display:flex;align-items:center;gap:12px;font-size:12px;transition:.15s}
+.search-row:hover{background:var(--row-h)}
+.search-row input[type=radio]{width:14px;height:14px}
+/* Drug interaction warning */
+.dur{background:#fff8e1;border:1px solid #ffa000;border-radius:var(--rad);padding:12px 16px;margin-bottom:10px}
+.dur .dur-t{font-size:12px;font-weight:700;color:var(--acc);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.dur .dur-d{font-size:11px;color:var(--txt2)}
+.dur-crit{background:#fce4ec;border-color:#ef9a9a}
+.dur-crit .dur-t{color:#c62828}
+/* Consent */
+.consent-doc{background:#fafcff;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:20px;max-height:300px;overflow-y:auto;font-size:12px;line-height:1.8;margin-bottom:14px}
+.sig-box{border:2px dashed var(--bdr);border-radius:var(--rad);padding:16px;text-align:center;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fafcff;margin-bottom:10px}
+.sig-box.signed{border-color:var(--suc);background:#f0fdf4}
+.sig-box .sig-name{font-size:14px;font-weight:700;font-style:italic;color:var(--pri-d)}
+.sig-box .sig-time{font-size:10px;color:var(--txt3)}
+/* Flex utilities */
+.flex{display:flex}.flex-col{flex-direction:column}.gap-sm{gap:6px}.gap-md{gap:12px}.gap-lg{gap:20px}
+.ai-c{align-items:center}.jc-sb{justify-content:space-between}.jc-e{justify-content:flex-end}
+.mt-sm{margin-top:6px}.mt-md{margin-top:12px}.mt-lg{margin-top:20px}
+.mb-sm{margin-bottom:6px}.mb-md{margin-bottom:12px}
+/* Status bar */
+.status-bar{height:28px;background:#e2e8f0;border-top:1px solid var(--bdr-l);padding:0 16px;display:flex;align-items:center;font-size:10px;color:var(--txt3);gap:20px;flex-shrink:0}
+/* Order form */
+.order-section{background:#f8fafb;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:16px;margin-bottom:12px}
+.order-section .sec-title{font-size:12px;font-weight:700;color:var(--pri-d);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.form-row{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.form-row .fg{flex:1;min-width:120px;margin-bottom:0}
+.form-row .fg.sm{max-width:100px;flex:0 0 100px}
+.form-row .fg.md{max-width:160px;flex:0 0 160px}
+.med-inserted{background:#f0fdf4;border:1px solid #a7f3d0;border-radius:var(--rad);padding:10px 14px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between}
+/* Checkbox in table */
+.row-chk{width:16px;height:16px;cursor:pointer}
+/* Discontinue X */
+.disc-x{background:none;border:none;color:var(--err);font-weight:700;font-size:14px;cursor:pointer;padding:2px 6px;border-radius:4px}
+.disc-x:hover{background:#fce4ec}
+/* EHR top bar */
+.ehr-top{background:linear-gradient(180deg,#0f2942,#1a3a5c);color:#e3edf7;padding:0;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.ehr-top-row1{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.ehr-brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}
+.ehr-brand .ic{font-size:22px}
+.ehr-prescriber{display:flex;align-items:center;gap:14px;font-size:11px}
+.ehr-prescriber .badge{background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px}
+.ehr-tabs{display:flex;align-items:flex-end;padding:0 12px;gap:2px;background:#1a3a5c;overflow-x:auto;scrollbar-width:thin}
+.ehr-tab{padding:7px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);cursor:pointer;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:6px;border-bottom:3px solid transparent;transition:.15s;white-space:nowrap}
+.ehr-tab:hover{color:#fff;background:rgba(255,255,255,.06)}
+.ehr-tab.active{color:#1a3a5c;background:#f0f4f8;border-bottom-color:#d97706}
+.ehr-tab .badge-tab{background:var(--err);color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;margin-left:2px}
+.ehr-tab .pill-pmp{background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;margin-left:2px}
+.ss-mailbox-btn{position:relative;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.ss-mailbox-btn:hover{background:rgba(255,255,255,.16)}
+.ss-mailbox-btn.has-pending{background:#d97706;border-color:#f59e0b}
+.ss-mailbox-btn .ct{background:#fff;color:#d97706;font-weight:700;padding:0 6px;border-radius:8px;font-size:10px}
+/* Demographics card */
+.demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 18px;padding:14px 16px}
+.demo-grid .demo-cell{font-size:11px}
+.demo-grid .demo-cell .lbl{color:var(--txt3);text-transform:uppercase;font-weight:700;font-size:9.5px;letter-spacing:.5px}
+.demo-grid .demo-cell .val{color:var(--txt);font-size:12px;margin-top:1px;font-weight:500}
+.demo-grid .demo-cell .val.warn{color:var(--err);font-weight:700}
+.demo-grid .demo-cell .val.ok{color:var(--suc);font-weight:600}
+.alert-banner{padding:10px 14px;border-left:4px solid;border-radius:0 6px 6px 0;font-size:12px;margin-bottom:10px;background:#fff8e1}
+.alert-banner.warn{border-color:#f59e0b}
+.alert-banner.crit{border-color:var(--err);background:#fce4ec;color:#991b1b}
+.alert-banner.info{border-color:#0071bc;background:#e3f2fd;color:#0d47a1}
+/* CDS Panel */
+.cds-panel{background:#fafcff;border:1px solid var(--bdr-l);border-left:4px solid var(--pri);border-radius:var(--rad);padding:12px 14px;margin:8px 0;font-size:11.5px}
+.cds-panel .cds-h{font-weight:700;font-size:12px;color:var(--pri-d);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cds-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dashed var(--bdr-l)}
+.cds-row:last-child{border-bottom:none}
+.cds-row .ic{width:18px;text-align:center}
+.cds-row .lbl{flex:1;color:var(--txt2)}
+.cds-row .val{font-weight:600}
+.cds-row .val.ok{color:var(--suc)}
+.cds-row .val.warn{color:var(--acc)}
+.cds-row .val.crit{color:var(--err)}
+.cds-row .val.info{color:var(--pri)}
+/* Activity log */
+.activity-row{display:flex;gap:10px;padding:6px 8px;border-bottom:1px solid var(--bdr-l);font-size:11.5px;align-items:flex-start}
+.activity-row:last-child{border-bottom:none}
+.activity-row .ts{font-family:var(--font-mono);font-size:10.5px;color:var(--txt3);width:130px;flex-shrink:0}
+.activity-row .ev{font-weight:700;color:var(--pri-d);width:160px;flex-shrink:0}
+.activity-row .det{flex:1;color:var(--txt)}
+/* Pharmacy search results */
+.ph-search-row{padding:10px 12px;border:1px solid var(--bdr-l);border-radius:var(--rad);margin-bottom:6px;font-size:12px;display:flex;align-items:center;gap:10px;background:#fafcff;cursor:pointer;transition:.15s}
+.ph-search-row:hover{background:var(--row-h);border-color:var(--pri)}
+.ph-search-row.selected{border-color:var(--pri);background:#e3edf7}
+.ph-pill{display:inline-block;padding:1px 7px;border-radius:8px;font-size:9.5px;font-weight:700;margin-right:4px}
+.ph-pill.epcs{background:#dcfce7;color:#166534}
+.ph-pill.no-epcs{background:#fee2e2;color:#991b1b}
+.ph-pill.bh{background:#e0e7ff;color:#3730a3}
+.ph-pill.mail{background:#fef3c7;color:#92400e}
+.ph-pill.network{background:#fce7f3;color:#9d174d}
+/* Tabs (sub-tabs in modules) */
+.tabbar{display:flex;border-bottom:2px solid var(--bdr-l);margin-bottom:10px;gap:2px}
+.tabbar .tabb{padding:7px 14px;font-size:12px;font-weight:600;color:var(--txt2);cursor:pointer;border-bottom:3px solid transparent}
+.tabbar .tabb:hover{color:var(--txt)}
+.tabbar .tabb.active{color:var(--pri-d);border-bottom-color:var(--pri)}
+/* Vital chip */
+.v-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:8px 14px;min-width:80px}
+.v-chip .v-lbl{font-size:9.5px;color:var(--txt3);text-transform:uppercase;font-weight:700;letter-spacing:.4px}
+.v-chip .v-val{font-size:18px;font-weight:700;color:var(--pri-d);font-family:var(--font-mono)}
+.v-chip .v-val.warn{color:var(--err)}
+.v-chip .v-unit{font-size:9.5px;color:var(--txt3)}
+/* Lab table */
+.lab-tbl{font-size:11.5px;width:100%}
+.lab-tbl td{padding:5px 10px;border-bottom:1px solid var(--bdr-l)}
+.lab-tbl .flag-h{color:var(--err);font-weight:700}
+.lab-tbl .flag-l{color:#0d47a1;font-weight:700}
+/* Problem list */
+.prob-row{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--bdr-l);font-size:12px}
+.prob-row .icd{font-family:var(--font-mono);font-size:11px;background:#e3edf7;color:#1e3a5c;padding:2px 6px;border-radius:4px;font-weight:700}
+.prob-row .pname{flex:1}
+.prob-row .ptype{font-size:10px;color:var(--txt3);font-weight:600;text-transform:uppercase}
+/* PMP / EPCS */
+.pmp-result{padding:14px;background:#fff8e1;border-left:4px solid #f59e0b;border-radius:var(--rad);margin:10px 0;font-size:12px}
+.pmp-result.clean{background:#f0fdf4;border-color:var(--suc)}
+.pmp-result h4{font-size:12px;margin-bottom:6px;color:#92400e}
+.pmp-result.clean h4{color:#166534}
+.epcs-2fa{background:#1a3a5c;color:#e3edf7;border-radius:var(--rad);padding:24px;text-align:center}
+.epcs-2fa input{font-size:24px;font-family:var(--font-mono);text-align:center;letter-spacing:8px;padding:14px;border:2px solid #2563a8;border-radius:var(--rad);width:240px;background:#0f2942;color:#fff}
+/* Mini stats card */
+.stats-card{background:linear-gradient(135deg,var(--pri),var(--pri-l));color:#fff;border-radius:var(--rad);padding:14px 18px;flex:1}
+.stats-card .stat-val{font-size:28px;font-weight:700;line-height:1.1}
+.stats-card .stat-lbl{font-size:11px;opacity:.85;margin-top:2px}
+/* Alert badges (status pills used in tables) */
+.alert-badge{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.alert-badge.ok{background:#d1fae5;color:#065f46}
+.alert-badge.warn{background:#fef3c7;color:#92400e}
+.alert-badge.crit{background:#fee2e2;color:#991b1b}
+.alert-badge.info{background:#dbeafe;color:#1e40af}
+/* Pharmacy capability pills */
+.pill{display:inline-block;padding:2px 7px;border-radius:9px;font-size:9.5px;font-weight:700;letter-spacing:.3px;margin-right:3px}
+.pill.epcs{background:#d1fae5;color:#065f46}
+.pill.no-epcs{background:#fee2e2;color:#991b1b}
+.pill.bh{background:#ede9fe;color:#5b21b6}
+.pill.mail{background:#dbeafe;color:#1e40af}
+.pill.network{background:#fef3c7;color:#92400e}
+/* Sub-module tabbar items used by Mailbox/H&P pages */
+.tabbar-item{padding:7px 14px;font-size:12px;font-weight:600;color:var(--txt2);cursor:pointer;border-bottom:3px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.tabbar-item:hover{color:var(--txt)}
+.tabbar-item.active{color:var(--pri-d);border-bottom-color:var(--pri)}
+.cds-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--bdr-l);font-size:11.5px}
+.cds-row:last-child{border-bottom:none}
+.cds-row .cds-ic{width:18px;text-align:center}
+.cds-row .cds-lbl{flex:1;color:var(--txt)}
+.cds-row .cds-val{font-weight:700}
+.cds-row.ok .cds-val{color:var(--suc)}
+.cds-row.warn .cds-val{color:#d97706}
+.cds-row.crit .cds-val{color:var(--err)}
+.cds-row.info .cds-val{color:var(--pri-d)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ─── RNG ─── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=Math.random;
+function randInt(a,b){return Math.floor(rng()*(b-a+1))+a}
+function pick(arr){return arr[Math.floor(rng()*arr.length)]}
+
+/* ─── Clock ─── */
+function clockStr(){let d=new Date();return d.toLocaleTimeString('en-US',{hour12:false})}
+setInterval(()=>{let el=document.getElementById('clock');if(el)el.textContent=clockStr()},1000);
+
+/* ─── Static Data — enriched for clinical realism ─── */
+function ageFromDOB(dob){let d=new Date(dob);let n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a}
+
+const PATIENTS=[
+  {id:'CLT-10042',mrn:'A4-10042',name:'Maria Garcia',dob:'03/15/1985',gender:'F',race:'Hispanic/Latina',ethnicity:'Hispanic',language:'English',
+    address:'815 Florin Rd, Sacramento, CA 95822',phone:'(916) 555-0142',email:'maria.g.85@example.com',
+    insurance:'Medi-Cal',memberId:'90H123456A',copayTier1:'$3',copayTier2:'$8',
+    dx:'Major Depressive Disorder, Recurrent (F33.1)',pcp:'Dr. R. Adams MD (PCP)',
+    height:'5\'4"',weight:'168 lb',bmi:28.8,sbp:124,dbp:78,hr:76,
+    egfr:92,alt:24,ast:22,scr:0.8,pregnant:false,childbearing:true,
+    prefLanguage:'English'},
+  {id:'CLT-10078',mrn:'A4-10078',name:'James Wilson',dob:'11/22/1972',gender:'M',race:'Black/African American',ethnicity:'Non-Hispanic',language:'English',
+    address:'2401 K Street #4B, Sacramento, CA 95816',phone:'(916) 555-0178',email:'jwilson@example.com',
+    insurance:'Medicare Part D',memberId:'1EG4-TE5-MK72',copayTier1:'$2.40',copayTier2:'$10.60',
+    dx:'Bipolar I Disorder, Current Episode Manic (F31.1)',pcp:'Dr. T. Nguyen MD',
+    height:'5\'11"',weight:'215 lb',bmi:30.0,sbp:138,dbp:84,hr:82,
+    egfr:71,alt:38,ast:34,scr:1.2,lithiumLvl:0.9,pregnant:false},
+  {id:'CLT-10103',mrn:'A4-10103',name:'Sarah Chen',dob:'07/08/1990',gender:'F',race:'Asian',ethnicity:'Non-Hispanic',language:'English',
+    address:'1830 Capitol Ave, Sacramento, CA 95811',phone:'(916) 555-0203',email:'sarahchen@example.com',
+    insurance:'Blue Shield of CA PPO',memberId:'XHS-887445621',copayTier1:'$10',copayTier2:'$30',
+    dx:'Generalized Anxiety Disorder (F41.1)',pcp:'Dr. M. Patel MD',
+    height:'5\'5"',weight:'130 lb',bmi:21.6,sbp:118,dbp:74,hr:78,
+    egfr:98,alt:18,ast:20,scr:0.7,pregnant:false,childbearing:true},
+  {id:'CLT-10156',mrn:'A4-10156',name:'Robert Johnson',dob:'01/30/1968',gender:'M',race:'White',ethnicity:'Non-Hispanic',language:'English',
+    address:'5600 Stockton Blvd Apt 12, Sacramento, CA 95820',phone:'(916) 555-0256',email:'',
+    insurance:'Medi-Cal',memberId:'90M557891B',copayTier1:'$3',copayTier2:'$8',
+    dx:'Schizophrenia, Paranoid Type (F20.0)',pcp:'Dr. L. Kim MD',
+    height:'5\'10"',weight:'242 lb',bmi:34.7,sbp:148,dbp:92,hr:88,
+    egfr:64,alt:42,ast:38,scr:1.4,a1c:7.2,pregnant:false},
+  {id:'CLT-10189',mrn:'A4-10189',name:'Linda Martinez',dob:'09/04/1955',gender:'F',race:'Hispanic/Latina',ethnicity:'Hispanic',language:'Spanish',
+    address:'4421 Florin Perkins Rd, Sacramento, CA 95826',phone:'(916) 555-0389',email:'',
+    insurance:'Medicare Part D',memberId:'1HE5-RH7-FW88',copayTier1:'$1.55',copayTier2:'$8.95',
+    dx:'PTSD, Chronic (F43.12)',pcp:'Dr. C. Vasquez MD',
+    height:'5\'2"',weight:'152 lb',bmi:27.8,sbp:132,dbp:80,hr:74,
+    egfr:58,alt:28,ast:30,scr:1.3,pregnant:false},
+  {id:'CLT-10215',mrn:'A4-10215',name:'David Kim',dob:'05/19/1998',gender:'M',race:'Asian',ethnicity:'Non-Hispanic',language:'English',
+    address:'2840 H Street, Sacramento, CA 95816',phone:'(916) 555-0415',email:'dkim98@example.com',
+    insurance:'Medi-Cal',memberId:'90X441276C',copayTier1:'$3',copayTier2:'$8',
+    dx:'ADHD, Combined Presentation (F90.2)',pcp:'Dr. P. Singh MD',
+    height:'5\'9"',weight:'158 lb',bmi:23.3,sbp:120,dbp:76,hr:72,
+    egfr:104,alt:22,ast:20,scr:0.9,pregnant:false}
+];
+// Fix the eGFR oversight via a sanity pass (handles any bad values from data entry)
+PATIENTS.forEach(p=>{if(typeof p.egfr!=='number')p.egfr=95;});
+
+// Problem List per patient (PDF1 §Diagnosis tab) — used for Rx clinical indication
+const PROBLEMS={
+  'CLT-10042':[
+    {icd:'F33.1',name:'Major Depressive Disorder, recurrent, moderate',type:'Primary',onset:'2021-08'},
+    {icd:'F41.1',name:'Generalized Anxiety Disorder',type:'Additional',onset:'2022-03'},
+    {icd:'G47.00',name:'Insomnia, unspecified',type:'Additional',onset:'2024-01'}
+  ],
+  'CLT-10078':[
+    {icd:'F31.1',name:'Bipolar I Disorder, manic, moderate',type:'Primary',onset:'2009-04'},
+    {icd:'E11.9',name:'Type 2 Diabetes Mellitus without complications',type:'Additional',onset:'2018-06'},
+    {icd:'I10',name:'Essential (primary) hypertension',type:'Additional',onset:'2019-11'}
+  ],
+  'CLT-10103':[
+    {icd:'F41.1',name:'Generalized Anxiety Disorder',type:'Primary',onset:'2023-02'},
+    {icd:'F32.1',name:'Major Depressive Disorder, single episode, moderate',type:'Additional',onset:'2024-05'}
+  ],
+  'CLT-10156':[
+    {icd:'F20.0',name:'Schizophrenia, paranoid type',type:'Primary',onset:'2010-09'},
+    {icd:'E78.5',name:'Hyperlipidemia, unspecified',type:'Additional',onset:'2017-03'},
+    {icd:'E11.9',name:'Type 2 Diabetes Mellitus without complications',type:'Additional',onset:'2020-11'}
+  ],
+  'CLT-10189':[
+    {icd:'F43.12',name:'PTSD, chronic',type:'Primary',onset:'2008-05'},
+    {icd:'M25.50',name:'Pain in unspecified joint',type:'Additional',onset:'2022-08'},
+    {icd:'G47.00',name:'Insomnia, unspecified',type:'Additional',onset:'2018-04'}
+  ],
+  'CLT-10215':[
+    {icd:'F90.2',name:'ADHD, combined presentation',type:'Primary',onset:'2017-09'},
+    {icd:'F41.1',name:'Generalized Anxiety Disorder',type:'Additional',onset:'2024-09'}
+  ]
+};
+
+// Recent Vitals (PDF1 §Vitals & Flow Sheets)
+const VITALS_HISTORY={
+  'CLT-10042':[{date:'2026-04-10',sbp:124,dbp:78,hr:76,temp:98.4,resp:16,spo2:98,pain:3,wt:168,ht:64},{date:'2026-03-12',sbp:128,dbp:82,hr:80,temp:98.6,resp:16,spo2:99,pain:4,wt:170,ht:64},{date:'2026-02-09',sbp:130,dbp:84,hr:82,temp:98.6,resp:18,spo2:98,pain:5,wt:172,ht:64}],
+  'CLT-10078':[{date:'2026-04-08',sbp:138,dbp:84,hr:82,temp:98.7,resp:18,spo2:97,pain:0,wt:215,ht:71},{date:'2026-03-05',sbp:142,dbp:88,hr:84,temp:98.6,resp:18,spo2:98,pain:0,wt:218,ht:71}],
+  'CLT-10103':[{date:'2026-04-12',sbp:118,dbp:74,hr:78,temp:98.5,resp:16,spo2:99,pain:1,wt:130,ht:65}],
+  'CLT-10156':[{date:'2026-04-15',sbp:148,dbp:92,hr:88,temp:98.8,resp:18,spo2:97,pain:0,wt:242,ht:70},{date:'2026-03-10',sbp:152,dbp:94,hr:90,temp:98.6,resp:18,spo2:97,pain:0,wt:245,ht:70}],
+  'CLT-10189':[{date:'2026-04-11',sbp:132,dbp:80,hr:74,temp:98.4,resp:16,spo2:98,pain:6,wt:152,ht:62},{date:'2026-02-19',sbp:128,dbp:78,hr:72,temp:98.5,resp:16,spo2:98,pain:7,wt:154,ht:62}],
+  'CLT-10215':[{date:'2026-04-09',sbp:120,dbp:76,hr:72,temp:98.4,resp:14,spo2:99,pain:0,wt:158,ht:69}]
+};
+
+// Recent Labs
+const LABS={
+  'CLT-10042':[{date:'2026-03-12',name:'CMP — Cr',val:0.8,unit:'mg/dL',ref:'0.6-1.1'},{date:'2026-03-12',name:'CMP — ALT',val:24,unit:'U/L',ref:'7-56'},{date:'2026-03-12',name:'TSH',val:2.1,unit:'mIU/L',ref:'0.4-4.0'},{date:'2026-03-12',name:'CBC — Hgb',val:13.2,unit:'g/dL',ref:'12-15.5'}],
+  'CLT-10078':[{date:'2026-03-05',name:'Lithium Level',val:0.9,unit:'mEq/L',ref:'0.6-1.2',flag:'Therapeutic'},{date:'2026-03-05',name:'CMP — Cr',val:1.2,unit:'mg/dL',ref:'0.7-1.3'},{date:'2026-03-05',name:'TSH',val:3.8,unit:'mIU/L',ref:'0.4-4.0'},{date:'2026-03-05',name:'A1c',val:6.4,unit:'%',ref:'<5.7'}],
+  'CLT-10103':[{date:'2026-04-01',name:'CMP — Cr',val:0.7,unit:'mg/dL',ref:'0.6-1.1'}],
+  'CLT-10156':[{date:'2026-03-10',name:'Lipid — LDL',val:148,unit:'mg/dL',ref:'<100',flag:'High'},{date:'2026-03-10',name:'A1c',val:7.2,unit:'%',ref:'<5.7',flag:'High'},{date:'2026-03-10',name:'CMP — Cr',val:1.4,unit:'mg/dL',ref:'0.7-1.3',flag:'High'}],
+  'CLT-10189':[{date:'2026-02-19',name:'CMP — Cr',val:1.3,unit:'mg/dL',ref:'0.6-1.1',flag:'High'},{date:'2026-02-19',name:'CBC — Hgb',val:11.8,unit:'g/dL',ref:'12-15.5',flag:'Low'}],
+  'CLT-10215':[{date:'2026-04-09',name:'CMP — Cr',val:0.9,unit:'mg/dL',ref:'0.7-1.3'},{date:'2026-04-09',name:'TSH',val:1.6,unit:'mIU/L',ref:'0.4-4.0'}]
+};
+
+const DRUG_DB=[
+  {name:'Sertraline (Zoloft)',generic:'Sertraline HCl',ndc:'00049-4910-66',strengths:['25mg','50mg','100mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth daily','Take 1 tablet by mouth in the morning','Take 1 tablet by mouth at bedtime'],category:'SSRI',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:200,renalAdj:false,hepaticAdj:true,pregnancyCat:'C',blackBox:'Suicidal thoughts and behaviors in young adults',commonSE:'Nausea, insomnia, sexual dysfunction, weight changes',monitor:'Mood, suicidality (esp. <25y), sodium (SIADH risk in elderly), bleeding'},
+  {name:'Fluoxetine (Prozac)',generic:'Fluoxetine HCl',ndc:'00777-3105-30',strengths:['10mg','20mg','40mg'],forms:['Capsule'],directions:['Take 1 capsule by mouth daily','Take 1 capsule by mouth in the morning'],category:'SSRI',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:80,renalAdj:false,hepaticAdj:true,pregnancyCat:'C',blackBox:'Suicidal thoughts and behaviors in young adults',commonSE:'Nausea, insomnia, anxiety, sexual dysfunction',monitor:'Mood, suicidality, sodium, sleep'},
+  {name:'Quetiapine (Seroquel)',generic:'Quetiapine Fumarate',ndc:'00310-0275-10',strengths:['25mg','50mg','100mg','200mg','300mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth at bedtime','Take 1 tablet by mouth twice daily','Take 1 tablet by mouth three times daily'],category:'Atypical Antipsychotic',schedule:'Non-Controlled',formularyTier:2,maxDailyMg:800,renalAdj:false,hepaticAdj:true,pregnancyCat:'C',blackBox:'Increased mortality in elderly with dementia-related psychosis',commonSE:'Sedation, weight gain, dyslipidemia, hyperglycemia, orthostasis',monitor:'BMI quarterly, FBG/A1c every 6mo, lipids annually, AIMS'},
+  {name:'Lithium Carbonate',generic:'Lithium Carbonate',ndc:'00378-0119-01',strengths:['150mg','300mg','600mg'],forms:['Capsule'],directions:['Take 1 capsule by mouth twice daily','Take 1 capsule by mouth three times daily','Take 2 capsules by mouth at bedtime'],category:'Mood Stabilizer',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:1800,renalAdj:true,hepaticAdj:false,pregnancyCat:'D',blackBox:'Lithium toxicity closely related to serum levels; can occur at therapeutic doses',commonSE:'Tremor, polyuria, polydipsia, weight gain, thyroid suppression',monitor:'Lithium level q6-12mo (therapeutic 0.6-1.2 mEq/L), Cr/eGFR, TSH q6-12mo, pregnancy test'},
+  {name:'Aripiprazole (Abilify)',generic:'Aripiprazole',ndc:'59148-0008-13',strengths:['2mg','5mg','10mg','15mg','20mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth daily','Take 1 tablet by mouth in the morning'],category:'Atypical Antipsychotic',schedule:'Non-Controlled',formularyTier:3,maxDailyMg:30,renalAdj:false,hepaticAdj:false,pregnancyCat:'C',blackBox:'Increased mortality in elderly with dementia',commonSE:'Akathisia, headache, nausea, insomnia, impulse-control behaviors',monitor:'AIMS, BMI, FBG/A1c, lipids'},
+  {name:'Lorazepam (Ativan)',generic:'Lorazepam',ndc:'00781-1404-10',strengths:['0.5mg','1mg','2mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth twice daily as needed','Take 1 tablet by mouth three times daily as needed','Take 1 tablet by mouth at bedtime as needed'],category:'Benzodiazepine',schedule:'Schedule IV',formularyTier:1,maxDailyMg:10,renalAdj:false,hepaticAdj:true,pregnancyCat:'D',blackBox:'Concomitant use with opioids may result in profound sedation, respiratory depression, coma, and death',commonSE:'Sedation, dizziness, dependence, withdrawal, falls in elderly',monitor:'Sedation, falls, PMP/CURES query, dependence signs'},
+  {name:'Bupropion (Wellbutrin XL)',generic:'Bupropion HCl',ndc:'00173-0699-01',strengths:['150mg','300mg'],forms:['Extended-Release Tablet'],directions:['Take 1 tablet by mouth daily in the morning','Take 1 tablet by mouth daily'],category:'NDRI',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:450,renalAdj:true,hepaticAdj:true,pregnancyCat:'C',blackBox:'Suicidal thoughts and behaviors; neuropsychiatric events',commonSE:'Insomnia, dry mouth, weight loss, headache, seizure risk',monitor:'BP, mood, seizure risk (avoid in eating disorders)'},
+  {name:'Olanzapine (Zyprexa)',generic:'Olanzapine',ndc:'00002-4112-30',strengths:['2.5mg','5mg','10mg','15mg','20mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth at bedtime','Take 1 tablet by mouth daily'],category:'Atypical Antipsychotic',schedule:'Non-Controlled',formularyTier:2,maxDailyMg:20,renalAdj:false,hepaticAdj:true,pregnancyCat:'C',blackBox:'Increased mortality in elderly with dementia',commonSE:'Significant weight gain, sedation, hyperlipidemia, hyperglycemia',monitor:'BMI quarterly, FBG/A1c q6mo, lipids annually, AIMS'},
+  {name:'Risperidone (Risperdal)',generic:'Risperidone',ndc:'50458-0300-04',strengths:['0.5mg','1mg','2mg','3mg','4mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth twice daily','Take 1 tablet by mouth at bedtime','Take 1 tablet by mouth daily'],category:'Atypical Antipsychotic',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:16,renalAdj:true,hepaticAdj:true,pregnancyCat:'C',blackBox:'Increased mortality in elderly with dementia',commonSE:'EPS at higher doses, prolactin elevation, weight gain, sedation',monitor:'AIMS, prolactin, BMI, FBG/A1c, lipids'},
+  {name:'Valproic Acid (Depakote)',generic:'Divalproex Sodium',ndc:'00074-6212-13',strengths:['250mg','500mg'],forms:['Delayed-Release Tablet'],directions:['Take 1 tablet by mouth twice daily','Take 1 tablet by mouth three times daily','Take 2 tablets by mouth at bedtime'],category:'Anticonvulsant/Mood Stabilizer',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:3000,renalAdj:false,hepaticAdj:true,pregnancyCat:'X',blackBox:'Hepatotoxicity, pancreatitis, teratogenicity (neural tube defects)',commonSE:'GI upset, tremor, weight gain, alopecia, thrombocytopenia',monitor:'Valproate level (50-100 mcg/mL), LFTs, CBC, ammonia, pregnancy test'},
+  {name:'Methylphenidate (Concerta)',generic:'Methylphenidate HCl',ndc:'50458-0585-01',strengths:['18mg','27mg','36mg','54mg'],forms:['Extended-Release Tablet'],directions:['Take 1 tablet by mouth in the morning','Take 1 tablet by mouth daily'],category:'CNS Stimulant',schedule:'Schedule II',formularyTier:2,maxDailyMg:72,renalAdj:false,hepaticAdj:false,pregnancyCat:'C',blackBox:'High potential for abuse and dependence',commonSE:'Decreased appetite, insomnia, weight loss, increased BP/HR',monitor:'BP, HR, weight, height (peds), PMP/CURES every fill'},
+  {name:'Hydroxyzine (Vistaril)',generic:'Hydroxyzine Pamoate',ndc:'00069-5410-66',strengths:['25mg','50mg'],forms:['Capsule'],directions:['Take 1 capsule by mouth three times daily as needed','Take 1 capsule by mouth at bedtime','Take 1 capsule by mouth every 6 hours as needed'],category:'Antihistamine/Anxiolytic',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:400,renalAdj:true,hepaticAdj:true,pregnancyCat:'C',blackBox:'',commonSE:'Sedation, dry mouth, dizziness',monitor:'QT prolongation in cardiac patients'},
+  {name:'Trazodone',generic:'Trazodone HCl',ndc:'00904-3982-60',strengths:['50mg','100mg','150mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth at bedtime','Take half tablet by mouth at bedtime'],category:'SARI',schedule:'Non-Controlled',formularyTier:1,maxDailyMg:400,renalAdj:false,hepaticAdj:true,pregnancyCat:'C',blackBox:'Suicidality in young adults',commonSE:'Sedation, dizziness, priapism (rare), orthostasis',monitor:'BP, sedation'},
+  {name:'Clonazepam (Klonopin)',generic:'Clonazepam',ndc:'00004-0058-01',strengths:['0.5mg','1mg','2mg'],forms:['Tablet'],directions:['Take 1 tablet by mouth twice daily','Take 1 tablet by mouth three times daily','Take 1 tablet by mouth at bedtime'],category:'Benzodiazepine',schedule:'Schedule IV',formularyTier:1,maxDailyMg:4,renalAdj:false,hepaticAdj:true,pregnancyCat:'D',blackBox:'Concomitant use with opioids: profound sedation, respiratory depression, death',commonSE:'Sedation, ataxia, dependence, withdrawal',monitor:'PMP/CURES query, sedation, falls, dependence'}
+];
+
+const PHARMACIES_DB=[
+  {id:'PH001',name:'Rite Aid #5432',address:'1200 J Street',city:'Sacramento',state:'CA',zip:'95814',phone:'(916) 444-5678',fax:'(916) 444-5679',ncpdp:'0541234',npi:'1234567890',epcs:true,distance:0.4,hours:'M-F 8a-9p, Sa-Su 9a-7p'},
+  {id:'PH002',name:'CVS Pharmacy #7891',address:'2501 Fair Oaks Blvd',city:'Sacramento',state:'CA',zip:'95825',phone:'(916) 555-1234',fax:'(916) 555-1235',ncpdp:'0556789',npi:'1234567891',epcs:true,distance:3.2,hours:'24 Hours'},
+  {id:'PH003',name:'Walgreens #12065',address:'800 K Street',city:'Sacramento',state:'CA',zip:'95814',phone:'(916) 442-9900',fax:'(916) 442-9901',ncpdp:'0512065',npi:'1234567892',epcs:true,distance:0.6,hours:'M-F 7a-10p, Sa-Su 8a-9p'},
+  {id:'PH004',name:'Genoa Healthcare Pharmacy',address:'3660 Research Way',city:'Sacramento',state:'CA',zip:'95838',phone:'(916) 920-3300',fax:'(916) 920-3301',ncpdp:'0598765',npi:'1234567893',epcs:true,distance:5.1,hours:'M-F 9a-5p',behavioralHealth:true},
+  {id:'PH005',name:'Costco Pharmacy #482',address:'7981 E Stockton Blvd',city:'Sacramento',state:'CA',zip:'95823',phone:'(916) 689-7512',fax:'(916) 689-7513',ncpdp:'0548291',npi:'1234567894',epcs:false,distance:8.7,hours:'M-F 10a-8:30p, Sa 9:30a-6p, Su 10a-6p'},
+  {id:'PH006',name:'Kaiser Permanente Pharmacy',address:'2025 Morse Ave',city:'Sacramento',state:'CA',zip:'95825',phone:'(916) 973-6900',fax:'(916) 973-6901',ncpdp:'0573120',npi:'1234567895',epcs:true,distance:3.8,hours:'M-F 8a-7p, Sa 9a-3p',networkOnly:true},
+  {id:'PH007',name:'Safeway Pharmacy #1450',address:'1721 E Roseville Pkwy',city:'Roseville',state:'CA',zip:'95661',phone:'(916) 786-3022',fax:'(916) 786-3023',ncpdp:'0514501',npi:'1234567896',epcs:true,distance:18.2,hours:'M-F 9a-9p, Sa-Su 9a-6p'},
+  {id:'PH008',name:'Raley\'s Pharmacy #314',address:'3035 Cosumnes River Blvd',city:'Sacramento',state:'CA',zip:'95758',phone:'(916) 681-3140',fax:'(916) 681-3141',ncpdp:'0531402',npi:'1234567897',epcs:false,distance:11.4,hours:'M-F 9a-8p, Sa 9a-6p, Su 10a-5p'},
+  {id:'PH009',name:'UC Davis Health Outpatient Pharmacy',address:'2315 Stockton Blvd',city:'Sacramento',state:'CA',zip:'95817',phone:'(916) 734-3392',fax:'(916) 734-3393',ncpdp:'0573392',npi:'1234567898',epcs:true,distance:2.1,hours:'M-F 8a-9p, Sa 9a-5p'},
+  {id:'PH010',name:'Mail Order Pharmacy (CalPERS)',address:'PO Box 745',city:'San Diego',state:'CA',zip:'92198',phone:'(800) 552-6694',fax:'(800) 552-6695',ncpdp:'0599901',npi:'1234567899',epcs:false,distance:null,hours:'Mail Order — 7-10 day delivery',mailOrder:true}
+];
+
+const ALLERGY_TYPES=['Allergies','Intolerances','Failed Trials'];
+
+/* ─── State ─── */
+window._taskState={
+  loggedIn:false,
+  currentPage:'login',      // login | search | patient-summary | new-order | add-outside-med
+  selectedPatient:null,
+  currentNav:'summary',     // summary | med-history | consent-history
+  patients:[],
+  patientMeds:{},            // patientId -> array of med objects
+  patientAllergies:{},       // patientId -> array of allergy objects
+  patientPreferredPharm:{},  // patientId -> array of pharmacy IDs (max 3)
+  orderQueue:[],             // meds inserted but not yet prescribed (current order)
+  queuedOrders:{},           // patientId -> array of queued orders (saved for later prescribing)
+  prescribeConfirmList:[],   // meds ready to confirm and prescribe
+  consentHistory:{},         // patientId -> array of consent records
+  medHistory:{},             // patientId -> array of historical records
+  renewalRequests:[],        // Surescripts renewal requests (PDF2)
+  cancelOrders:[],           // Cancel order records (PDF2 §5.0)
+  prescribedThisSession:[],  // Track prescriptions issued this session for checkers
+  rxActivity:{},             // medId -> [{ts,event,detail}] Surescripts activity log (PDF2 Fig 5-2)
+  pmpQueries:[],             // [{patientId,prescriberId,drug,checked,riskFlags,ts}] PMP/CURES (controlled subs)
+  ssOrders:[],               // My SS Orders archive (PDF2 §6.5.1)
+  surrogates:[],             // [{prescriber,surrogate,startDate,endDate}] (PDF2 §6.3)
+  mailboxView:'renewals',    // renewals | my-orders | denied | reporting (PDF2 §6.5)
+  reportLevel:1,             // 1..10 reporting levels (PDF2 §6.6)
+  serviceLevel:'Renewals + New Rx + EPCS',  // PDF2 §8.1
+  spiNumber:'1234567890123',  // Provider SPI (PDF2 §8.3)
+  prescriberDeaVerified:true,
+  formularyChecksDone:[]     // CDS audit trail
+};
+const S=window._taskState;
+window.S=S;
+
+/* ─── Init ─── */
+window._medgym_init=function(seed){
+  rng=mulberry32(seed||42);
+  S.loggedIn=false;S.currentPage='login';S.selectedPatient=null;S.currentNav='summary';
+  S.patients=JSON.parse(JSON.stringify(PATIENTS));
+  S.orderQueue=[];S.prescribeConfirmList=[];
+
+  // Pre-populate medications for patients
+  S.patientMeds={};
+  S.patientMeds['CLT-10042']=[
+    {id:'MED-001',drug:DRUG_DB[0],strength:'50mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth daily',daysSupply:30,qty:30,refills:2,rxStart:'2026-03-15',rxEnd:'2026-04-14',status:'active',prescribed:true,sendToPharm:'PH001',consent:true,outside:false},
+    {id:'MED-002',drug:DRUG_DB[12],strength:'100mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth at bedtime',daysSupply:30,qty:30,refills:1,rxStart:'2026-03-20',rxEnd:'2026-04-19',status:'active',prescribed:true,sendToPharm:'PH001',consent:true,outside:false}
+  ];
+  S.patientMeds['CLT-10078']=[
+    {id:'MED-003',drug:DRUG_DB[3],strength:'300mg',dose:'1',unit:'Capsule',directions:'Take 1 capsule by mouth twice daily',daysSupply:30,qty:60,refills:3,rxStart:'2026-02-10',rxEnd:'2026-03-12',status:'active',prescribed:true,sendToPharm:'PH002',consent:true,outside:false},
+    {id:'MED-004',drug:DRUG_DB[2],strength:'100mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth at bedtime',daysSupply:30,qty:30,refills:2,rxStart:'2026-03-01',rxEnd:'2026-03-31',status:'active',prescribed:true,sendToPharm:'PH002',consent:false,outside:false}
+  ];
+  S.patientMeds['CLT-10103']=[
+    {id:'MED-005',drug:DRUG_DB[0],strength:'25mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth in the morning',daysSupply:30,qty:30,refills:5,rxStart:'2026-04-01',rxEnd:'2026-05-01',status:'active',prescribed:true,sendToPharm:'PH003',consent:true,outside:false},
+    {id:'MED-006',drug:DRUG_DB[11],strength:'25mg',dose:'1',unit:'Capsule',directions:'Take 1 capsule by mouth three times daily as needed',daysSupply:30,qty:90,refills:1,rxStart:'2026-03-15',rxEnd:'2026-04-14',status:'active',prescribed:true,sendToPharm:'PH003',consent:true,outside:false}
+  ];
+  S.patientMeds['CLT-10156']=[
+    {id:'MED-007',drug:DRUG_DB[8],strength:'2mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth twice daily',daysSupply:30,qty:60,refills:3,rxStart:'2026-01-15',rxEnd:'2026-02-14',status:'active',prescribed:true,sendToPharm:'PH004',consent:true,outside:false}
+  ];
+  S.patientMeds['CLT-10189']=[
+    {id:'MED-008',drug:DRUG_DB[0],strength:'100mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth daily',daysSupply:30,qty:30,refills:5,rxStart:'2026-03-01',rxEnd:'2026-03-31',status:'active',prescribed:true,sendToPharm:'PH001',consent:true,outside:false},
+    {id:'MED-009',drug:DRUG_DB[12],strength:'50mg',dose:'1',unit:'Tablet',directions:'Take half tablet by mouth at bedtime',daysSupply:30,qty:15,refills:2,rxStart:'2026-03-15',rxEnd:'2026-04-14',status:'active',prescribed:true,sendToPharm:'PH001',consent:true,outside:false},
+    {id:'MED-010',drug:{name:'Gabapentin (outside)',generic:'Gabapentin',category:'Anticonvulsant',strengths:['300mg'],forms:['Capsule'],directions:['Take 1 capsule by mouth three times daily']},strength:'300mg',dose:'1',unit:'Capsule',directions:'Take 1 capsule by mouth three times daily',daysSupply:30,qty:90,refills:0,rxStart:'2026-02-01',rxEnd:'2026-03-03',status:'active',prescribed:false,sendToPharm:null,consent:false,outside:true,source:'PCP - Dr. Adams'}
+  ];
+  S.patientMeds['CLT-10215']=[
+    {id:'MED-011',drug:DRUG_DB[10],strength:'36mg',dose:'1',unit:'Tablet',directions:'Take 1 tablet by mouth in the morning',daysSupply:30,qty:30,refills:0,rxStart:'2026-04-01',rxEnd:'2026-05-01',status:'active',prescribed:true,sendToPharm:'PH002',consent:true,outside:false}
+  ];
+
+  // Allergies
+  S.patientAllergies={};
+  S.patientAllergies['CLT-10042']=[{substance:'Penicillin',type:'Allergies',reaction:'Rash',severity:'Moderate'},{substance:'Sulfa Drugs',type:'Allergies',reaction:'Hives',severity:'Severe'}];
+  S.patientAllergies['CLT-10078']=[{substance:'Aspirin',type:'Intolerances',reaction:'GI Upset',severity:'Mild'},{substance:'Carbamazepine',type:'Failed Trials',reaction:'Ineffective for mood stabilization',severity:'—'}];
+  S.patientAllergies['CLT-10103']=[{substance:'Paroxetine',type:'Failed Trials',reaction:'Weight gain, discontinued',severity:'—'}];
+  S.patientAllergies['CLT-10156']=[{substance:'Haloperidol',type:'Intolerances',reaction:'Dystonia',severity:'Severe'},{substance:'Chlorpromazine',type:'Failed Trials',reaction:'Sedation, poor efficacy',severity:'—'}];
+  S.patientAllergies['CLT-10189']=[{substance:'Codeine',type:'Allergies',reaction:'Nausea/Vomiting',severity:'Moderate'}];
+  S.patientAllergies['CLT-10215']=[];
+
+  // Preferred pharmacies
+  S.patientPreferredPharm={};
+  S.patientPreferredPharm['CLT-10042']=['PH001','PH003'];
+  S.patientPreferredPharm['CLT-10078']=['PH002'];
+  S.patientPreferredPharm['CLT-10103']=['PH003','PH001'];
+  S.patientPreferredPharm['CLT-10156']=['PH004'];
+  S.patientPreferredPharm['CLT-10189']=['PH001'];
+  S.patientPreferredPharm['CLT-10215']=['PH002','PH005'];
+
+  // Consent history
+  S.consentHistory={};
+  S.consentHistory['CLT-10042']=[{drug:'Sertraline',date:'2026-03-15',prescriber:'Dr. Chen',client:'Maria Garcia'},{drug:'Trazodone',date:'2026-03-20',prescriber:'Dr. Chen',client:'Maria Garcia'}];
+  S.consentHistory['CLT-10078']=[{drug:'Lithium Carbonate',date:'2026-02-10',prescriber:'Dr. Chen',client:'James Wilson'}];
+  S.consentHistory['CLT-10103']=[{drug:'Sertraline',date:'2026-04-01',prescriber:'Dr. Chen',client:'Sarah Chen'},{drug:'Hydroxyzine',date:'2026-03-15',prescriber:'Dr. Chen',client:'Sarah Chen'}];
+
+  // Queued Orders (saved via Queue Order button — prescribe later)
+  S.queuedOrders={};
+
+  // Surescripts Renewal Requests (PDF2 §3.0) — pending in Surescripts Mailbox
+  S.renewalRequests=[
+    {id:'RNW-001',patientId:'CLT-10042',drug:'Sertraline (Zoloft) 50mg',directions:'Take 1 tablet by mouth daily',pharmacy:'PH001',received:'2026-04-15',originalRx:'MED-001',status:'pending',reason:''},
+    {id:'RNW-002',patientId:'CLT-10078',drug:'Lithium Carbonate 300mg',directions:'Take 1 capsule by mouth twice daily',pharmacy:'PH002',received:'2026-04-16',originalRx:'MED-003',status:'pending',reason:''},
+    {id:'RNW-003',patientId:'CLT-10215',drug:'Methylphenidate (Concerta) 36mg',directions:'Take 1 tablet by mouth in the morning',pharmacy:'PH002',received:'2026-04-17',originalRx:'MED-011',status:'pending',reason:'',controlled:true}
+  ];
+  S.cancelOrders=[];
+  S.prescribedThisSession=[];
+  S.rxActivity={};
+  S.pmpQueries=[];
+  S.surrogates=[];
+  S.mailboxView='renewals';
+  S.reportLevel=1;
+
+  // Seed activity logs for existing prescriptions
+  ['MED-001','MED-002','MED-003','MED-004','MED-005','MED-006','MED-007','MED-008','MED-009','MED-011'].forEach(mid=>{
+    S.rxActivity[mid]=[
+      {ts:'2026-03-15 09:14:22',event:'Order Created',detail:'Created by Dr. Chen, Wei-Lin (NPI 1234567890)'},
+      {ts:'2026-03-15 09:14:25',event:'Surescripts Transmitted',detail:'NewRx sent to pharmacy via Surescripts (msg id SS-RX-'+mid+')'},
+      {ts:'2026-03-15 09:14:31',event:'Pharmacy ACK',detail:'Pharmacy received message; status: Verify'}
+    ];
+  });
+  // Seed My SS Orders archive
+  S.ssOrders=[
+    {patientId:'CLT-10042',drug:'Sertraline 50mg',rx:'RX78821044',issued:'2026-03-15',expires:'2027-03-15',chronic:true},
+    {patientId:'CLT-10042',drug:'Trazodone 100mg',rx:'RX78821152',issued:'2026-03-20',expires:'2027-03-20',chronic:true},
+    {patientId:'CLT-10078',drug:'Lithium Carbonate 300mg',rx:'RX78820881',issued:'2026-02-10',expires:'2027-02-10',chronic:true},
+    {patientId:'CLT-10103',drug:'Sertraline 25mg',rx:'RX78821244',issued:'2026-04-01',expires:'2027-04-01',chronic:true},
+    {patientId:'CLT-10215',drug:'Methylphenidate 36mg',rx:'RX78821305',issued:'2026-04-01',expires:'2026-10-01',chronic:false,controlled:true}
+  ];
+
+  // Med history
+  S.medHistory={};
+  S.medHistory['CLT-10042']=[
+    {drug:'Citalopram 20mg',action:'Discontinued',date:'2026-01-10',reason:'Switched to Sertraline'},
+    {drug:'Sertraline 25mg',action:'Prescribed',date:'2026-01-15',reason:'Initial dose'},
+    {drug:'Sertraline 50mg',action:'Changed',date:'2026-03-15',reason:'Dose increase — good tolerance'}
+  ];
+
+  render();
+};
+
+/* ─── Helpers ─── */
+function toast(msg,type){let el=document.createElement('div');el.className='toast toast-'+(type||'info');el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500)}
+function showModal(html){document.getElementById('modalContent').innerHTML=html;document.getElementById('modalOverlay').classList.add('show')}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show')}
+window.closeModal=closeModal;
+function esc(s){let d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function pharmById(id){return PHARMACIES_DB.find(p=>p.id===id)}
+function pharmAddr(ph){if(!ph)return '';return (ph.address?ph.address+', ':'')+(ph.city||'')+(ph.state?', '+ph.state:'')+(ph.zip?' '+ph.zip:'')}
+window.pharmAddr=pharmAddr;
+function today(){return new Date().toISOString().slice(0,10)}
+function addDays(dateStr,n){let d=new Date(dateStr);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
+
+/* ─── Render Router ─── */
+function render(){
+  checkedMedIdxs=[];
+  let app=document.getElementById('app');
+  switch(S.currentPage){
+    case 'login':app.innerHTML=renderLogin();bindLogin();break;
+    case 'search':app.innerHTML=renderPatientSearch();break;
+    case 'patient-summary':app.innerHTML=renderPatientSummaryShell();break;
+    case 'new-order':app.innerHTML=renderNewOrderPage();break;
+    case 'add-outside-med':app.innerHTML=renderAddOutsideMedPage();break;
+    case 'mailbox':app.innerHTML=renderMailboxPage();break;
+    case 'vitals':app.innerHTML=renderVitalsPage();break;
+    case 'hp':app.innerHTML=renderHPPage();break;
+    case 'reports':app.innerHTML=renderReportsPage();break;
+    case 'tools':app.innerHTML=renderToolsPage();break;
+    default:app.innerHTML=renderLogin();bindLogin();
+  }
+}
+window.render=render;
+
+/* ═══════════════════════════════════════════════════
+   LOGIN
+   ═══════════════════════════════════════════════════ */
+function renderLogin(){
+  return `<div class="login-page"><div class="login-box">
+    <div class="logo"><div class="icon">💊</div><div class="title">SmartCare Rx</div><div class="sub">Prescription Support Services — Medication Management</div></div>
+    <div class="fg"><label>Username</label><input class="fc" id="loginU" placeholder="prescriber" autocomplete="off"></div>
+    <div class="fg"><label>Password</label><input class="fc" id="loginP" type="password" placeholder="rx2026"></div>
+    <div class="err" id="loginErr">Invalid credentials. Please try again.</div>
+    <button class="btn btn-p btn-block btn-lg" id="loginBtn">Sign In</button>
+    <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--txt3)">CalMHSA SmartCare EHR v6.2 &mdash; Rx Module</div>
+  </div></div>`;
+}
+function bindLogin(){
+  let btn=document.getElementById('loginBtn');if(!btn)return;
+  function go(){
+    let u=document.getElementById('loginU').value.trim();
+    let p=document.getElementById('loginP').value.trim();
+    if(u==='prescriber'&&p==='rx2026'){
+      S.loggedIn=true;S.currentPage='search';render();toast('Welcome, Dr. Chen — Prescriber','success');
+    }else{document.getElementById('loginErr').style.display='block'}
+  }
+  btn.onclick=go;document.getElementById('loginP').onkeydown=function(e){if(e.key==='Enter')go()};
+}
+
+/* ═══════════════════════════════════════════════════
+   PATIENT SEARCH
+   ═══════════════════════════════════════════════════ */
+function renderPatientSearch(){
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('Patient Search')}
+    <div class="main-layout" style="flex:1">
+      <div style="flex:1;padding:20px;overflow-y:auto">
+        <div class="card"><div class="card-h">🔍 Patient Search</div><div class="card-b">
+          <div class="form-row">
+            <div class="fg"><label>Last Name</label><input class="fc" id="srchLast" placeholder="Enter last name"></div>
+            <div class="fg"><label>First Name</label><input class="fc" id="srchFirst" placeholder="Enter first name"></div>
+            <div class="fg sm"><label>Client ID</label><input class="fc" id="srchId" placeholder="CLT-"></div>
+          </div>
+          <div class="flex gap-sm">
+            <button class="btn btn-p" onclick="window._narrowSearch()">Narrow Search</button>
+            <button class="btn btn-out" onclick="window._clearSearch()">Clear</button>
+          </div>
+          <div id="searchResults" class="mt-md"></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="status-bar"><span>Rx Module — Patient Search</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+window._narrowSearch=function(){
+  let last=(document.getElementById('srchLast').value||'').trim().toLowerCase();
+  let first=(document.getElementById('srchFirst').value||'').trim().toLowerCase();
+  let cid=(document.getElementById('srchId').value||'').trim().toUpperCase();
+  let results=S.patients.filter(p=>{
+    let parts=p.name.toLowerCase().split(' ');
+    let pFirst=parts[0],pLast=parts.slice(1).join(' ');
+    if(last&&!pLast.includes(last))return false;
+    if(first&&!pFirst.includes(first))return false;
+    if(cid&&!p.id.includes(cid))return false;
+    return true;
+  });
+  let container=document.getElementById('searchResults');
+  if(!results.length){container.innerHTML='<p style="color:var(--txt3);font-size:12px;margin-top:10px">No patients found. Try different search criteria.</p>';return}
+  container.innerHTML=`<div class="card mt-sm"><div class="card-h">Search Results (${results.length})</div><div class="card-b" style="padding:0">
+    ${results.map(p=>`<div class="search-row" onclick="window._selectPatient('${esc(p.id)}')">
+      <div style="flex:1"><strong>${esc(p.name)}</strong><br><span style="color:var(--txt3);font-size:11px">${esc(p.id)} &middot; DOB: ${esc(p.dob)} &middot; ${esc(p.gender)}</span></div>
+      <div style="font-size:11px;color:var(--txt2)">${esc(p.dx)}</div>
+      <button class="btn btn-p btn-sm">Select</button>
+    </div>`).join('')}
+  </div></div>`;
+};
+
+window._clearSearch=function(){
+  document.getElementById('srchLast').value='';document.getElementById('srchFirst').value='';document.getElementById('srchId').value='';
+  document.getElementById('searchResults').innerHTML='';
+};
+
+window._selectPatient=function(pid){
+  S.selectedPatient=pid;S.currentPage='patient-summary';S.currentNav='summary';S.orderQueue=[];render();
+};
+
+/* ═══════════════════════════════════════════════════
+   PATIENT SUMMARY SCREEN (Main Hub)
+   ═══════════════════════════════════════════════════ */
+function renderPatientSummaryShell(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  if(!pt){S.currentPage='search';render();return ''}
+  let meds=(S.patientMeds[pt.id]||[]).filter(m=>m.status==='active');
+  let allergies=S.patientAllergies[pt.id]||[];
+  let consents=S.consentHistory[pt.id]||[];
+  let history=S.medHistory[pt.id]||[];
+  let pharmIds=S.patientPreferredPharm[pt.id]||[];
+
+  let pendingRenewals=(S.renewalRequests||[]).filter(r=>r.patientId===pt.id && r.status==='pending');
+  let navItems=[
+    {key:'summary',label:'Patient Summary',icon:'📋'},
+    {key:'med-history',label:'Medication History',icon:'📜',count:history.length},
+    {key:'consent-history',label:'Consent History',icon:'✅',count:consents.length},
+    {key:'renewal-queue',label:'Surescripts Renewals',icon:'📨',count:pendingRenewals.length},
+    {key:'queued-orders',label:'Queued Orders',icon:'⏳',count:(S.queuedOrders[pt.id]||[]).length}
+  ];
+
+  let contentHTML='';
+  switch(S.currentNav){
+    case 'summary':contentHTML=renderPatientSummary(pt,meds,allergies,pharmIds);break;
+    case 'med-history':contentHTML=renderMedHistory(pt,history);break;
+    case 'consent-history':contentHTML=renderConsentHistory(pt,consents);break;
+    case 'renewal-queue':contentHTML=renderRenewalQueue(pt,pendingRenewals);break;
+    case 'queued-orders':contentHTML=renderQueuedOrders(pt);break;
+    default:contentHTML=renderPatientSummary(pt,meds,allergies,pharmIds);
+  }
+
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML(pt.name+' — Rx')}
+    <div class="main-layout">
+      <div class="sidebar">
+        <div class="shdr">Rx Navigation</div>
+        ${navItems.map(n=>`<div class="nav-item ${S.currentNav===n.key?'active':''}" onclick="S.currentNav='${n.key}';render()">
+          <span>${n.icon}</span>${n.label}${n.count?`<span class="badge">${n.count}</span>`:''}
+        </div>`).join('')}
+        <div style="border-top:1px solid var(--bdr-l);margin-top:8px;padding-top:8px">
+          <div class="nav-item" onclick="S.currentPage='search';S.selectedPatient=null;render()">
+            <span>🔍</span>Patient Search
+          </div>
+        </div>
+      </div>
+      <div class="content">${contentHTML}</div>
+    </div>
+    <div class="status-bar">
+      <span>Patient: ${esc(pt.name)} (${esc(pt.id)})</span>
+      <span>DOB: ${esc(pt.dob)}</span>
+      <span>Active Medications: ${meds.length}</span>
+      <span id="clock">${clockStr()}</span>
+    </div>
+  </div>`;
+}
+
+function renderPatientSummary(pt,meds,allergies,pharmIds){
+  let needConsent=meds.filter(m=>!m.consent&&!m.outside);
+  let problems=PROBLEMS[pt.id]||[];
+  let pendingRnw=(S.renewalRequests||[]).filter(r=>r.patientId===pt.id&&r.status==='pending').length;
+  let critAllergies=allergies.filter(a=>a.type==='Allergies'&&a.severity==='Severe');
+  let csOnFile=meds.some(m=>m.drug && (m.drug.schedule==='Schedule II'||m.drug.schedule==='Schedule IV'));
+
+  // Clinical alert banners
+  let alerts=[];
+  if(critAllergies.length)alerts.push(`<div class="alert-banner crit">⚠️ <strong>Severe drug allergy on file:</strong> ${critAllergies.map(a=>esc(a.substance)+' ('+esc(a.reaction)+')').join(', ')}</div>`);
+  if(pt.egfr<60)alerts.push(`<div class="alert-banner warn">⚠️ <strong>Renal impairment</strong> (eGFR ${pt.egfr} mL/min/1.73m²) — consider renal dose adjustments</div>`);
+  if(pt.alt>40||pt.ast>40)alerts.push(`<div class="alert-banner warn">⚠️ <strong>Elevated LFTs</strong> (ALT ${pt.alt}, AST ${pt.ast}) — caution with hepatically metabolized agents</div>`);
+  if(pt.childbearing && !pt.pregnant)alerts.push(`<div class="alert-banner info">ℹ️ <strong>Female of childbearing potential</strong> — verify pregnancy status before teratogens (Cat D/X)</div>`);
+  if(csOnFile)alerts.push(`<div class="alert-banner warn">⚠️ <strong>Controlled substance(s) on file</strong> — PMP/CURES query required prior to next refill</div>`);
+  if(pendingRnw)alerts.push(`<div class="alert-banner info">📨 <strong>${pendingRnw} pending renewal request(s)</strong> from Surescripts — see Mailbox</div>`);
+
+  return `
+  ${alerts.join('')}
+
+  <!-- Demographics card (full PHI banner) -->
+  <div class="card"><div class="card-h">👤 Patient Demographics
+    <span style="font-size:11px;font-weight:400;color:var(--txt2)">PHI — HIPAA protected</span>
+  </div>
+    <div class="demo-grid">
+      <div class="demo-cell"><div class="lbl">Name</div><div class="val"><strong>${esc(pt.name)}</strong></div></div>
+      <div class="demo-cell"><div class="lbl">MRN / Client ID</div><div class="val">${esc(pt.mrn||'')} <span style="color:var(--txt3)">/ ${esc(pt.id)}</span></div></div>
+      <div class="demo-cell"><div class="lbl">DOB / Age</div><div class="val">${esc(pt.dob)} (${ageFromDOB(pt.dob.split('/').reverse().join('-').replace(/(\\d{2})-(\\d{2})-(\\d{4})/,'$3-$2-$1'))} y)</div></div>
+      <div class="demo-cell"><div class="lbl">Sex / Race</div><div class="val">${esc(pt.gender)} · ${esc(pt.race||'')}</div></div>
+      <div class="demo-cell"><div class="lbl">Language</div><div class="val">${esc(pt.language||'English')}</div></div>
+      <div class="demo-cell"><div class="lbl">Phone</div><div class="val">${esc(pt.phone)}</div></div>
+      <div class="demo-cell" style="grid-column:span 2"><div class="lbl">Address</div><div class="val">${esc(pt.address||'')}</div></div>
+      <div class="demo-cell"><div class="lbl">Primary Care</div><div class="val">${esc(pt.pcp||'—')}</div></div>
+      <div class="demo-cell"><div class="lbl">Insurance</div><div class="val">${esc(pt.insurance)}</div></div>
+      <div class="demo-cell"><div class="lbl">Member ID</div><div class="val" style="font-family:var(--font-mono)">${esc(pt.memberId||'')}</div></div>
+      <div class="demo-cell"><div class="lbl">Tier1/Tier2 Copay</div><div class="val">${esc(pt.copayTier1||'')} / ${esc(pt.copayTier2||'')}</div></div>
+      <div class="demo-cell"><div class="lbl">Ht / Wt / BMI</div><div class="val">${esc(pt.height||'')} · ${esc(pt.weight||'')} · ${pt.bmi||''}${pt.bmi>=30?' <span class="warn">(Obese)</span>':''}</div></div>
+      <div class="demo-cell"><div class="lbl">BP / HR</div><div class="val">${pt.sbp}/${pt.dbp} · ${pt.hr} bpm${pt.sbp>=140?' <span class="warn">(HTN)</span>':''}</div></div>
+      <div class="demo-cell"><div class="lbl">eGFR</div><div class="val ${pt.egfr<60?'warn':'ok'}">${pt.egfr} mL/min</div></div>
+      <div class="demo-cell"><div class="lbl">ALT / AST</div><div class="val ${pt.alt>40||pt.ast>40?'warn':'ok'}">${pt.alt} / ${pt.ast} U/L</div></div>
+    </div>
+  </div>
+
+  <!-- Active Problem List (PDF1 §Diagnosis) -->
+  <div class="card"><div class="card-h">📋 Active Problem List <span style="font-size:11px;font-weight:400;color:var(--txt2)">(linked as Rx clinical indications)</span></div>
+    <div style="padding:0">
+      ${problems.length?problems.map(p=>`<div class="prob-row"><span class="icd">${esc(p.icd)}</span><span class="pname">${esc(p.name)}</span><span class="ptype">${esc(p.type)}</span><span style="font-size:10px;color:var(--txt3)">Onset: ${esc(p.onset)}</span></div>`).join(''):'<p style="color:var(--txt3);font-size:12px;padding:14px">No active problems documented.</p>'}
+    </div>
+  </div>
+
+  <!-- Section B: Preferred Pharmacies -->
+  <div class="card"><div class="card-h">🏥 Preferred Pharmacies <button class="btn btn-out btn-sm" onclick="window._editPreferredPharm()">Edit Preferred Pharmacies</button></div>
+    <div class="card-b">
+      ${pharmIds.length?pharmIds.map((pid,i)=>{let ph=pharmById(pid);return ph?`<div class="pharm-card"><div class="rank">${i+1}</div><div><strong>${esc(ph.name)}</strong>${ph.behavioralHealth?'<span class="st" style="background:#e0e7ff;color:#3730a3;margin-left:6px">Behavioral Health</span>':''}${ph.networkOnly?'<span class="st" style="background:#fef3c7;color:#92400e;margin-left:6px">Network Only</span>':''}<br><span style="color:var(--txt2)">${esc(pharmAddr(ph))}</span><br><span style="color:var(--txt3);font-size:11px">Ph: ${esc(ph.phone)} &middot; Fax: ${esc(ph.fax)} &middot; NCPDP: ${esc(ph.ncpdp||'—')} ${ph.epcs?'&middot; <span style="color:var(--suc)">✓ EPCS</span>':'&middot; <span style="color:var(--err)">✗ No EPCS</span>'}${ph.distance!=null?' &middot; '+ph.distance+' mi':''}${ph.hours?'<br>Hours: '+esc(ph.hours):''}</span></div></div>`:''}).join(''):'<p style="color:var(--txt3);font-size:12px">No preferred pharmacies set. Click "Edit Preferred Pharmacies" to add.</p>'}
+    </div>
+  </div>
+
+  <!-- Section C: Medication List -->
+  <div class="card"><div class="card-h">💊 Medication List
+    <div class="flex gap-sm">
+      <button class="btn btn-p btn-sm" onclick="window._newOrder()">New Order</button>
+      <button class="btn btn-out btn-sm" onclick="window._addOutsideMed()">Add Medication (Outside)</button>
+      ${needConsent.length?`<button class="btn btn-w btn-sm" onclick="window._patientConsent()">Patient Consent (${needConsent.length})</button>`:''}
+    </div>
+  </div>
+    <div class="card-b" style="padding:0;overflow-x:auto">
+      <table class="dt"><thead><tr>
+        <th style="width:30px"></th><th>Medication</th><th>Strength</th><th>Directions</th><th>Qty</th><th>Days</th><th>Refills</th><th>Rx Start</th><th>Schedule</th><th>Status</th><th>Consent</th><th style="width:60px">Actions</th>
+      </tr></thead><tbody>
+      ${meds.length?meds.map((m,i)=>{
+        let sch=m.drug && m.drug.schedule;
+        let schBadge=sch==='Schedule II'?'<span class="st" style="background:#fee;color:#c00">CII</span>':sch==='Schedule IV'?'<span class="st" style="background:#fef3c7;color:#92400e">CIV</span>':sch==='Non-Controlled'?'<span style="color:var(--txt3);font-size:10px">—</span>':'<span style="color:var(--txt3);font-size:10px">—</span>';
+        return `<tr>
+        <td><input type="checkbox" class="row-chk" data-idx="${i}" onchange="window._toggleMedCheck(this)"></td>
+        <td><strong>${esc(m.drug.name)}</strong>${m.outside?'<span style="font-size:10px;color:var(--txt3);margin-left:4px">🔲 Outside</span>':''}${m.allergyOverride?'<span class="st" style="background:#fce4ec;color:#c62828;margin-left:4px">⚠ ALLG-OVR</span>':''}${m.interactionAck?'<span class="st" style="background:#fff3e0;color:#e65100;margin-left:4px">DDI-ACK</span>':''}</td>
+        <td>${esc(m.strength)}</td>
+        <td style="font-size:11px">${esc(m.directions)}</td>
+        <td>${m.qty}</td>
+        <td>${m.daysSupply}</td>
+        <td>${m.refills}</td>
+        <td>${esc(m.rxStart)}</td>
+        <td>${schBadge}</td>
+        <td><span class="st ${m.outside?'st-outside':'st-active'}">${m.outside?'Outside':'Active'}</span></td>
+        <td>${m.consent?'<span class="st st-consent-yes">✓ Yes</span>':m.outside?'<span style="color:var(--txt3);font-size:11px">N/A</span>':'<span class="st st-consent-no">⚠ No</span>'}</td>
+        <td style="white-space:nowrap"><button class="btn btn-out btn-sm" title="View Activity Log" style="padding:2px 6px;font-size:10px" onclick="window._viewActivityLog('${esc(m.id)}')">📜</button> <button class="btn btn-out btn-sm" title="Send CancelRx" style="padding:2px 6px;font-size:10px;color:#92400e" onclick="window._cancelOrder('${esc(m.id)}')">🚫</button> <button class="disc-x" title="Discontinue" onclick="window._discontinueMed(${i})">✕</button></td>
+      </tr>`}).join(''):'<tr><td colspan="12" style="text-align:center;color:var(--txt3);padding:20px">No active medications. Click "New Order" to prescribe.</td></tr>'}
+      </tbody></table>
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--bdr-l);display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-out btn-sm" onclick="window._changeOrder()">Change Order</button>
+      <button class="btn btn-out btn-sm" onclick="window._reOrder()">Re-Order</button>
+      <button class="btn btn-out btn-sm" onclick="window._printMedList()">Print Medication List</button>
+    </div>
+  </div>
+
+  <!-- Section D: Allergies, Intolerances, Failed Trials -->
+  <div class="card"><div class="card-h">⚠️ Allergies, Intolerances &amp; Failed Trials
+    <div class="flex gap-sm ai-c">
+      <select class="fc" id="allergyFilter" style="width:140px;padding:4px 8px;font-size:11px" onchange="window._filterAllergies()">
+        <option value="all">Show All</option>
+        <option value="Allergies">Allergies</option>
+        <option value="Intolerances">Intolerances</option>
+        <option value="Failed Trials">Failed Trials</option>
+      </select>
+      <button class="btn btn-out btn-sm" onclick="window._addAllergy()">+ Add Allergy</button>
+    </div>
+  </div>
+    <div class="card-b" id="allergyList">
+      ${renderAllergyTags(allergies,'all')}
+    </div>
+  </div>
+  `;
+}
+
+function renderAllergyTags(allergies,filter){
+  let filtered=filter==='all'?allergies:allergies.filter(a=>a.type===filter);
+  if(!filtered.length)return '<p style="color:var(--txt3);font-size:12px">No entries found.</p>';
+  return filtered.map(a=>`<span class="allergy-tag ${a.type==='Intolerances'?'intolerance':a.type==='Failed Trials'?'failed':''}" title="${esc(a.type)}: ${esc(a.reaction)} (${esc(a.severity)})">
+    ${a.type==='Allergies'?'🔴':a.type==='Intolerances'?'🟡':'🔵'} ${esc(a.substance)} — ${esc(a.reaction)}
+  </span>`).join('');
+}
+
+window._filterAllergies=function(){
+  let filter=document.getElementById('allergyFilter').value;
+  let allergies=S.patientAllergies[S.selectedPatient]||[];
+  document.getElementById('allergyList').innerHTML=renderAllergyTags(allergies,filter);
+};
+
+/* ─── Medication History ─── */
+function renderMedHistory(pt,history){
+  return `<div class="pt-banner"><div class="sec"><div class="nm">${esc(pt.name)}</div><div class="dt2">Medication History</div></div></div>
+  <div class="card"><div class="card-h">📜 Medication History</div>
+    <div class="card-b" style="padding:0">
+      <table class="dt"><thead><tr><th>Date</th><th>Medication</th><th>Action</th><th>Reason</th></tr></thead>
+      <tbody>${history.length?history.map(h=>`<tr><td>${esc(h.date)}</td><td>${esc(h.drug)}</td><td><strong>${esc(h.action)}</strong></td><td>${esc(h.reason)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--txt3);padding:20px">No medication history records.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ─── Consent History ─── */
+function renderConsentHistory(pt,consents){
+  return `<div class="pt-banner"><div class="sec"><div class="nm">${esc(pt.name)}</div><div class="dt2">Consent History</div></div></div>
+  <div class="card"><div class="card-h">✅ Consent History</div>
+    <div class="card-b" style="padding:0">
+      <table class="dt"><thead><tr><th>Date</th><th>Medication</th><th>Prescriber Signature</th><th>Client Signature</th></tr></thead>
+      <tbody>${consents.length?consents.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.drug)}</td><td>✓ ${esc(c.prescriber)}</td><td>✓ ${esc(c.client)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--txt3);padding:20px">No consent records.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ─── Surescripts Renewal Queue (PDF2 §3.0) ─── */
+function renderRenewalQueue(pt,renewals){
+  return `<div class="pt-banner"><div class="sec"><div class="nm">${esc(pt.name)}</div><div class="dt2">Surescripts Renewal Requests</div></div></div>
+  <div class="card"><div class="card-h">📨 Pending Renewal Requests
+    <span style="font-size:11px;color:var(--txt2);font-weight:400">Surescripts Mailbox — Renewals awaiting prescriber response</span>
+  </div>
+    <div class="card-b" style="padding:0">
+      <table class="dt"><thead><tr><th>Request ID</th><th>Drug</th><th>Directions</th><th>Pharmacy</th><th>Received</th><th>Type</th><th>Action</th></tr></thead>
+      <tbody>${renewals.length?renewals.map(r=>{let ph=pharmById(r.pharmacy);return `<tr>
+        <td><strong>${esc(r.id)}</strong></td>
+        <td>${esc(r.drug)}</td>
+        <td style="font-size:11px">${esc(r.directions)}</td>
+        <td>${ph?esc(ph.name):''}</td>
+        <td>${esc(r.received)}</td>
+        <td>${r.controlled?'<span class="st" style="background:#fee;color:#c00">Controlled</span>':'<span class="st st-active">Standard</span>'}</td>
+        <td><div class="flex gap-sm" style="flex-wrap:wrap">
+          <button class="btn btn-s btn-sm" title="Approve as written" onclick="window._approveRenewal('${esc(r.id)}')">✓ Approve</button>
+          <button class="btn btn-out btn-sm" title="Approve with Changes (PDF2 §3.2.3)" onclick="window._approveWithChangesRenewal('${esc(r.id)}')">✎ Approve w/ Changes</button>
+          <button class="btn btn-out btn-sm" title="Replace (deny + new Rx)" onclick="window._replaceRenewal('${esc(r.id)}')">↻ Replace</button>
+          <button class="btn btn-d btn-sm" title="Deny with reason" onclick="window._denyRenewal('${esc(r.id)}')">✕ Deny</button>
+        </div></td>
+      </tr>`}).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">No pending renewal requests.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+window._approveRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  // Auto-create new prescription based on original
+  let pid=r.patientId;
+  if(!S.patientMeds[pid])S.patientMeds[pid]=[];
+  let original=(S.patientMeds[pid]||[]).find(m=>m.id===r.originalRx);
+  let nm={
+    id:'MED-RNW-'+Date.now(),
+    drug:original?original.drug:{name:r.drug,generic:r.drug,strengths:[],forms:['Tablet'],directions:[r.directions],category:'',schedule:r.controlled?'Schedule II':'Non-Controlled'},
+    strength:original?original.strength:'',dose:original?original.dose:'1',unit:original?original.unit:'Tablet',
+    directions:r.directions,daysSupply:30,qty:30,refills:original?original.refills:1,
+    rxStart:today(),rxEnd:addDays(today(),30),status:'active',prescribed:true,
+    sendToPharm:r.pharmacy,consent:original?original.consent:false,outside:false,renewalOf:r.id
+  };
+  S.patientMeds[pid].push(nm);
+  r.status='approved';r.respondedAt=new Date().toISOString();
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:r.drug,action:'Renewal Approved',date:today(),reason:'Surescripts renewal '+r.id});
+  S.prescribedThisSession.push({patientId:pid,drug:r.drug,type:'renewal'});
+  toast('Renewal '+r.id+' approved and transmitted to pharmacy','success');
+  render();
+};
+
+window._denyRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  showModal(`<div class="modal-header"><span>📨 Deny Renewal Request</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:12px">Denying renewal for <strong>${esc(r.drug)}</strong> (Request ${esc(r.id)}).</p>
+    <div class="fg"><label>Deny Reason (PDF2 §3.2.8)</label>
+      <select class="fc" id="denyReason">
+        <option value="">— Select Reason —</option>
+        <option value="patient-unknown">Patient Unknown to Provider</option>
+        <option value="patient-not-seen">Patient No Longer Under Care</option>
+        <option value="medication-discontinued">Medication Discontinued</option>
+        <option value="medication-never-prescribed">Medication Never Prescribed for Patient</option>
+        <option value="change-required">Change Medication / Dose Required</option>
+        <option value="no-attempt-to-refill">Patient Has Not Attempted Refill</option>
+        <option value="needs-appointment">Patient Needs Appointment</option>
+        <option value="prescriber-not-associated">Prescriber Not Associated with this Practice</option>
+        <option value="no-prior-auth">No Prior Authorization</option>
+        <option value="other">Other (specify in notes)</option>
+      </select>
+    </div>
+    <div class="fg"><label>Note to Pharmacy</label><textarea class="fc" id="denyNote" rows="2"></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-d" onclick="window._confirmDenyRenewal('${esc(rid)}')">Deny</button>
+    </div>
+  </div>`);
+};
+
+window._confirmDenyRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  let reason=document.getElementById('denyReason').value;
+  if(!reason){toast('Select a deny reason','error');return}
+  r.status='denied';r.reason=reason;r.note=document.getElementById('denyNote').value||'';
+  r.respondedAt=new Date().toISOString();
+  closeModal();toast('Renewal '+r.id+' denied','info');render();
+};
+
+/* ─── Queued Orders View ─── */
+function renderQueuedOrders(pt){
+  let queued=S.queuedOrders[pt.id]||[];
+  return `<div class="pt-banner"><div class="sec"><div class="nm">${esc(pt.name)}</div><div class="dt2">Queued Orders (Saved for Later)</div></div></div>
+  <div class="card"><div class="card-h">⏳ Queued Orders <span style="font-size:11px;color:var(--txt2);font-weight:400">Orders saved via "Queue Order" — not yet prescribed</span></div>
+    <div class="card-b" style="padding:0">
+      <table class="dt"><thead><tr><th>Drug</th><th>Strength</th><th>Directions</th><th>Qty</th><th>Days</th><th>Refills</th><th>Queued At</th><th>Action</th></tr></thead>
+      <tbody>${queued.length?queued.map((q,i)=>`<tr>
+        <td><strong>${esc(q.drugName)}</strong></td><td>${esc(q.strength)}</td><td style="font-size:11px">${esc(q.directions)}</td>
+        <td>${q.qty}</td><td>${q.days}</td><td>${q.refills}</td><td>${esc(q.queuedAt||'')}</td>
+        <td><div class="flex gap-sm">
+          <button class="btn btn-p btn-sm" onclick="window._prescribeQueued('${esc(pt.id)}',${i})">Prescribe</button>
+          <button class="btn btn-d btn-sm" onclick="window._removeQueued('${esc(pt.id)}',${i})">Remove</button>
+        </div></td>
+      </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:20px">No queued orders.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+window._prescribeQueued=function(pid,idx){
+  let q=(S.queuedOrders[pid]||[])[idx];if(!q)return;
+  if(!S.patientMeds[pid])S.patientMeds[pid]=[];
+  S.patientMeds[pid].push({
+    id:'MED-'+Date.now(),drug:q.drug,strength:q.strength,dose:q.dose,unit:q.unit,
+    directions:q.directions,daysSupply:q.days,qty:q.qty,refills:q.refills,
+    rxStart:q.rxStart,rxEnd:q.rxEnd,status:'active',prescribed:true,
+    sendToPharm:q.pharmacy||'',consent:false,outside:false
+  });
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:q.drugName+' '+q.strength,action:'Prescribed (from Queue)',date:today(),reason:'Queued order activated'});
+  S.prescribedThisSession.push({patientId:pid,drug:q.drugName,type:'queued'});
+  S.queuedOrders[pid].splice(idx,1);
+  toast(q.drugName+' prescribed from queue','success');render();
+};
+
+window._removeQueued=function(pid,idx){
+  S.queuedOrders[pid].splice(idx,1);toast('Queued order removed','info');render();
+};
+
+/* ─── Cancel Order (PDF2 §5.0) ─── */
+window._cancelOrder=function(medId){
+  let pid=S.selectedPatient;
+  let med=(S.patientMeds[pid]||[]).find(m=>m.id===medId);if(!med)return;
+  showModal(`<div class="modal-header" style="background:var(--err)"><span>🚫 Cancel Order (Surescripts CancelRx)</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:12px">Send a CancelRx message to the pharmacy for <strong>${esc(med.drug.name)} ${esc(med.strength)}</strong>?</p>
+    <p style="font-size:11px;color:var(--txt2);margin-bottom:12px">Per PDF2 §5.0, this transmits a Cancel Order via Surescripts. The pharmacy will receive a request to stop dispensing.</p>
+    <div class="fg"><label>Cancellation Reason</label><textarea class="fc" id="cancelReason" rows="2" placeholder="Reason for cancelling..."></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Close</button>
+      <button class="btn btn-d" onclick="window._confirmCancel('${esc(medId)}')">Send CancelRx</button>
+    </div>
+  </div>`);
+};
+
+window._confirmCancel=function(medId){
+  let pid=S.selectedPatient;
+  let med=(S.patientMeds[pid]||[]).find(m=>m.id===medId);if(!med)return;
+  let reason=document.getElementById('cancelReason').value||'';
+  S.cancelOrders.push({medId,patientId:pid,drug:med.drug.name,reason,sentAt:new Date().toISOString()});
+  med.status='cancelled';
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:med.drug.name+' '+med.strength,action:'CancelRx Sent',date:today(),reason:reason||'Cancellation'});
+  closeModal();toast('CancelRx transmitted to pharmacy','info');render();
+};
+
+/* ═══════════════════════════════════════════════════
+   NEW MEDICATION ORDER
+   ═══════════════════════════════════════════════════ */
+function renderNewOrderPage(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  if(!pt)return '';
+  let pharmIds=S.patientPreferredPharm[pt.id]||[];
+  let defaultPharm=pharmIds[0]||'';
+
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('New Medication Order — '+pt.name)}
+    <div style="flex:1;overflow-y:auto;padding:20px;max-width:900px;margin:0 auto;width:100%">
+
+      <!-- Section A: Order Info -->
+      <div class="order-section">
+        <div class="sec-title">📋 Order Information</div>
+        <div class="form-row">
+          <div class="fg md">
+            <label>Send Method</label>
+            <select class="fc" id="orderMethod" onchange="window._toggleSendMethod()">
+              <option value="pharmacy">Send Directly to Pharmacy</option>
+              <option value="print">Print Script</option>
+              <option value="printinfo">Print Drug Information</option>
+              <option value="printchart">Print Chart Copy</option>
+            </select>
+          </div>
+          <div class="fg" id="pharmSelectWrap">
+            <label>Pharmacy</label>
+            <select class="fc" id="orderPharm">
+              ${pharmIds.map(pid=>{let ph=pharmById(pid);return ph?`<option value="${pid}">${esc(ph.name)} — ${esc(pharmAddr(ph))}</option>`:''}).join('')}
+              <option value="_search">🔍 Search for another pharmacy...</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg md"><label>Prescriber</label><input class="fc" value="Dr. Chen, Wei-Lin" readonly></div>
+          <div class="fg sm"><label>DEA #</label><input class="fc" value="BC1234567" readonly></div>
+          <div class="fg"><label>Prescribing Location</label><input class="fc" value="Sacramento County Mental Health" readonly></div>
+          <div class="fg sm"><label>Order Date</label><input class="fc" type="date" id="orderDate" value="${today()}" readonly></div>
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label><input type="checkbox" id="verbalOrder"> Verbal Order Read Back</label>
+        </div>
+      </div>
+
+      <!-- Section B: Medication Entry -->
+      <div class="order-section">
+        <div class="sec-title">💊 Medication</div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Drug Name (enter at least 3 characters)</label>
+            <div class="flex gap-sm">
+              <input class="fc" id="drugSearch" placeholder="Search drug name..." oninput="window._drugAutocomplete(this.value)">
+              <button class="btn btn-out btn-sm" id="drugInfoBtn" style="display:none" onclick="window._showDrugInfo()" title="View drug description (Medline)">ℹ️</button>
+            </div>
+            <div id="drugSearchResults" style="border:1px solid var(--bdr-l);border-radius:var(--rad);max-height:180px;overflow-y:auto;display:none;margin-top:4px;background:#fff"></div>
+          </div>
+        </div>
+        <div id="drugDetailSection" style="display:none">
+          <!-- Inline Clinical Decision Support panel (computed on drug selection) -->
+          <div id="cdsPanel"></div>
+          <div class="form-row">
+            <div class="fg"><label><input type="checkbox" id="permitChanges" checked> Permit Changes By Other Users</label></div>
+            <div class="fg"><label><input type="checkbox" id="dispenseAsWritten"> Dispense as Written (DAW)</label></div>
+            <div class="fg"><label><input type="checkbox" id="saveTemplate"> Save as Template</label></div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Diagnosis / Purpose</label>
+              <select class="fc" id="orderDx"><option value="">— Select —</option></select>
+            </div>
+            <div class="fg"><label>Active Coverage (Formulary)</label>
+              <select class="fc" id="orderCoverage">
+                <option value="">— Select Coverage —</option>
+                <option value="primary">Primary Insurance — Formulary OK</option>
+                <option value="secondary">Secondary Insurance</option>
+                <option value="medi-cal">Medi-Cal</option>
+                <option value="medicare-d">Medicare Part D</option>
+                <option value="cash">Cash Pay (No Coverage)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Instruction Text (put on bottle)</label><input class="fc" id="instrText" placeholder="e.g., Take 1 tablet by mouth daily"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Desired Outcome</label><input class="fc" id="desiredOutcome" placeholder="Optional"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Comment / Note to Pharmacy</label>
+              <div class="flex gap-sm ai-c"><input class="fc" id="pharmComment" placeholder="Optional"><label style="font-size:11px;white-space:nowrap"><input type="checkbox" id="includeOnRx"> Include On Prescription</label></div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fg sm"><label>Strength</label><select class="fc" id="drugStrength" onchange="window._updateCDS()"></select></div>
+            <div class="fg sm"><label>Dose</label><input class="fc" id="drugDose" type="number" value="1" min="1" onchange="window._updateCDS()"></div>
+            <div class="fg sm"><label>Unit</label><input class="fc" id="drugUnit" readonly></div>
+            <div class="fg"><label>Directions</label><select class="fc" id="drugDirections" onchange="window._calcQty()"></select></div>
+          </div>
+          <div class="form-row">
+            <div class="fg sm"><label>Rx Start Date</label><input class="fc" type="date" id="rxStartDate" value="${today()}"></div>
+            <div class="fg sm"><label>Days</label><input class="fc" type="number" id="rxDays" value="30" min="1" onchange="window._calcQty()"></div>
+            <div class="fg sm"><label>Dispense Qty</label><input class="fc" type="number" id="rxQty" value="30" min="1"></div>
+            <div class="fg sm"><label>Potency Unit</label><select class="fc" id="potencyUnit"><option>Each</option><option>Tablet</option><option>Capsule</option><option>mL</option></select></div>
+            <div class="fg sm"><label>Refills</label><input class="fc" type="number" id="rxRefills" value="0" min="0" max="11"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg sm"><label>Sample Qty</label><input class="fc" type="number" id="sampleQty" value="0" min="0"></div>
+            <div class="fg sm"><label>Stock</label><input class="fc" type="number" id="stockQty" value="0" min="0"></div>
+            <div class="fg sm"><label>Rx End Date</label><input class="fc" type="date" id="rxEndDate" readonly></div>
+          </div>
+          <div class="flex gap-sm mt-sm">
+            <button class="btn btn-p" onclick="window._insertOrder()">Insert</button>
+            <button class="btn btn-out" onclick="window._clearDrugEntry()">✕ Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section C: Inserted Medications Queue -->
+      <div class="order-section">
+        <div class="sec-title">📄 Medication Order List</div>
+        <div id="orderQueueList">
+          ${S.orderQueue.length?S.orderQueue.map((o,i)=>`<div class="med-inserted">
+            <div><strong>${esc(o.drugName)}</strong> ${esc(o.strength)} — ${esc(o.directions)}<br>
+            <span style="color:var(--txt2);font-size:11px">Qty: ${o.qty} &middot; Days: ${o.days} &middot; Refills: ${o.refills} &middot; Start: ${esc(o.rxStart)}</span></div>
+            <button class="disc-x" onclick="window._removeQueueItem(${i})">✕</button>
+          </div>`).join(''):'<p style="color:var(--txt3);font-size:12px">No medications inserted yet. Search for a drug above and click Insert.</p>'}
+        </div>
+      </div>
+
+      <!-- Section D: Actions -->
+      <div class="flex gap-sm jc-e mt-md" style="padding-bottom:20px">
+        <button class="btn btn-out" onclick="window._queueOrder()">Queue Order (Prescribe Later)</button>
+        <button class="btn btn-p btn-lg" onclick="window._prescribeOrder()">Prescribe</button>
+        <button class="btn btn-out" onclick="S.currentPage='patient-summary';S.orderQueue=[];render()">Cancel</button>
+      </div>
+
+    </div>
+    <div class="status-bar"><span>New Order — ${esc(pt.name)}</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+/* ─── Drug Search / Autocomplete ─── */
+let selectedDrug=null;
+window._drugAutocomplete=function(val){
+  let box=document.getElementById('drugSearchResults');
+  if(val.length<3){box.style.display='none';return}
+  let q=val.toLowerCase();
+  let matches=DRUG_DB.filter(d=>d.name.toLowerCase().includes(q)||d.generic.toLowerCase().includes(q));
+  if(!matches.length){box.innerHTML='<div style="padding:10px;color:var(--txt3);font-size:12px">No drugs found.</div>';box.style.display='block';return}
+  box.innerHTML=matches.map((d,i)=>`<div class="search-row" onclick="window._selectDrug(${DRUG_DB.indexOf(d)})">
+    <input type="radio" name="drugSel" id="drugR${i}">
+    <div><strong>${esc(d.name)}</strong><br><span style="color:var(--txt3);font-size:11px">${esc(d.generic)} — ${esc(d.category)} ${d.schedule!=='Non-Controlled'?'('+esc(d.schedule)+')':''}</span></div>
+    <button class="btn btn-out btn-sm" onclick="event.stopPropagation();window._showDrugMedline(${DRUG_DB.indexOf(d)})" title="View drug info">ℹ️</button>
+  </div>`).join('');
+  box.style.display='block';
+};
+
+window._selectDrug=function(idx){
+  selectedDrug=DRUG_DB[idx];
+  document.getElementById('drugSearch').value=selectedDrug.name;
+  document.getElementById('drugSearchResults').style.display='none';
+  document.getElementById('drugDetailSection').style.display='block';
+  document.getElementById('drugInfoBtn').style.display='inline-flex';
+  // Populate strength/directions/unit
+  let strSel=document.getElementById('drugStrength');
+  strSel.innerHTML=selectedDrug.strengths.map(s=>`<option>${s}</option>`).join('');
+  let dirSel=document.getElementById('drugDirections');
+  dirSel.innerHTML=selectedDrug.directions.map(d=>`<option>${esc(d)}</option>`).join('');
+  document.getElementById('drugUnit').value=selectedDrug.forms[0]||'Tablet';
+  document.getElementById('instrText').value=selectedDrug.directions[0]||'';
+  // Populate dx
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  let dxSel=document.getElementById('orderDx');
+  dxSel.innerHTML=`<option value="">— Select —</option><option value="dx">${esc(pt?pt.dx:'')}</option>`;
+  window._calcQty();
+  window._updateCDS();
+};
+
+/* Inline Clinical Decision Support — recomputed each time drug/strength changes */
+window._updateCDS=function(){
+  let panel=document.getElementById('cdsPanel');if(!panel||!selectedDrug)return;
+  let d=selectedDrug;
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);if(!pt){panel.innerHTML='';return}
+  let strength=(document.getElementById('drugStrength')||{}).value||'';
+  let strengthMg=parseFloat((strength.match(/([\d.]+)\s*mg/)||[])[1]||'0');
+  let dose=parseInt((document.getElementById('drugDose')||{}).value||'1')||1;
+  let dirs=((document.getElementById('drugDirections')||{}).value||'').toLowerCase();
+  let perDay=1;
+  if(dirs.includes('twice daily')||dirs.includes('bid'))perDay=2;
+  else if(dirs.includes('three times')||dirs.includes('tid'))perDay=3;
+  else if(dirs.includes('every 6 hours'))perDay=4;
+  let dailyMg=strengthMg*dose*perDay;
+  let rows=[];
+  // Formulary / coverage
+  let tier=d.formularyTier||3;
+  let copay=tier===1?'$5':tier===2?'$15':'$45';
+  let pa=tier>=3?' (PA may be required)':'';
+  rows.push(`<div class="cds-row info"><div class="cds-ic">💳</div><div class="cds-lbl">Formulary Tier ${tier} — estimated copay</div><div class="cds-val">${copay}${pa}</div></div>`);
+  // Max daily dose
+  if(d.maxDailyMg && dailyMg>0){
+    if(dailyMg>d.maxDailyMg)rows.push(`<div class="cds-row crit"><div class="cds-ic">⚠️</div><div class="cds-lbl">Daily dose ${dailyMg} mg <strong>EXCEEDS</strong> max ${d.maxDailyMg} mg/day</div><div class="cds-val">OVER MAX</div></div>`);
+    else if(dailyMg>d.maxDailyMg*0.75)rows.push(`<div class="cds-row warn"><div class="cds-ic">↑</div><div class="cds-lbl">Daily dose ${dailyMg} mg approaching max ${d.maxDailyMg} mg/day</div><div class="cds-val">${Math.round(dailyMg/d.maxDailyMg*100)}% MAX</div></div>`);
+    else rows.push(`<div class="cds-row ok"><div class="cds-ic">✓</div><div class="cds-lbl">Daily dose ${dailyMg} mg of ${d.maxDailyMg} mg/day max</div><div class="cds-val">WITHIN RANGE</div></div>`);
+  }
+  // Renal
+  if(d.renalAdj && pt.egfr<60)rows.push(`<div class="cds-row warn"><div class="cds-ic">🧈</div><div class="cds-lbl">Renal dose adjustment recommended (eGFR ${pt.egfr})</div><div class="cds-val">ADJUST</div></div>`);
+  // Hepatic
+  if(d.hepaticAdj && (pt.alt>40||pt.ast>40))rows.push(`<div class="cds-row warn"><div class="cds-ic">🤬</div><div class="cds-lbl">Hepatic adjustment advised (ALT ${pt.alt}, AST ${pt.ast})</div><div class="cds-val">ADJUST</div></div>`);
+  // Pregnancy / childbearing
+  if(pt.pregnant && (d.pregnancyCat==='D'||d.pregnancyCat==='X'))rows.push(`<div class="cds-row crit"><div class="cds-ic">🤰</div><div class="cds-lbl">Patient pregnant — Category ${d.pregnancyCat} (teratogenic)</div><div class="cds-val">CONTRA</div></div>`);
+  else if(pt.childbearing && (d.pregnancyCat==='D'||d.pregnancyCat==='X'))rows.push(`<div class="cds-row warn"><div class="cds-ic">🤰</div><div class="cds-lbl">Childbearing potential — Category ${d.pregnancyCat}: verify pregnancy status & counsel</div><div class="cds-val">CAUTION</div></div>`);
+  // Age (geriatric)
+  let age=ageFromDOB(pt.dob);
+  if(age>=65 && (d.category||'').toLowerCase().includes('benzodiazepine'))rows.push(`<div class="cds-row warn"><div class="cds-ic">👴</div><div class="cds-lbl">Beers Criteria: avoid benzodiazepines in adults ≥65 (fall risk)</div><div class="cds-val">BEERS</div></div>`);
+  if(age<18 && d.schedule==='Schedule II')rows.push(`<div class="cds-row warn"><div class="cds-ic">🧒</div><div class="cds-lbl">Pediatric controlled-substance prescribing — weight-based dosing required</div><div class="cds-val">PEDS</div></div>`);
+  // Black box
+  if(d.blackBox)rows.push(`<div class="cds-row crit"><div class="cds-ic">☠️</div><div class="cds-lbl"><strong>Black Box:</strong> ${esc(d.blackBox.length>110?d.blackBox.slice(0,110)+'…':d.blackBox)}</div><div class="cds-val">BBW</div></div>`);
+  // Lithium-specific monitoring
+  if(d.generic && d.generic.toLowerCase().includes('lithium') && pt.lithiumLvl!=null)rows.push(`<div class="cds-row info"><div class="cds-ic">🧪</div><div class="cds-lbl">Most recent lithium level</div><div class="cds-val">${pt.lithiumLvl} mEq/L</div></div>`);
+  // Controlled substance → PMP & EPCS
+  if(d.schedule==='Schedule II'||d.schedule==='Schedule IV'){
+    let q=(S.pmpQueries||[]).find(x=>x.patientId===pt.id && (Date.now()-new Date(x.ts).getTime())<24*60*60*1000);
+    if(q)rows.push(`<div class="cds-row ok"><div class="cds-ic">🔍</div><div class="cds-lbl">PMP/CURES query on file (${q.ts.slice(0,10)}) — ${q.findings}</div><div class="cds-val">QUERIED</div></div>`);
+    else rows.push(`<div class="cds-row warn"><div class="cds-ic">🔍</div><div class="cds-lbl">PMP/CURES query required (controlled substance) — <a href="#" onclick="event.preventDefault();window._runPMP()">Run query now</a></div><div class="cds-val">REQUIRED</div></div>`);
+    if(d.schedule==='Schedule II')rows.push(`<div class="cds-row info"><div class="cds-ic">🔐</div><div class="cds-lbl">EPCS 2-factor authentication will be required at signing</div><div class="cds-val">EPCS</div></div>`);
+  }
+  // Drug-allergy duplicate (already handled at insert time, but show here too)
+  let allergies=S.patientAllergies[pt.id]||[];
+  let am=allergies.find(a=>d.name.toLowerCase().includes(a.substance.toLowerCase())||d.generic.toLowerCase().includes(a.substance.toLowerCase()));
+  if(am)rows.push(`<div class="cds-row crit"><div class="cds-ic">🤚</div><div class="cds-lbl">Documented allergy: ${esc(am.substance)} (${esc(am.reaction)}, ${esc(am.severity)})</div><div class="cds-val">ALLERGY</div></div>`);
+  // Render
+  panel.innerHTML=`<div class="cds-panel"><div class="cds-h">🧠 Clinical Decision Support — ${esc(d.name)} ${esc(strength)} (${esc(d.schedule)})</div>${rows.join('')}</div>`;
+};
+
+/* PMP/CURES query (PDF1 controlled substance workflow) */
+window._runPMP=function(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);if(!pt)return;
+  showModal(`<div class="modal-header"><span>🔍 PMP / CURES Query</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">Querying state Prescription Drug Monitoring Program (PDMP / CURES 2.0) for <strong>${esc(pt.name)}</strong> (DOB ${esc(pt.dob)})…</p>
+    <div class="pmp-result clean"><h4>✓ Query Successful — No High-Risk Patterns Detected</h4>
+      <div style="font-size:11.5px">• Controlled substance fills (last 12 months): 2 (this patient)<br>• Distinct prescribers: 1 (you)<br>• Distinct pharmacies: 1<br>• Days of overlap: 0<br>• MME (avg daily): 0.0<br>• Naloxone co-prescription: not on file<br>• Doctor shopping flag: <strong>No</strong></div>
+      <div style="font-size:10.5px;color:var(--txt2);margin-top:6px">Query timestamp: ${new Date().toISOString().slice(0,16).replace('T',' ')} · NPI 1234567890 · State CA</div>
+    </div>
+    <div class="flex gap-sm jc-e mt-md"><button class="btn btn-out" onclick="closeModal()">Close</button><button class="btn btn-p" onclick="window._ackPMP()">Acknowledge & Continue</button></div>
+  </div>`);
+};
+window._ackPMP=function(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);if(!pt)return;
+  if(!S.pmpQueries)S.pmpQueries=[];
+  S.pmpQueries.push({patientId:pt.id,ts:new Date().toISOString(),findings:'No high-risk patterns; MME 0; single prescriber/pharmacy'});
+  closeModal();toast('PMP query acknowledged','success');
+  if(typeof window._updateCDS==='function')window._updateCDS();
+};
+
+/* EPCS 2-factor authentication for Schedule II prescribing */
+window._epcsPrompt=function(onok){
+  showModal(`<div class="modal-header" style="background:#0f2942"><span>🔐 EPCS — 2-Factor Authentication Required</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body" style="max-width:480px">
+    <div class="epcs-2fa">
+      <div style="font-size:13px;margin-bottom:14px;opacity:.85">Federal DEA EPCS regulations require 2-factor authentication for all Schedule II controlled-substance prescriptions.</div>
+      <div style="font-size:11px;opacity:.7;margin-bottom:8px">Enter the 6-digit OATH HOTP token from your hardware key or authenticator app:</div>
+      <input id="epcsToken" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+      <div style="font-size:10.5px;opacity:.6;margin-top:10px">Prescriber: Dr. Chen, Wei-Lin · NPI 1234567890 · DEA BC1234567</div>
+    </div>
+    <div class="flex gap-sm jc-e mt-md"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="window._epcsVerify()">Sign & Authorize</button></div>
+  </div>`);
+  window.__epcsCallback=onok;
+};
+window._epcsVerify=function(){
+  let v=(document.getElementById('epcsToken')||{}).value||'';
+  if(!/^\d{6}$/.test(v)){toast('Enter the 6-digit token','error');return}
+  S.prescriberDeaVerified=true;
+  closeModal();toast('EPCS 2FA verified — prescription signed','success');
+  if(typeof window.__epcsCallback==='function'){let cb=window.__epcsCallback;window.__epcsCallback=null;cb()}
+};
+
+window._calcQty=function(){
+  let days=parseInt(document.getElementById('rxDays').value)||30;
+  let dose=parseInt(document.getElementById('drugDose').value)||1;
+  let dir=(document.getElementById('drugDirections').value||'').toLowerCase();
+  let perDay=1;
+  if(dir.includes('twice daily')||dir.includes('bid'))perDay=2;
+  else if(dir.includes('three times')||dir.includes('tid'))perDay=3;
+  else if(dir.includes('every 6 hours'))perDay=4;
+  let qty=days*dose*perDay;
+  document.getElementById('rxQty').value=qty;
+  let start=document.getElementById('rxStartDate').value;
+  if(start)document.getElementById('rxEndDate').value=addDays(start,days);
+  if(typeof window._updateCDS==='function')window._updateCDS();
+};
+
+window._clearDrugEntry=function(){
+  selectedDrug=null;
+  document.getElementById('drugSearch').value='';
+  document.getElementById('drugDetailSection').style.display='none';
+  document.getElementById('drugInfoBtn').style.display='none';
+  document.getElementById('drugSearchResults').style.display='none';
+};
+
+window._showDrugMedline=function(idx){
+  let d=DRUG_DB[idx];
+  showModal(`<div class="modal-header"><span>ℹ️ Drug Monograph (Medline) — ${esc(d.name)}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body" style="max-width:680px">
+    <div class="demo-grid" style="padding:0 0 10px">
+      <div><label>Generic</label><div>${esc(d.generic)}</div></div>
+      <div><label>NDC</label><div style="font-family:var(--font-mono)">${esc(d.ndc||'—')}</div></div>
+      <div><label>Therapeutic Class</label><div>${esc(d.category)}</div></div>
+      <div><label>DEA Schedule</label><div>${esc(d.schedule)}</div></div>
+      <div><label>Formulary Tier</label><div>Tier ${d.formularyTier||'—'}</div></div>
+      <div><label>Pregnancy Cat.</label><div>${esc(d.pregnancyCat||'—')}</div></div>
+      <div><label>Available Strengths</label><div>${d.strengths.join(', ')}</div></div>
+      <div><label>Forms</label><div>${d.forms.join(', ')}</div></div>
+      <div><label>Max Daily Dose</label><div>${d.maxDailyMg?d.maxDailyMg+' mg':'—'}</div></div>
+      <div><label>Renal Adjustment</label><div>${d.renalAdj?'Yes':'No'}</div></div>
+      <div><label>Hepatic Adjustment</label><div>${d.hepaticAdj?'Yes':'No'}</div></div>
+    </div>
+    ${d.blackBox?`<div class="alert-banner crit" style="margin-top:8px"><strong>⚠️ BLACK BOX WARNING:</strong> ${esc(d.blackBox)}</div>`:''}
+    <div style="margin-top:8px"><strong>Common Side Effects:</strong><div style="font-size:12px;color:var(--txt2);margin-top:3px">${esc(d.commonSE||'—')}</div></div>
+    <div style="margin-top:8px"><strong>Monitoring:</strong><div style="font-size:12px;color:var(--txt2);margin-top:3px">${esc(d.monitor||'—')}</div></div>
+    <div style="margin-top:10px;font-size:11px;color:var(--txt3)">Source: Medline Plus / FDA Prescribing Information. For complete prescribing information, consult the package insert.</div>
+    <div class="flex jc-e mt-md"><button class="btn btn-out" onclick="closeModal()">Close</button></div>
+  </div>`);
+};
+window._showDrugInfo=function(){if(selectedDrug)window._showDrugMedline(DRUG_DB.indexOf(selectedDrug))};
+
+/* ─── Insert / Prescribe ─── */
+window._insertOrder=function(){
+  if(!selectedDrug){toast('Please select a drug first','error');return}
+  let strength=document.getElementById('drugStrength').value;
+  let dose=document.getElementById('drugDose').value;
+  let unit=document.getElementById('drugUnit').value;
+  let directions=document.getElementById('drugDirections').value||document.getElementById('instrText').value;
+  let days=parseInt(document.getElementById('rxDays').value)||30;
+  let qty=parseInt(document.getElementById('rxQty').value)||30;
+  let refills=parseInt(document.getElementById('rxRefills').value)||0;
+  let rxStart=document.getElementById('rxStartDate').value||today();
+  let rxEnd=document.getElementById('rxEndDate').value||addDays(rxStart,days);
+
+  // Check for drug/allergy interaction
+  let allergies=S.patientAllergies[S.selectedPatient]||[];
+  let allergyMatch=allergies.find(a=>selectedDrug.name.toLowerCase().includes(a.substance.toLowerCase())||selectedDrug.generic.toLowerCase().includes(a.substance.toLowerCase()));
+  // Check for drug/drug interaction with active meds (PDF1 §Drug/Allergy Interaction Warnings)
+  let activeMeds=(S.patientMeds[S.selectedPatient]||[]).filter(m=>m.status==='active');
+  let drugDrug=null;
+  // Simple interaction matrix
+  const DD_INTERACTIONS={
+    'lithium':['ibuprofen','naproxen','aspirin','hydrochlorothiazide'],
+    'sertraline':['lorazepam','clonazepam','tramadol','linezolid','maoi'],
+    'fluoxetine':['lorazepam','clonazepam','tramadol','linezolid','maoi'],
+    'lorazepam':['clonazepam','quetiapine','olanzapine','sertraline','fluoxetine'],
+    'clonazepam':['lorazepam','quetiapine','olanzapine'],
+    'quetiapine':['lorazepam','clonazepam','olanzapine'],
+    'olanzapine':['lorazepam','clonazepam','quetiapine'],
+    'methylphenidate':['maoi','tramadol']
+  };
+  let nGen=(selectedDrug.generic||'').toLowerCase();
+  let nName=(selectedDrug.name||'').toLowerCase();
+  for (let m of activeMeds){
+    let mGen=(m.drug.generic||'').toLowerCase();
+    let mName=(m.drug.name||'').toLowerCase();
+    for (let key in DD_INTERACTIONS){
+      if ((nGen.includes(key)||nName.includes(key)) && DD_INTERACTIONS[key].some(x=>mGen.includes(x)||mName.includes(x))) {
+        drugDrug={existing:m.drug.name,severity:'Moderate'};break;
+      }
+      if ((mGen.includes(key)||mName.includes(key)) && DD_INTERACTIONS[key].some(x=>nGen.includes(x)||nName.includes(x))) {
+        drugDrug={existing:m.drug.name,severity:'Moderate'};break;
+      }
+    }
+    if(drugDrug)break;
+  }
+  if(allergyMatch){
+    showModal(`<div class="modal-header" style="background:var(--err)"><span>⚠️ Drug/Allergy Interaction Warning</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="dur-crit dur" style="margin-bottom:16px">
+        <div class="dur-t">⚠️ ALLERGY CONFLICT DETECTED</div>
+        <div class="dur-d"><strong>${esc(selectedDrug.name)}</strong> may interact with patient allergy: <strong>${esc(allergyMatch.substance)}</strong> (${esc(allergyMatch.type)} — ${esc(allergyMatch.reaction)}, ${esc(allergyMatch.severity)})</div>
+      </div>
+      <p style="font-size:12px;color:var(--txt2)">Do you want to proceed with this order?</p>
+      <div class="flex gap-sm jc-e mt-md">
+        <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-d" onclick="closeModal();window._doInsert('${esc(strength)}','${esc(dose)}','${esc(unit)}','${esc(directions)}',${days},${qty},${refills},'${rxStart}','${rxEnd}',true)">Override &amp; Insert</button>
+      </div>
+    </div>`);
+    return;
+  }
+  if(drugDrug){
+    showModal(`<div class="modal-header" style="background:var(--warn)"><span>⚠️ Drug-Drug Interaction Warning</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="dur" style="margin-bottom:16px">
+        <div class="dur-t">⚠️ DRUG-DRUG INTERACTION (${esc(drugDrug.severity)})</div>
+        <div class="dur-d"><strong>${esc(selectedDrug.name)}</strong> may interact with active medication <strong>${esc(drugDrug.existing)}</strong>. Review concurrent therapy.</div>
+      </div>
+      <p style="font-size:12px;color:var(--txt2)">Acknowledge to proceed (PDF1 §Drug/Allergy Interaction Warnings).</p>
+      <div class="flex gap-sm jc-e mt-md">
+        <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-w" onclick="closeModal();window._doInsert('${esc(strength)}','${esc(dose)}','${esc(unit)}','${esc(directions)}',${days},${qty},${refills},'${rxStart}','${rxEnd}',false,true)">Acknowledge &amp; Insert</button>
+      </div>
+    </div>`);
+    return;
+  }
+  window._doInsert(strength,dose,unit,directions,days,qty,refills,rxStart,rxEnd,false,false);
+};
+
+window._doInsert=function(strength,dose,unit,directions,days,qty,refills,rxStart,rxEnd,allergyOverride,interactionAck){
+  S.orderQueue.push({
+    drug:selectedDrug,drugName:selectedDrug.name,strength,dose,unit,directions,
+    days,qty,refills,rxStart,rxEnd,
+    sendMethod:document.getElementById('orderMethod').value,
+    pharmacy:document.getElementById('orderPharm')?document.getElementById('orderPharm').value:'',
+    daw:document.getElementById('dispenseAsWritten')?.checked||false,
+    coverage:document.getElementById('orderCoverage')?document.getElementById('orderCoverage').value:'',
+    comment:document.getElementById('pharmComment')?.value||'',
+    allergyOverride:!!allergyOverride,interactionAck:!!interactionAck
+  });
+  toast(selectedDrug.name+' inserted into order list','success');
+  window._clearDrugEntry();
+  render();
+};
+
+window._removeQueueItem=function(idx){
+  S.orderQueue.splice(idx,1);render();
+};
+
+window._queueOrder=function(){
+  if(!S.orderQueue.length){toast('No medications to queue','error');return}
+  let pid=S.selectedPatient;
+  if(!S.queuedOrders[pid])S.queuedOrders[pid]=[];
+  let now=new Date().toISOString().slice(0,16).replace('T',' ');
+  S.orderQueue.forEach(o=>{S.queuedOrders[pid].push({...o,queuedAt:now})});
+  toast(S.orderQueue.length+' medication(s) queued for later prescribing','info');
+  S.orderQueue=[];
+  S.currentPage='patient-summary';S.currentNav='queued-orders';render();
+};
+
+window._prescribeOrder=function(){
+  if(!S.orderQueue.length){toast('No medications to prescribe. Insert at least one medication.','error');return}
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  let pharmInfo='';
+  if(S.orderQueue[0].sendMethod==='pharmacy'){
+    let ph=pharmById(S.orderQueue[0].pharmacy);
+    pharmInfo=ph?`<p><strong>Pharmacy:</strong> ${esc(ph.name)}, ${esc(pharmAddr(ph))} (NCPDP ${esc(ph.ncpdp||'—')})</p>`:'';
+  }else{
+    pharmInfo='<p><strong>Method:</strong> Print Script</p>';
+  }
+
+  showModal(`<div class="modal-header"><span>📋 Review &amp; Confirm Prescription</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div style="background:var(--row-h);padding:12px;border-radius:var(--rad);margin-bottom:14px">
+      <p><strong>Patient:</strong> ${esc(pt.name)} (${esc(pt.id)})</p>
+      <p><strong>Prescriber:</strong> Dr. Chen, Wei-Lin &middot; DEA# BC1234567</p>
+      ${pharmInfo}
+    </div>
+    <table class="dt"><thead><tr><th>Medication</th><th>Strength</th><th>Directions</th><th>Qty</th><th>Refills</th></tr></thead>
+    <tbody>${S.orderQueue.map(o=>`<tr><td><strong>${esc(o.drugName)}</strong></td><td>${esc(o.strength)}</td><td style="font-size:11px">${esc(o.directions)}</td><td>${o.qty}</td><td>${o.refills}</td></tr>`).join('')}</tbody></table>
+    <div class="flex gap-sm jc-e mt-lg">
+      <button class="btn btn-out" onclick="closeModal()">Change Order</button>
+      <button class="btn btn-out" onclick="window._previewRx()">Preview</button>
+      <button class="btn btn-p btn-lg" onclick="window._confirmPrescribe()">Prescribe</button>
+    </div>
+  </div>`);
+};
+
+window._previewRx=function(){toast('Prescription preview displayed (simulated)','info')};
+
+window._confirmPrescribe=function(){
+  // EPCS 2-factor authentication required for any Schedule II in the queue
+  let needsEpcs=S.orderQueue.some(o=>o.drug && o.drug.schedule==='Schedule II');
+  if(needsEpcs && !S.prescriberDeaVerified){
+    closeModal();
+    window._epcsPrompt(()=>window._confirmPrescribe());
+    return;
+  }
+  let pid=S.selectedPatient;
+  if(!S.patientMeds[pid])S.patientMeds[pid]=[];
+  let pharmIds=S.patientPreferredPharm[pid]||[];
+  let pt=S.patients.find(p=>p.id===pid);
+  S.orderQueue.forEach(o=>{
+    let medId='MED-'+Date.now()+'-'+Math.floor(rng()*1000);
+    let phId=o.pharmacy||pharmIds[0]||'';
+    let ph=pharmById(phId);
+    S.patientMeds[pid].push({
+      id:medId,
+      drug:o.drug,strength:o.strength,dose:o.dose,unit:o.unit,
+      directions:o.directions,daysSupply:o.days,qty:o.qty,refills:o.refills,
+      rxStart:o.rxStart,rxEnd:o.rxEnd,
+      status:'active',prescribed:true,
+      sendToPharm:phId,
+      consent:false,outside:false,
+      allergyOverride:!!o.allergyOverride,interactionAck:!!o.interactionAck,
+      coverage:o.coverage||''
+    });
+    // Surescripts activity log + outbox entry
+    if(typeof _logRxActivity==='function'){
+      _logRxActivity(medId,'Rx Composed','Strength '+o.strength+'; Sig:"'+o.directions+'"; Qty '+o.qty+'; Days '+o.days+'; Refills '+o.refills,'OK');
+      if(o.allergyOverride)_logRxActivity(medId,'Allergy Override','Prescriber acknowledged allergy alert','WARN');
+      if(o.interactionAck)_logRxActivity(medId,'DDI Acknowledged','Prescriber acknowledged drug-drug interaction','WARN');
+      if(o.drug && (o.drug.schedule==='Schedule II'||o.drug.schedule==='Schedule IV'))_logRxActivity(medId,'PMP Queried','State PDMP/CURES query on file','OK');
+      if(o.drug && o.drug.schedule==='Schedule II')_logRxActivity(medId,'EPCS 2FA','OATH HOTP verified','OK');
+      if(o.sendMethod==='pharmacy')_logRxActivity(medId,'NewRx Transmitted','Surescripts NewRx → '+(ph?ph.name:'(pharmacy)'),'ACK');
+      else _logRxActivity(medId,'Script Printed','Paper script printed for patient','OK');
+    }
+    if(!S.ssOrders)S.ssOrders=[];
+    S.ssOrders.push({ts:new Date().toISOString(),type:o.sendMethod==='pharmacy'?'NewRx':'Print',patientId:pid,drug:o.drugName+' '+o.strength,pharmacyName:ph?ph.name:'',status:o.sendMethod==='pharmacy'?'ACK':'OK'});
+    // Add to history
+    if(!S.medHistory[pid])S.medHistory[pid]=[];
+    S.medHistory[pid].push({drug:o.drugName+' '+o.strength,action:'Prescribed',date:today(),reason:'New order'});
+    S.prescribedThisSession.push({patientId:pid,drug:o.drugName,strength:o.strength,medId});
+  });
+  let count=S.orderQueue.length;
+  S.orderQueue=[];
+  closeModal();
+  toast(count+' prescription(s) sent successfully','success');
+  S.currentPage='patient-summary';render();
+};
+
+/* ═══════════════════════════════════════════════════
+   ADD MEDICATION (PRESCRIBED ELSEWHERE)
+   ═══════════════════════════════════════════════════ */
+function renderAddOutsideMedPage(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  if(!pt)return '';
+
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('Add Medication (Outside) — '+pt.name)}
+    <div style="flex:1;overflow-y:auto;padding:20px;max-width:900px;margin:0 auto;width:100%">
+      <div class="order-section">
+        <div class="sec-title">📋 Add Medication Prescribed Elsewhere</div>
+        <p style="font-size:12px;color:var(--txt2);margin-bottom:14px">This form is for recording medications prescribed by an outside provider. The prescriber field will be blank as this is for external prescriptions.</p>
+        <div class="form-row">
+          <div class="fg sm"><label>Date Initiated</label><input class="fc" type="date" id="outsideDateInit" value="${today()}"></div>
+          <div class="fg md"><label>Source</label>
+            <select class="fc" id="outsideSource">
+              <option value="">— Choose Source —</option>
+              <option value="PCP">Primary Care Physician</option>
+              <option value="Specialist">Specialist</option>
+              <option value="ER">Emergency Room</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="fg"><label>Source Details</label><input class="fc" id="outsideSourceDetail" placeholder="e.g., Dr. Adams, PCP"></div>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Drug Name (enter at least 3 characters)</label>
+            <input class="fc" id="outsideDrugSearch" placeholder="Search drug name..." oninput="window._outsideDrugSearch(this.value)">
+            <div id="outsideDrugResults" style="border:1px solid var(--bdr-l);border-radius:var(--rad);max-height:180px;overflow-y:auto;display:none;margin-top:4px;background:#fff"></div>
+          </div>
+        </div>
+        <div id="outsideDetailSection" style="display:none">
+          <div class="form-row">
+            <div class="fg"><label>Instruction Text</label><input class="fc" id="outsideInstr" placeholder="Optional — shows on MAR"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Desired Outcome</label><input class="fc" id="outsideOutcome" placeholder="Optional"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg sm"><label>Strength</label><select class="fc" id="outsideStrength"></select></div>
+            <div class="fg sm"><label>Dose</label><input class="fc" type="number" id="outsideDose" value="1" min="1"></div>
+            <div class="fg"><label>Directions</label><select class="fc" id="outsideDir"></select></div>
+            <div class="fg sm"><label>Days</label><input class="fc" type="number" id="outsideDays" value="30" min="1"></div>
+          </div>
+          <div class="flex gap-sm mt-sm">
+            <button class="btn btn-p" onclick="window._insertOutsideMed()">Insert</button>
+            <button class="btn btn-out" onclick="document.getElementById('outsideDetailSection').style.display='none';document.getElementById('outsideDrugSearch').value=''">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-section" id="outsideInsertedList">
+        <div class="sec-title">📄 Medications to Save</div>
+        <p id="outsideEmptyMsg" style="color:var(--txt3);font-size:12px">No medications added yet.</p>
+      </div>
+
+      <div class="flex gap-sm jc-e mt-md" style="padding-bottom:20px">
+        <button class="btn btn-s" onclick="window._saveOutsideMeds()">Save</button>
+        <button class="btn btn-out" onclick="S.currentPage='patient-summary';render()">Cancel</button>
+      </div>
+    </div>
+    <div class="status-bar"><span>Add Outside Medication — ${esc(pt.name)}</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+let outsideSelectedDrug=null;
+let outsideMedQueue=[];
+window.outsideMedQueue=outsideMedQueue;
+window._outsideDrugSearch=function(val){
+  let box=document.getElementById('outsideDrugResults');
+  if(val.length<3){box.style.display='none';return}
+  let q=val.toLowerCase();
+  let matches=DRUG_DB.filter(d=>d.name.toLowerCase().includes(q)||d.generic.toLowerCase().includes(q));
+  if(!matches.length){box.innerHTML='<div style="padding:10px;color:var(--txt3);font-size:12px">No drugs found.</div>';box.style.display='block';return}
+  box.innerHTML=matches.map((d,i)=>`<div class="search-row" onclick="window._selectOutsideDrug(${DRUG_DB.indexOf(d)})">
+    <input type="radio" name="outDrugSel"><div><strong>${esc(d.name)}</strong><br><span style="color:var(--txt3);font-size:11px">${esc(d.generic)}</span></div>
+  </div>`).join('');
+  box.style.display='block';
+};
+
+window._selectOutsideDrug=function(idx){
+  outsideSelectedDrug=DRUG_DB[idx];
+  document.getElementById('outsideDrugSearch').value=outsideSelectedDrug.name;
+  document.getElementById('outsideDrugResults').style.display='none';
+  document.getElementById('outsideDetailSection').style.display='block';
+  let strSel=document.getElementById('outsideStrength');
+  strSel.innerHTML=outsideSelectedDrug.strengths.map(s=>`<option>${s}</option>`).join('');
+  let dirSel=document.getElementById('outsideDir');
+  dirSel.innerHTML=outsideSelectedDrug.directions.map(d=>`<option>${esc(d)}</option>`).join('');
+};
+
+window._insertOutsideMed=function(){
+  if(!outsideSelectedDrug){toast('Select a drug first','error');return}
+  outsideMedQueue.push({
+    drug:outsideSelectedDrug,
+    strength:document.getElementById('outsideStrength').value,
+    dose:document.getElementById('outsideDose').value,
+    directions:document.getElementById('outsideDir').value,
+    days:parseInt(document.getElementById('outsideDays').value)||30,
+    source:document.getElementById('outsideSource').value,
+    sourceDetail:document.getElementById('outsideSourceDetail').value,
+    dateInit:document.getElementById('outsideDateInit').value
+  });
+  toast(outsideSelectedDrug.name+' added','success');
+  outsideSelectedDrug=null;
+  document.getElementById('outsideDrugSearch').value='';
+  document.getElementById('outsideDetailSection').style.display='none';
+  // Update list
+  let list=document.getElementById('outsideInsertedList');
+  let empty=document.getElementById('outsideEmptyMsg');
+  if(empty)empty.style.display='none';
+  list.innerHTML=`<div class="sec-title">📄 Medications to Save</div>`+outsideMedQueue.map((o,i)=>`<div class="med-inserted"><div><strong>${esc(o.drug.name)}</strong> ${esc(o.strength)} — ${esc(o.directions)}<br><span style="color:var(--txt2);font-size:11px">Source: ${esc(o.sourceDetail||o.source)} &middot; Initiated: ${esc(o.dateInit)}</span></div><button class="disc-x" onclick="window._removeOutsideQueueItem(${i})">✕</button></div>`).join('');
+};
+
+window._removeOutsideQueueItem=function(idx){
+  outsideMedQueue.splice(idx,1);render();
+};
+
+window._saveOutsideMeds=function(){
+  if(!outsideMedQueue.length){toast('No medications to save','error');return}
+  let pid=S.selectedPatient;
+  if(!S.patientMeds[pid])S.patientMeds[pid]=[];
+  outsideMedQueue.forEach(o=>{
+    S.patientMeds[pid].push({
+      id:'MED-OUT-'+Date.now()+'-'+Math.floor(rng()*1000),
+      drug:o.drug,strength:o.strength,dose:o.dose,unit:o.drug.forms[0]||'Tablet',
+      directions:o.directions,daysSupply:o.days,qty:o.days,refills:0,
+      rxStart:o.dateInit,rxEnd:addDays(o.dateInit,o.days),
+      status:'active',prescribed:false,sendToPharm:null,consent:false,
+      outside:true,source:o.sourceDetail||o.source
+    });
+  });
+  toast(outsideMedQueue.length+' outside medication(s) saved','success');
+  outsideMedQueue.length=0;
+  S.currentPage='patient-summary';render();
+};
+
+/* ═══════════════════════════════════════════════════
+   ACTIONS FROM PATIENT SUMMARY
+   ═══════════════════════════════════════════════════ */
+
+let checkedMedIdxs=[];
+window.checkedMedIdxs=checkedMedIdxs;
+window._toggleMedCheck=function(el){
+  let idx=parseInt(el.dataset.idx);
+  if(el.checked){if(!checkedMedIdxs.includes(idx))checkedMedIdxs.push(idx)}
+  else{checkedMedIdxs=checkedMedIdxs.filter(i=>i!==idx)}
+};
+
+window._newOrder=function(){S.currentPage='new-order';S.orderQueue=[];checkedMedIdxs=[];render()};
+window._addOutsideMed=function(){S.currentPage='add-outside-med';outsideMedQueue.length=0;checkedMedIdxs.length=0;render()};
+
+/* ─── Discontinue Medication ─── */
+window._discontinueMed=function(idx){
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[idx];if(!med)return;
+  showModal(`<div class="modal-header" style="background:var(--err)"><span>⚠️ Discontinue Medication</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:14px">Are you sure you want to discontinue <strong>${esc(med.drug.name)} ${esc(med.strength)}</strong>?</p>
+    <div class="fg"><label>Discontinue Reason</label>
+      <select class="fc" id="discReason">
+        <option value="">— Select Reason —</option>
+        <option value="adverse">Adverse Reaction</option>
+        <option value="ineffective">Ineffective</option>
+        <option value="completed">Course Completed</option>
+        <option value="patient-request">Patient Request</option>
+        <option value="duplicate">Duplicate Therapy</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="fg"><label>Additional Details</label><textarea class="fc" id="discDetails" rows="3" placeholder="Describe reason for discontinuing..."></textarea></div>
+    <div class="fg"><label>Discontinuation Letter Method</label>
+      <select class="fc" id="discLetterMethod">
+        <option value="none">None</option>
+        <option value="mail">Mail to Patient</option>
+        <option value="portal">Send via Patient Portal</option>
+        <option value="hand">Hand Deliver at Visit</option>
+      </select>
+    </div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-d" onclick="window._confirmDiscontinue(${idx})">Discontinue</button>
+    </div>
+  </div>`);
+};
+
+window._confirmDiscontinue=function(idx){
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[idx];if(!med)return;
+  let reason=document.getElementById('discReason').value;
+  if(!reason){toast('Please select a discontinue reason','error');return}
+  med.status='discontinued';
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:med.drug.name+' '+med.strength,action:'Discontinued',date:today(),reason:reason+' — '+(document.getElementById('discDetails').value||'')});
+  closeModal();toast(med.drug.name+' discontinued','info');render();
+};
+
+/* ─── Change Order ─── */
+window._changeOrder=function(){
+  if(!checkedMedIdxs.length){toast('Select a medication checkbox first','warn');return}
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[checkedMedIdxs[0]];if(!med||med.outside){toast('Cannot change an outside medication order','error');return}
+
+  showModal(`<div class="modal-header"><span>✏️ Change Medication Order</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:12px"><strong>${esc(med.drug.name)}</strong></p>
+    <div class="form-row">
+      <div class="fg sm"><label>Strength</label>
+        <select class="fc" id="chgStrength">${(med.drug.strengths||[med.strength]).map(s=>`<option ${s===med.strength?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="fg sm"><label>Dose</label><input class="fc" type="number" id="chgDose" value="${med.dose}" min="1"></div>
+    </div>
+    <div class="form-row">
+      <div class="fg"><label>Directions</label>
+        <select class="fc" id="chgDir">${(med.drug.directions||[med.directions]).map(d=>`<option ${d===med.directions?'selected':''}>${esc(d)}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="fg sm"><label>Days</label><input class="fc" type="number" id="chgDays" value="${med.daysSupply}" min="1"></div>
+      <div class="fg sm"><label>Qty</label><input class="fc" type="number" id="chgQty" value="${med.qty}" min="1"></div>
+      <div class="fg sm"><label>Refills</label><input class="fc" type="number" id="chgRefills" value="${med.refills}" min="0"></div>
+      <div class="fg sm"><label>Rx Start Date</label><input class="fc" type="date" id="chgStart" value="${med.rxStart}"></div>
+    </div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._confirmChangeOrder(${checkedMedIdxs[0]})">Modify</button>
+    </div>
+  </div>`);
+};
+
+window._confirmChangeOrder=function(idx){
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[idx];if(!med)return;
+  let oldStr=med.strength;
+  med.strength=document.getElementById('chgStrength').value;
+  med.dose=document.getElementById('chgDose').value;
+  med.directions=document.getElementById('chgDir').value;
+  med.daysSupply=parseInt(document.getElementById('chgDays').value);
+  med.qty=parseInt(document.getElementById('chgQty').value);
+  med.refills=parseInt(document.getElementById('chgRefills').value);
+  med.rxStart=document.getElementById('chgStart').value;
+  med.rxEnd=addDays(med.rxStart,med.daysSupply);
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:med.drug.name+' '+med.strength,action:'Changed',date:today(),reason:'Order modified (was '+oldStr+')'});
+  closeModal();toast('Order changed — prescribe to send to pharmacy','success');
+  checkedMedIdxs=[];render();
+};
+
+/* ─── Re-Order ─── */
+window._reOrder=function(){
+  if(!checkedMedIdxs.length){toast('Select a medication checkbox first','warn');return}
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[checkedMedIdxs[0]];if(!med||med.outside){toast('Cannot re-order an outside medication','error');return}
+  let newStart=today();
+  let newEnd=addDays(newStart,med.daysSupply);
+
+  showModal(`<div class="modal-header"><span>🔄 Re-Order Medication</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:12px"><strong>${esc(med.drug.name)} ${esc(med.strength)}</strong> — ${esc(med.directions)}</p>
+    <div class="form-row">
+      <div class="fg sm"><label>Rx Start Date</label><input class="fc" type="date" id="reStart" value="${newStart}"></div>
+      <div class="fg sm"><label>Rx End Date</label><input class="fc" type="date" id="reEnd" value="${newEnd}"></div>
+      <div class="fg sm"><label>Qty</label><input class="fc" value="${med.qty}" readonly></div>
+      <div class="fg sm"><label>Refills</label><input class="fc" value="${med.refills}" readonly></div>
+    </div>
+    <p style="font-size:11px;color:var(--txt2)">Verify dates are correct before prescribing.</p>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._confirmReOrder(${checkedMedIdxs[0]})">Prescribe</button>
+    </div>
+  </div>`);
+};
+
+window._confirmReOrder=function(idx){
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active');
+  let med=meds[idx];if(!med)return;
+  med.rxStart=document.getElementById('reStart').value;
+  med.rxEnd=document.getElementById('reEnd').value;
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:med.drug.name+' '+med.strength,action:'Re-Ordered',date:today(),reason:'Prescription renewed'});
+  closeModal();toast(med.drug.name+' re-ordered and sent to pharmacy','success');
+  checkedMedIdxs=[];render();
+};
+
+/* ─── Patient Consent ─── */
+window._patientConsent=function(){
+  let pid=S.selectedPatient;
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active'&&!m.consent&&!m.outside);
+  if(!meds.length){toast('All medications already have consent','info');return}
+  let pt=S.patients.find(p=>p.id===pid);
+
+  showModal(`<div class="modal-header"><span>✅ Patient Consent</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:12px">The following medications require patient consent:</p>
+    <div style="margin-bottom:14px">${meds.map(m=>`<div style="padding:6px 0;border-bottom:1px solid var(--bdr-l);font-size:12px">💊 <strong>${esc(m.drug.name)}</strong> ${esc(m.strength)} — ${esc(m.directions)}</div>`).join('')}</div>
+
+    <div class="consent-doc">
+      <h4 style="margin-bottom:8px">Informed Consent for Psychotropic Medication</h4>
+      <p>I, <strong>${esc(pt.name)}</strong>, have been informed about the medications listed above, including their intended benefits, potential side effects, risks, and alternative treatments. I have had the opportunity to ask questions and my questions have been answered to my satisfaction.</p>
+      <p style="margin-top:8px">I understand that I may withdraw my consent and discontinue the medication(s) at any time by notifying my prescriber.</p>
+      <p style="margin-top:8px">I voluntarily consent to the use of the above medication(s) as prescribed.</p>
+    </div>
+
+    <div class="flex gap-lg" style="margin-bottom:14px">
+      <div style="flex:1">
+        <p style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">Prescriber Signature</p>
+        <div class="sig-box" id="prescriberSig">
+          <button class="btn btn-p btn-sm" onclick="window._signConsent('prescriber')">Sign</button>
+        </div>
+      </div>
+      <div style="flex:1">
+        <p style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">Client Signature</p>
+        <div class="sig-box" id="clientSig">
+          <button class="btn btn-p btn-sm" onclick="window._signConsent('client')">Sign</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-sm jc-e">
+      <button class="btn btn-out" onclick="closeModal()">Close</button>
+      <button class="btn btn-s" id="consentSaveBtn" onclick="window._saveConsent()" disabled>Save Consent</button>
+    </div>
+  </div>`);
+};
+
+let consentSigs={prescriber:false,client:false};
+window._signConsent=function(who){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  let box=document.getElementById(who==='prescriber'?'prescriberSig':'clientSig');
+  let name=who==='prescriber'?'Dr. Chen, Wei-Lin':pt.name;
+  box.classList.add('signed');
+  box.innerHTML=`<div class="sig-name">${esc(name)}</div><div class="sig-time">Signed ${new Date().toLocaleString()}</div>`;
+  consentSigs[who]=true;
+  if(consentSigs.prescriber&&consentSigs.client){
+    document.getElementById('consentSaveBtn').disabled=false;
+  }
+};
+
+window._saveConsent=function(){
+  if(!consentSigs.prescriber||!consentSigs.client){toast('Both signatures required','error');return}
+  let pid=S.selectedPatient;
+  let pt=S.patients.find(p=>p.id===pid);
+  let meds=(S.patientMeds[pid]||[]).filter(m=>m.status==='active'&&!m.consent&&!m.outside);
+  meds.forEach(m=>{
+    m.consent=true;
+    if(!S.consentHistory[pid])S.consentHistory[pid]=[];
+    S.consentHistory[pid].push({drug:m.drug.name,date:today(),prescriber:'Dr. Chen',client:pt.name});
+  });
+  consentSigs={prescriber:false,client:false};
+  closeModal();toast('Consent recorded for '+meds.length+' medication(s)','success');render();
+};
+
+/* ─── Print Medication List ─── */
+window._printMedList=function(){toast('Medication list sent to printer','info')};
+
+/* ─── Preferred Pharmacy Edit ─── */
+window._editPreferredPharm=function(){
+  // Open the full Pharmacy Search dialog (PDF1 §Adding Preferred Pharmacies steps 5-9)
+  window._openPharmSearchDialog();
+};
+
+window._editPreferredPharmLegacy=function(){
+  let pid=S.selectedPatient;
+  let pharmIds=S.patientPreferredPharm[pid]||[];
+
+  let pharmacyOptions=PHARMACIES_DB.map(ph=>`<option value="${ph.id}" ${pharmIds.includes(ph.id)?'selected':''}>${esc(ph.name)} — ${esc(pharmAddr(ph))}</option>`).join('');
+
+  showModal(`<div class="modal-header"><span>🏥 Client Preferred Pharmacies</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:14px">You can choose up to 3 preferred pharmacies. Select in order of preference.</p>
+    ${[1,2,3].map(n=>`<div class="fg"><label>Preferred Pharmacy #${n}</label>
+      <select class="fc" id="prefPharm${n}">
+        <option value="">— None —</option>${pharmacyOptions}
+      </select>
+    </div>`).join('')}
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._savePreferredPharm()">Save</button>
+    </div>
+  </div>`);
+
+  // Pre-select current
+  setTimeout(()=>{
+    pharmIds.forEach((pid2,i)=>{
+      let sel=document.getElementById('prefPharm'+(i+1));
+      if(sel)sel.value=pid2;
+    });
+  },50);
+};
+
+window._savePreferredPharm=function(){
+  let pid=S.selectedPatient;
+  let newIds=[];
+  for(let i=1;i<=3;i++){
+    let v=document.getElementById('prefPharm'+i).value;
+    if(v&&!newIds.includes(v))newIds.push(v);
+  }
+  S.patientPreferredPharm[pid]=newIds;
+  closeModal();toast('Preferred pharmacies updated','success');render();
+};
+
+/* ─── Add Allergy ─── */
+window._addAllergy=function(){
+  showModal(`<div class="modal-header"><span>⚠️ Add Allergy / Intolerance / Failed Trial</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="fg"><label>Substance / Medication Name</label><input class="fc" id="newAllergyName" placeholder="Enter at least 2 characters"></div>
+    <div class="fg"><label>Category</label>
+      <select class="fc" id="newAllergyType">
+        <option value="Allergies">Allergy</option>
+        <option value="Intolerances">Intolerance</option>
+        <option value="Failed Trials">Failed Trial</option>
+      </select>
+    </div>
+    <div id="allergyReactionFields">
+      <div class="form-row">
+        <div class="fg"><label>Reaction</label><input class="fc" id="newAllergyReaction" placeholder="e.g., Rash, GI Upset"></div>
+        <div class="fg sm"><label>Severity</label>
+          <select class="fc" id="newAllergySeverity">
+            <option value="Mild">Mild</option>
+            <option value="Moderate">Moderate</option>
+            <option value="Severe">Severe</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="fg"><label>Comments</label><textarea class="fc" id="newAllergyComment" rows="2" placeholder="Optional comments"></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._saveAllergy()">Select</button>
+    </div>
+  </div>`);
+};
+
+window._saveAllergy=function(){
+  let name=document.getElementById('newAllergyName').value.trim();
+  if(name.length<2){toast('Enter at least 2 characters for substance name','error');return}
+  let type=document.getElementById('newAllergyType').value;
+  let reaction=document.getElementById('newAllergyReaction').value.trim()||'—';
+  let severity=document.getElementById('newAllergySeverity').value;
+  let pid=S.selectedPatient;
+  if(!S.patientAllergies[pid])S.patientAllergies[pid]=[];
+  S.patientAllergies[pid].push({substance:name,type:type,reaction:reaction,severity:type==='Failed Trials'?'—':severity});
+  closeModal();toast(name+' added to '+type.toLowerCase(),'success');render();
+};
+
+/* ─── Send Method Toggle ─── */
+window._toggleSendMethod=function(){
+  let method=document.getElementById('orderMethod').value;
+  let wrap=document.getElementById('pharmSelectWrap');
+  if(wrap)wrap.style.display=method==='pharmacy'?'block':'none';
+};
+
+/* ═══════════════════════════════════════════════════
+   ACTIVITY LOG (PDF2 §5.0 Fig 5-2: Surescripts transmission timeline per Rx)
+   ═══════════════════════════════════════════════════ */
+function _logRxActivity(medId,event,detail,status){
+  if(!S.rxActivity[medId])S.rxActivity[medId]=[];
+  S.rxActivity[medId].push({ts:new Date().toISOString(),event:event,detail:detail||'',status:status||'OK',user:'Dr. Chen, Wei-Lin (NPI 1234567890)'});
+}
+window._viewActivityLog=function(medId){
+  let pid=S.selectedPatient;let pt=S.patients.find(p=>p.id===pid);
+  let med=(S.patientMeds[pid]||[]).find(m=>m.id===medId);
+  let acts=(S.rxActivity[medId]||[]).slice().sort((a,b)=>(a.ts<b.ts?1:-1));
+  let medName=med?(med.drug.name+' '+(med.strength||'')):medId;
+  let rows=acts.length?acts.map(a=>{
+    let cls=a.status==='ERROR'?'crit':(a.status==='WARN'?'warn':(a.status==='ACK'?'ok':'info'));
+    return `<tr><td style="font-size:11px;white-space:nowrap;color:var(--txt2)">${esc(a.ts.replace('T',' ').slice(0,16))}</td><td><strong>${esc(a.event)}</strong></td><td style="font-size:11px">${esc(a.detail)}</td><td style="font-size:11px;color:var(--txt2)">${esc(a.user||'')}</td><td><span class="alert-badge ${cls}">${esc(a.status)}</span></td></tr>`
+  }).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:14px">No transmission activity recorded.</td></tr>';
+  showModal(`<div class="modal-header"><span>📜 Surescripts Activity Log — ${esc(medName)}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Patient: <strong>${esc(pt?pt.name:'')}</strong> (${esc(pt?(pt.mrn||pt.id):'')}) · Rx ID: <strong>${esc(medId)}</strong></div>
+    <table class="dt"><thead><tr><th style="width:130px">Timestamp</th><th>Event</th><th>Detail</th><th>User</th><th style="width:60px">Status</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="flex jc-e mt-md"><button class="btn btn-out" onclick="closeModal()">Close</button></div>
+  </div>`);
+};
+
+/* ─── CancelRx (PDF2 §5.0) ─── */
+window._cancelOrder=function(medId){
+  let pid=S.selectedPatient;
+  let med=(S.patientMeds[pid]||[]).find(m=>m.id===medId);
+  if(!med){toast('Medication not found','error');return}
+  if(med.outside){toast('Outside (historical) medications cannot be cancelled via Surescripts','warn');return}
+  showModal(`<div class="modal-header"><span>🚫 Send CancelRx to Pharmacy</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:10px">You are sending a Surescripts <strong>CancelRx</strong> message to the dispensing pharmacy for:</p>
+    <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:10px;border-radius:4px;font-size:12px;margin-bottom:12px">
+      <strong>${esc(med.drug.name)}</strong> ${esc(med.strength)}<br>${esc(med.directions)}<br>Pharmacy: ${esc((pharmById(med.sendToPharm)||{}).name||'—')}
+    </div>
+    <div class="fg"><label>Cancel Reason</label>
+      <select class="fc" id="cxRsn">
+        <option value="discontinued-by-prescriber">Discontinued by Prescriber</option>
+        <option value="duplicate">Duplicate Order</option>
+        <option value="incorrect-drug">Incorrect Drug Selected</option>
+        <option value="incorrect-strength">Incorrect Strength/Dose</option>
+        <option value="incorrect-directions">Incorrect Sig/Directions</option>
+        <option value="patient-request">Patient Requested Cancellation</option>
+        <option value="adverse-reaction">Adverse Reaction</option>
+      </select>
+    </div>
+    <div class="fg"><label>Note to Pharmacy (optional)</label><textarea class="fc" id="cxNote" rows="2"></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Back</button>
+      <button class="btn btn-d" onclick="window._confirmCancelRx('${esc(medId)}')">Send CancelRx</button>
+    </div>
+  </div>`);
+};
+window._confirmCancelRx=function(medId){
+  let pid=S.selectedPatient;
+  let med=(S.patientMeds[pid]||[]).find(m=>m.id===medId);if(!med)return;
+  let rsn=document.getElementById('cxRsn').value;
+  let note=document.getElementById('cxNote').value||'';
+  med.status='cancelled';med.cancelReason=rsn;med.cancelledAt=new Date().toISOString();
+  _logRxActivity(medId,'CancelRx Sent','Reason: '+rsn+(note?'; Note: '+note:''),'OK');
+  setTimeout(()=>{_logRxActivity(medId,'CancelRx Response','Pharmacy acknowledged cancellation','ACK');render()},400);
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:med.drug.name,action:'CancelRx',date:today(),reason:rsn});
+  closeModal();toast('CancelRx sent to pharmacy','success');render();
+};
+
+/* ─── Renewal: Approve with Changes (PDF2 §3.2.3) ─── */
+window._approveWithChangesRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  let pid=r.patientId;
+  let original=(S.patientMeds[pid]||[]).find(m=>m.id===r.originalRx);
+  let curStrength=original?original.strength:'';
+  let curDir=original?original.directions:r.directions;
+  let curQty=original?original.qty:30;
+  let curDays=original?original.daysSupply:30;
+  let curRefills=original?original.refills:1;
+  showModal(`<div class="modal-header"><span>✎ Approve Renewal with Changes — ${esc(r.id)}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">Modify any field below before transmitting renewal back to the pharmacy.</p>
+    <div class="form-row"><div class="fg"><label>Drug</label><input class="fc" value="${esc(r.drug)}" readonly></div>
+    <div class="fg sm"><label>Strength</label><input class="fc" id="rwcStr" value="${esc(curStrength)}"></div></div>
+    <div class="fg"><label>Sig / Directions</label><input class="fc" id="rwcSig" value="${esc(curDir)}"></div>
+    <div class="form-row">
+      <div class="fg sm"><label>Quantity</label><input class="fc" id="rwcQty" type="number" value="${curQty}"></div>
+      <div class="fg sm"><label>Days Supply</label><input class="fc" id="rwcDays" type="number" value="${curDays}"></div>
+      <div class="fg sm"><label>Refills</label><input class="fc" id="rwcRef" type="number" value="${curRefills}"></div>
+    </div>
+    <div class="fg"><label>Note to Pharmacy</label><textarea class="fc" id="rwcNote" rows="2" placeholder="Reason for changes (optional)"></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._confirmApproveWithChanges('${esc(rid)}')">Transmit Renewal</button>
+    </div>
+  </div>`);
+};
+window._confirmApproveWithChanges=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  let pid=r.patientId;
+  let strength=document.getElementById('rwcStr').value;
+  let sig=document.getElementById('rwcSig').value;
+  let qty=parseInt(document.getElementById('rwcQty').value)||30;
+  let days=parseInt(document.getElementById('rwcDays').value)||30;
+  let ref=parseInt(document.getElementById('rwcRef').value)||0;
+  let note=document.getElementById('rwcNote').value||'';
+  if(!S.patientMeds[pid])S.patientMeds[pid]=[];
+  let original=(S.patientMeds[pid]||[]).find(m=>m.id===r.originalRx);
+  let nm={id:'MED-RNWC-'+Date.now(),drug:original?original.drug:{name:r.drug,generic:r.drug,strengths:[],forms:['Tablet'],directions:[sig],category:'',schedule:r.controlled?'Schedule II':'Non-Controlled'},strength:strength,dose:'1',unit:'Tablet',directions:sig,daysSupply:days,qty:qty,refills:ref,rxStart:today(),rxEnd:addDays(today(),days),status:'active',prescribed:true,sendToPharm:r.pharmacy,consent:original?original.consent:false,outside:false,renewalOf:r.id,renewalNote:note};
+  S.patientMeds[pid].push(nm);
+  _logRxActivity(nm.id,'Renewal Approved w/ Changes','From SS request '+r.id+'; Sig:"'+sig+'"; Qty:'+qty+'; Days:'+days+'; Refills:'+ref,'OK');
+  setTimeout(()=>{_logRxActivity(nm.id,'NewRx Transmitted','Surescripts NewRx → '+(pharmById(r.pharmacy)||{}).name,'ACK');render()},400);
+  r.status='approved-with-changes';r.respondedAt=new Date().toISOString();r.note=note;
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:r.drug,action:'Renewal Approved with Changes',date:today(),reason:note||'Sig/qty/refills modified'});
+  S.prescribedThisSession.push({patientId:pid,drug:r.drug,type:'renewal-with-changes'});
+  closeModal();toast('Renewal '+r.id+' approved with changes & transmitted','success');render();
+};
+
+/* ─── Renewal: Replace (deny + new Rx) ─── */
+window._replaceRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  // Mark this renewal as replaced and route to New Order with the patient pre-selected
+  showModal(`<div class="modal-header"><span>↻ Replace Renewal — ${esc(r.id)}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:10px">Replacing a renewal denies the original request and opens a new prescription order. Use this when therapy needs to change to a different drug.</p>
+    <div class="fg"><label>Note to Pharmacy</label><textarea class="fc" id="rplNote" rows="2" placeholder="e.g., Switching to escitalopram per Tx plan"></textarea></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._confirmReplaceRenewal('${esc(rid)}')">Continue to New Order</button>
+    </div>
+  </div>`);
+};
+window._confirmReplaceRenewal=function(rid){
+  let r=S.renewalRequests.find(x=>x.id===rid);if(!r)return;
+  r.status='replaced';r.respondedAt=new Date().toISOString();r.note=document.getElementById('rplNote').value||'';
+  let pid=r.patientId;
+  if(!S.medHistory[pid])S.medHistory[pid]=[];
+  S.medHistory[pid].push({drug:r.drug,action:'Renewal Replaced',date:today(),reason:r.note||'Different drug to be prescribed'});
+  S.selectedPatient=pid;S.currentPage='new-order';
+  closeModal();toast('Renewal '+r.id+' marked as Replaced — opening New Order','info');render();
+};
+
+/* ═══════════════════════════════════════════════════
+   PHARMACY SEARCH DIALOG (PDF1 §Adding Preferred Pharmacies steps 5-9)
+   ═══════════════════════════════════════════════════ */
+window._openPharmSearchDialog=function(){
+  let pid=S.selectedPatient;
+  let pt=S.patients.find(p=>p.id===pid);
+  let pharmIds=(S.patientPreferredPharm[pid]||[]).slice();
+  // Unique state list from PHARMACIES_DB
+  let states=Array.from(new Set(PHARMACIES_DB.map(p=>p.state))).sort();
+  let stateOpts='<option value="">All States</option>'+states.map(s=>`<option value="${s}" ${pt&&pt.address&&pt.address.includes(', '+s+' ')?'selected':''}>${s}</option>`).join('');
+  showModal(`<div class="modal-header"><span>🏥 Pharmacy Search — ${esc(pt?pt.name:'Patient')}</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body" style="max-width:760px">
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Search the Surescripts pharmacy directory. Use filters below, then check up to 3 pharmacies to add as Preferred (in order of selection).</div>
+    <div class="ph-search-row">
+      <div class="fg"><label>Pharmacy Name</label><input class="fc" id="phsName" placeholder="Begins with…"></div>
+      <div class="fg"><label>State</label><select class="fc" id="phsState">${stateOpts}</select></div>
+      <div class="fg"><label>City / ZIP</label><input class="fc" id="phsCity" placeholder="City or ZIP"></div>
+      <div class="fg"><label>Within (miles)</label><select class="fc" id="phsDist"><option value="">Any</option><option value="5">5</option><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></div>
+    </div>
+    <div class="flex gap-sm" style="margin:6px 0 10px;flex-wrap:wrap">
+      <label style="font-size:12px"><input type="checkbox" id="phsEpcs"> EPCS-enabled (required for Schedule II)</label>
+      <label style="font-size:12px"><input type="checkbox" id="phsBh"> Behavioral Health Specialty</label>
+      <label style="font-size:12px"><input type="checkbox" id="phsMail"> Mail Order</label>
+      <label style="font-size:12px"><input type="checkbox" id="phsNet"> Network Only</label>
+      <button class="btn btn-p btn-sm" onclick="window._runPharmSearch()">🔍 Search</button>
+      <button class="btn btn-out btn-sm" onclick="window._clearPharmSearch()">Clear</button>
+    </div>
+    <div id="phsResults"><div style="color:var(--txt3);font-size:12px;padding:14px;text-align:center;border:1px dashed var(--bdr-l);border-radius:4px">Click <strong>Search</strong> to query the Surescripts directory.</div></div>
+    <input type="hidden" id="phsSelected" value="${pharmIds.join(',')}">
+    <div style="font-size:11px;color:var(--txt2);margin-top:10px">Currently selected as Preferred: <span id="phsSelLabel">${pharmIds.length?pharmIds.map(id=>{let p=pharmById(id);return p?esc(p.name):id}).join(' · '):'(none)'}</span></div>
+    <div class="flex gap-sm jc-e mt-md">
+      <button class="btn btn-out" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="window._savePharmSearch()">Save Preferred Pharmacies</button>
+    </div>
+  </div>`);
+  setTimeout(()=>window._runPharmSearch(),60);
+};
+window._clearPharmSearch=function(){
+  ['phsName','phsCity'].forEach(id=>{let e=document.getElementById(id);if(e)e.value=''});
+  ['phsState'].forEach(id=>{let e=document.getElementById(id);if(e)e.value=''});
+  ['phsEpcs','phsBh','phsMail','phsNet'].forEach(id=>{let e=document.getElementById(id);if(e)e.checked=false});
+  let d=document.getElementById('phsDist');if(d)d.value='25';
+  window._runPharmSearch();
+};
+window._runPharmSearch=function(){
+  let nm=(document.getElementById('phsName')||{}).value||'';
+  let st=(document.getElementById('phsState')||{}).value||'';
+  let cy=(document.getElementById('phsCity')||{}).value||'';
+  let dist=parseFloat((document.getElementById('phsDist')||{}).value||'')||0;
+  let epcs=(document.getElementById('phsEpcs')||{}).checked;
+  let bh=(document.getElementById('phsBh')||{}).checked;
+  let ml=(document.getElementById('phsMail')||{}).checked;
+  let net=(document.getElementById('phsNet')||{}).checked;
+  let sel=((document.getElementById('phsSelected')||{}).value||'').split(',').filter(Boolean);
+  let res=PHARMACIES_DB.filter(p=>{
+    if(nm && !p.name.toLowerCase().startsWith(nm.toLowerCase()))return false;
+    if(st && p.state!==st)return false;
+    if(cy && !((p.city||'').toLowerCase().includes(cy.toLowerCase())||(p.zip||'').includes(cy)))return false;
+    if(dist && (p.distance||999)>dist)return false;
+    if(epcs && !p.epcs)return false;
+    if(bh && !p.behavioralHealth)return false;
+    if(ml && !p.mailOrder)return false;
+    if(net && !p.networkOnly)return false;
+    return true;
+  });
+  let html=res.length?`<table class="dt"><thead><tr><th style="width:30px"></th><th>Pharmacy</th><th>Address</th><th>NCPDP / NPI</th><th>Distance</th><th>Hours</th><th>Capabilities</th></tr></thead><tbody>${res.map(p=>{
+    let checked=sel.includes(p.id)?'checked':'';
+    let caps=[];
+    caps.push(p.epcs?'<span class="pill epcs">EPCS</span>':'<span class="pill no-epcs">No EPCS</span>');
+    if(p.behavioralHealth)caps.push('<span class="pill bh">Behavioral Hlth</span>');
+    if(p.mailOrder)caps.push('<span class="pill mail">Mail Order</span>');
+    if(p.networkOnly)caps.push('<span class="pill network">In-Network</span>');
+    return `<tr><td><input type="checkbox" data-pid="${p.id}" class="phs-pick" ${checked} onchange="window._togglePharmPick(this)"></td><td><strong>${esc(p.name)}</strong></td><td style="font-size:11px">${esc(pharmAddr(p))}</td><td style="font-size:10px;color:var(--txt2)">NCPDP ${esc(p.ncpdp||'')}<br>NPI ${esc(p.npi||'')}</td><td>${p.distance!=null?p.distance+' mi':'—'}</td><td style="font-size:10px;color:var(--txt2)">${esc(p.hours||'—')}</td><td style="font-size:10px">${caps.join(' ')}</td></tr>`
+  }).join('')}</tbody></table><div style="font-size:11px;color:var(--txt2);margin-top:6px">${res.length} pharmacy(ies) match your filters.</div>`:'<div style="color:var(--txt3);font-size:12px;padding:14px;text-align:center;border:1px dashed var(--bdr-l);border-radius:4px">No pharmacies match the current filters. Try broadening your search.</div>';
+  document.getElementById('phsResults').innerHTML=html;
+};
+window._togglePharmPick=function(cb){
+  let sel=((document.getElementById('phsSelected')||{}).value||'').split(',').filter(Boolean);
+  let pid=cb.getAttribute('data-pid');
+  if(cb.checked){
+    if(sel.length>=3){cb.checked=false;toast('Maximum 3 preferred pharmacies','warn');return}
+    if(!sel.includes(pid))sel.push(pid);
+  } else {
+    sel=sel.filter(x=>x!==pid);
+  }
+  document.getElementById('phsSelected').value=sel.join(',');
+  let lbl=document.getElementById('phsSelLabel');
+  if(lbl)lbl.innerHTML=sel.length?sel.map(id=>{let p=pharmById(id);return p?esc(p.name):id}).join(' · '):'(none)';
+};
+window._savePharmSearch=function(){
+  let pid=S.selectedPatient;
+  let sel=((document.getElementById('phsSelected')||{}).value||'').split(',').filter(Boolean);
+  S.patientPreferredPharm[pid]=sel;
+  closeModal();toast('Preferred pharmacies updated ('+sel.length+')','success');render();
+};
+
+/* ═══════════════════════════════════════════════════
+   MODULE: SURESCRIPTS MAILBOX (PDF2 §6.0)
+   ═══════════════════════════════════════════════════ */
+function renderMailboxPage(){
+  let view=S.mailboxView||'renewals';
+  let pendingRnw=(S.renewalRequests||[]).filter(r=>r.status==='pending');
+  let respondedRnw=(S.renewalRequests||[]).filter(r=>r.status!=='pending');
+  let denied=respondedRnw.filter(r=>r.status==='denied');
+  let lvl=S.reportLevel||1;
+  let svc=S.serviceLevel||'Level 6 — Full eRx + Renewals + CancelRx + EPCS';
+  let body='';
+  if(view==='renewals'){
+    body=`<div class="card"><div class="card-h">📨 Pending Renewal Requests <span style="font-size:11px;color:var(--txt2);font-weight:400">${pendingRnw.length} pending</span></div>
+      <div class="card-b" style="padding:0">
+        <table class="dt"><thead><tr><th>Req ID</th><th>Patient</th><th>Drug</th><th>Pharmacy</th><th>Received</th><th>Type</th><th>Action</th></tr></thead><tbody>
+        ${pendingRnw.length?pendingRnw.map(r=>{let p=S.patients.find(x=>x.id===r.patientId);let ph=pharmById(r.pharmacy);return `<tr><td><strong>${esc(r.id)}</strong></td><td>${esc(p?p.name:r.patientId)}</td><td>${esc(r.drug)}</td><td>${esc(ph?ph.name:'')}</td><td>${esc(r.received)}</td><td>${r.controlled?'<span class="st" style="background:#fee;color:#c00">Controlled</span>':'Standard'}</td><td><button class="btn btn-p btn-sm" onclick="S.selectedPatient='${esc(r.patientId)}';S.currentPage='patient-summary';S.currentNav='renewal-queue';render()">Open Patient</button></td></tr>`}).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Inbox empty.</td></tr>'}
+        </tbody></table></div></div>`;
+  } else if(view==='ssorders'){
+    let ord=(S.ssOrders||[]).slice().sort((a,b)=>(a.ts<b.ts?1:-1));
+    body=`<div class="card"><div class="card-h">📬 My Surescripts Orders <span style="font-size:11px;color:var(--txt2);font-weight:400">All NewRx / RefillResponse / CancelRx I have transmitted</span></div>
+      <div class="card-b" style="padding:0">
+        <table class="dt"><thead><tr><th>Timestamp</th><th>Type</th><th>Patient</th><th>Drug</th><th>Pharmacy</th><th>Status</th></tr></thead><tbody>
+        ${ord.length?ord.map(o=>{let p=S.patients.find(x=>x.id===o.patientId);return `<tr><td style="font-size:11px;white-space:nowrap">${esc(o.ts.replace('T',' ').slice(0,16))}</td><td><span class="st">${esc(o.type)}</span></td><td>${esc(p?p.name:o.patientId)}</td><td>${esc(o.drug)}</td><td style="font-size:11px">${esc(o.pharmacyName||'')}</td><td><span class="alert-badge ${o.status==='ACK'?'ok':(o.status==='ERROR'?'crit':'info')}">${esc(o.status)}</span></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--txt3);padding:20px">No transmissions yet.</td></tr>'}
+        </tbody></table></div></div>`;
+  } else if(view==='denied'){
+    body=`<div class="card"><div class="card-h">🚫 Requests Denied</div>
+      <div class="card-b" style="padding:0">
+        <table class="dt"><thead><tr><th>Req ID</th><th>Patient</th><th>Drug</th><th>Reason</th><th>Note</th><th>Responded</th></tr></thead><tbody>
+        ${denied.length?denied.map(r=>{let p=S.patients.find(x=>x.id===r.patientId);return `<tr><td>${esc(r.id)}</td><td>${esc(p?p.name:r.patientId)}</td><td>${esc(r.drug)}</td><td style="font-size:11px">${esc(r.reason||'—')}</td><td style="font-size:11px">${esc(r.note||'')}</td><td style="font-size:11px">${esc((r.respondedAt||'').replace('T',' ').slice(0,16))}</td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--txt3);padding:20px">No denied requests.</td></tr>'}
+        </tbody></table></div></div>`;
+  } else if(view==='reporting'){
+    body=`<div class="card"><div class="card-h">📊 Reporting Levels (PDF2 §6.5–6.6)</div>
+      <div class="card-b">
+        <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">Reporting level controls how much detail Surescripts surfaces in dashboards. Levels 1–10 — higher = more granular event capture.</p>
+        <div class="fg"><label>Current Reporting Level</label>
+          <select class="fc" id="rptLvl" onchange="S.reportLevel=parseInt(this.value);toast('Reporting level set to '+this.value,'info');render()">
+            ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${lvl===n?'selected':''}>Level ${n} ${n===1?'(Basic counts)':n===5?'(+ Drug class breakdown)':n===10?'(Full audit detail)':''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="stats-card">Service Level: <strong>${esc(svc)}</strong></div>
+        <div class="stats-card">Prescriber SPI: <strong>${esc(S.spiNumber||'1234567890001234567890')}</strong></div>
+        <div class="stats-card">Pending Renewals: <strong>${pendingRnw.length}</strong></div>
+        <div class="stats-card">My Transmissions (this session): <strong>${(S.ssOrders||[]).length}</strong></div>
+        <div class="stats-card">Denials Issued: <strong>${denied.length}</strong></div>
+      </div>
+    </div>`;
+  }
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('Surescripts Mailbox')}
+    <div class="content">
+      <div class="tabbar">
+        <div class="tabbar-item ${view==='renewals'?'active':''}" onclick="S.mailboxView='renewals';render()">📨 Renewals (${pendingRnw.length})</div>
+        <div class="tabbar-item ${view==='ssorders'?'active':''}" onclick="S.mailboxView='ssorders';render()">📬 My SS Orders</div>
+        <div class="tabbar-item ${view==='denied'?'active':''}" onclick="S.mailboxView='denied';render()">🚫 Requests Denied (${denied.length})</div>
+        <div class="tabbar-item ${view==='reporting'?'active':''}" onclick="S.mailboxView='reporting';render()">📊 Reporting</div>
+      </div>
+      ${body}
+    </div>
+    <div class="status-bar"><span>Surescripts Mailbox</span><span>Service: ${esc(svc)}</span><span>Reporting Level: ${lvl}</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   MODULE: VITALS & LABS (PDF1 §Vitals & Flow Sheets)
+   ═══════════════════════════════════════════════════ */
+function renderVitalsPage(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  if(!pt)return `<div style="display:flex;flex-direction:column;min-height:100vh">${headerHTML('Vitals & Labs')}<div class="content"><div class="card"><div class="card-b">Select a patient first.</div></div></div></div>`;
+  let v=(VITALS_HISTORY[pt.id]||[]).slice().sort((a,b)=>(a.date<b.date?1:-1));
+  let labs=LABS[pt.id]||[];
+  let latest=v[0]||{};
+  let chips=v.length?`<div class="flex gap-sm" style="flex-wrap:wrap">
+    <span class="v-chip">BP <strong>${latest.sbp}/${latest.dbp}</strong> mmHg</span>
+    <span class="v-chip">HR <strong>${latest.hr}</strong> bpm</span>
+    <span class="v-chip">Temp <strong>${latest.temp}</strong> °F</span>
+    <span class="v-chip">Resp <strong>${latest.resp}</strong> /min</span>
+    <span class="v-chip">SpO₂ <strong>${latest.spo2}</strong>%</span>
+    <span class="v-chip">Pain <strong>${latest.pain}</strong>/10</span>
+    <span class="v-chip">Wt <strong>${latest.wt}</strong> kg</span>
+    <span class="v-chip">Ht <strong>${latest.ht}</strong> cm</span>
+  </div>`:'<div style="color:var(--txt3);font-size:12px">No vitals on file.</div>';
+  let flow=v.length?`<table class="dt"><thead><tr><th>Date</th><th>BP</th><th>HR</th><th>Temp</th><th>Resp</th><th>SpO₂</th><th>Pain</th><th>Wt (kg)</th></tr></thead><tbody>
+    ${v.map(r=>`<tr><td>${esc(r.date)}</td><td>${r.sbp}/${r.dbp}</td><td>${r.hr}</td><td>${r.temp}</td><td>${r.resp}</td><td>${r.spo2}</td><td>${r.pain}</td><td>${r.wt}</td></tr>`).join('')}
+  </tbody></table>`:'<div style="color:var(--txt3);font-size:12px;padding:14px;text-align:center">No flow-sheet entries.</div>';
+  let labRows=labs.length?labs.map(l=>{
+    let cls=l.flag==='H'||l.flag==='HH'?'crit':(l.flag==='L'||l.flag==='LL'?'warn':'ok');
+    return `<tr><td><strong>${esc(l.name)}</strong></td><td>${esc(String(l.val))}</td><td>${esc(l.unit||'')}</td><td style="font-size:11px;color:var(--txt2)">${esc(l.ref||'')}</td><td><span class="alert-badge ${cls}">${esc(l.flag||'WNL')}</span></td><td style="font-size:11px;color:var(--txt2)">${esc(l.date||'')}</td></tr>`
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--txt3);padding:14px">No labs on file.</td></tr>';
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML(pt.name+' — Vitals & Labs')}
+    <div class="content">
+      <div class="card"><div class="card-h">🩺 Latest Vitals (${esc(latest.date||'—')})</div><div class="card-b">${chips}</div></div>
+      <div class="card"><div class="card-h">📈 Vital Signs Flow Sheet</div><div class="card-b" style="padding:0">${flow}</div></div>
+      <div class="card"><div class="card-h">🧪 Recent Laboratory Results</div><div class="card-b" style="padding:0"><table class="lab-tbl"><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th><th>Collected</th></tr></thead><tbody>${labRows}</tbody></table></div></div>
+    </div>
+    <div class="status-bar"><span>Patient: ${esc(pt.name)}</span><span>Vitals records: ${v.length}</span><span>Labs: ${labs.length}</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   MODULE: HISTORY & PHYSICAL (PDF1)
+   ═══════════════════════════════════════════════════ */
+function renderHPPage(){
+  let pt=S.patients.find(p=>p.id===S.selectedPatient);
+  if(!pt)return `<div style="display:flex;flex-direction:column;min-height:100vh">${headerHTML('History & Physical')}<div class="content"><div class="card"><div class="card-b">Select a patient first.</div></div></div></div>`;
+  let problems=PROBLEMS[pt.id]||[];
+  let allergies=S.patientAllergies[pt.id]||[];
+  let meds=(S.patientMeds[pt.id]||[]).filter(m=>m.status==='active');
+  let tab=S.hpTab||'general';
+  let body='';
+  if(tab==='general'){
+    body=`<div class="card"><div class="card-h">👤 General / Demographics</div><div class="card-b">
+      <div class="demo-grid">
+        <div><label>Name</label><div>${esc(pt.name)}</div></div>
+        <div><label>MRN</label><div>${esc(pt.mrn||pt.id)}</div></div>
+        <div><label>DOB / Age</label><div>${esc(pt.dob)} (${ageFromDOB(pt.dob)} y)</div></div>
+        <div><label>Sex</label><div>${esc(pt.gender||'')}</div></div>
+        <div><label>Race / Ethnicity</label><div>${esc(pt.race||'')} / ${esc(pt.ethnicity||'')}</div></div>
+        <div><label>Preferred Language</label><div>${esc(pt.language||'English')}</div></div>
+        <div><label>Phone</label><div>${esc(pt.phone||'')}</div></div>
+        <div><label>Email</label><div>${esc(pt.email||'')}</div></div>
+        <div style="grid-column:span 2"><label>Address</label><div>${esc(pt.address||'')}</div></div>
+        <div><label>Primary Care</label><div>${esc(pt.pcp||'')}</div></div>
+        <div><label>Insurance</label><div>${esc(pt.insurance||'')}</div></div>
+      </div>
+    </div></div>`;
+  } else if(tab==='hpi'){
+    body=`<div class="card"><div class="card-h">📝 History of Present Illness</div><div class="card-b">
+      <p style="font-size:12px;line-height:1.6">${esc(pt.name)} is a ${ageFromDOB(pt.dob)}-year-old ${(pt.gender||'').toLowerCase()} with established diagnoses of ${problems.map(p=>p.dx).join(', ')||'no documented psychiatric history'} who presents for medication management. Patient reports adherence to current regimen with the following active prescriptions: ${meds.map(m=>m.drug.name+' '+m.strength).join(', ')||'none'}. ${allergies.length?'Allergy history significant for: '+allergies.map(a=>a.substance+' ('+a.reaction+')').join(', ')+'.':'No known drug allergies.'}</p>
+      <p style="font-size:12px;line-height:1.6;margin-top:10px"><strong>Subjective:</strong> Patient denies SI/HI/AVH. Sleep, appetite, energy, concentration reviewed.</p>
+      <p style="font-size:12px;line-height:1.6"><strong>Objective:</strong> See Vitals & Labs module for current data points.</p>
+      <p style="font-size:12px;line-height:1.6"><strong>Assessment / Plan:</strong> Continue current regimen with adjustments below in Rx module.</p>
+    </div></div>`;
+  } else if(tab==='medhx'){
+    body=`<div class="card"><div class="card-h">📚 Past Medical & Psychiatric History</div><div class="card-b">
+      <ul style="font-size:12px;line-height:1.8;padding-left:20px;margin:0">
+        ${problems.length?problems.map(p=>`<li><strong>${esc(p.icd10)}</strong> — ${esc(p.dx)} <span style="color:var(--txt3)">(${esc(p.type||'Active')}; onset ${esc(p.onset||'unknown')})</span></li>`).join(''):'<li style="color:var(--txt3)">No problems documented.</li>'}
+      </ul>
+    </div></div>`;
+  } else if(tab==='dx'){
+    body=`<div class="card"><div class="card-h">🩺 Active Diagnoses (ICD-10)</div><div class="card-b" style="padding:0">
+      <table class="dt"><thead><tr><th>ICD-10</th><th>Description</th><th>Type</th><th>Onset</th></tr></thead><tbody>
+      ${problems.length?problems.map(p=>`<tr><td><strong>${esc(p.icd10)}</strong></td><td>${esc(p.dx)}</td><td>${esc(p.type||'Active')}</td><td>${esc(p.onset||'')}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--txt3);padding:14px">No active diagnoses.</td></tr>'}
+      </tbody></table>
+    </div></div>`;
+  }
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML(pt.name+' — H&P')}
+    <div class="content">
+      <div class="tabbar">
+        <div class="tabbar-item ${tab==='general'?'active':''}" onclick="S.hpTab='general';render()">👤 General</div>
+        <div class="tabbar-item ${tab==='hpi'?'active':''}" onclick="S.hpTab='hpi';render()">📝 HPI</div>
+        <div class="tabbar-item ${tab==='medhx'?'active':''}" onclick="S.hpTab='medhx';render()">📚 Medical History</div>
+        <div class="tabbar-item ${tab==='dx'?'active':''}" onclick="S.hpTab='dx';render()">🩺 Diagnoses</div>
+      </div>
+      ${body}
+    </div>
+    <div class="status-bar"><span>Patient: ${esc(pt.name)}</span><span>Problems: ${problems.length}</span><span>Active Meds: ${meds.length}</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   MODULE: REPORTS
+   ═══════════════════════════════════════════════════ */
+function renderReportsPage(){
+  let totalPts=S.patients.length;
+  let totalActiveMeds=0;
+  let totalCS=0;
+  S.patients.forEach(p=>{
+    let m=(S.patientMeds[p.id]||[]).filter(x=>x.status==='active');
+    totalActiveMeds+=m.length;
+    totalCS+=m.filter(x=>x.drug && (x.drug.schedule==='Schedule II'||x.drug.schedule==='Schedule IV')).length;
+  });
+  let totalRnw=(S.renewalRequests||[]).length;
+  let pendingRnw=(S.renewalRequests||[]).filter(r=>r.status==='pending').length;
+  let approvedRnw=(S.renewalRequests||[]).filter(r=>r.status==='approved'||r.status==='approved-with-changes').length;
+  let deniedRnw=(S.renewalRequests||[]).filter(r=>r.status==='denied').length;
+  let txCount=(S.ssOrders||[]).length;
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('Reports')}
+    <div class="content">
+      <div class="card"><div class="card-h">📊 Practice Overview</div><div class="card-b">
+        <div class="stats-card">Active Patients in Panel: <strong>${totalPts}</strong></div>
+        <div class="stats-card">Active Prescriptions: <strong>${totalActiveMeds}</strong></div>
+        <div class="stats-card">Controlled Substances on File: <strong>${totalCS}</strong></div>
+      </div></div>
+      <div class="card"><div class="card-h">📨 Surescripts Activity</div><div class="card-b">
+        <div class="stats-card">Total Renewal Requests Received: <strong>${totalRnw}</strong></div>
+        <div class="stats-card">Pending: <strong style="color:#92400e">${pendingRnw}</strong></div>
+        <div class="stats-card">Approved (incl. w/ changes): <strong style="color:#166534">${approvedRnw}</strong></div>
+        <div class="stats-card">Denied: <strong style="color:#9f1239">${deniedRnw}</strong></div>
+        <div class="stats-card">Total Transmissions Sent: <strong>${txCount}</strong></div>
+      </div></div>
+      <div class="card"><div class="card-h">💊 Top Drug Classes Prescribed</div><div class="card-b" style="padding:0">
+        <table class="dt"><thead><tr><th>Class</th><th>Active Rxs</th></tr></thead><tbody>
+        ${(()=>{let cls={};S.patients.forEach(p=>{(S.patientMeds[p.id]||[]).filter(x=>x.status==='active').forEach(m=>{let c=(m.drug&&m.drug.category)||'Other';cls[c]=(cls[c]||0)+1})});let arr=Object.entries(cls).sort((a,b)=>b[1]-a[1]);return arr.length?arr.map(([c,n])=>`<tr><td>${esc(c)}</td><td>${n}</td></tr>`).join(''):'<tr><td colspan="2" style="text-align:center;color:var(--txt3);padding:14px">No data</td></tr>'})()}
+        </tbody></table>
+      </div></div>
+    </div>
+    <div class="status-bar"><span>Reports Module</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   MODULE: TOOLS (Surrogates PDF2 §6.3, SPI PDF2 §8)
+   ═══════════════════════════════════════════════════ */
+function renderToolsPage(){
+  let surrogates=S.surrogates||[];
+  return `<div style="display:flex;flex-direction:column;min-height:100vh">
+    ${headerHTML('Tools & Settings')}
+    <div class="content">
+      <div class="card"><div class="card-h">👥 Surrogate Settings (PDF2 §6.3)</div><div class="card-b">
+        <p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Surrogates can review your Surescripts inbox on your behalf (e.g., during PTO). They cannot transmit on your DEA without their own credential.</p>
+        <table class="dt"><thead><tr><th>Surrogate Name</th><th>NPI</th><th>Role</th><th>Active</th><th>Action</th></tr></thead><tbody>
+        ${surrogates.length?surrogates.map((s,i)=>`<tr><td>${esc(s.name)}</td><td>${esc(s.npi)}</td><td>${esc(s.role||'Reviewer')}</td><td>${s.active?'<span class="alert-badge ok">Yes</span>':'<span class="alert-badge warn">No</span>'}</td><td><button class="btn btn-out btn-sm" onclick="S.surrogates[${i}].active=!S.surrogates[${i}].active;render()">${s.active?'Deactivate':'Activate'}</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:14px">No surrogates configured.</td></tr>'}
+        </tbody></table>
+        <div class="flex jc-e mt-md"><button class="btn btn-p btn-sm" onclick="window._addSurrogate()">+ Add Surrogate</button></div>
+      </div></div>
+      <div class="card"><div class="card-h">🔑 Prescriber Credentials</div><div class="card-b">
+        <div class="demo-grid">
+          <div><label>Name</label><div>Dr. Chen, Wei-Lin, MD</div></div>
+          <div><label>NPI</label><div>1234567890</div></div>
+          <div><label>DEA</label><div>BC1234567 ${S.prescriberDeaVerified?'<span class="alert-badge ok">Verified</span>':'<span class="alert-badge warn">Unverified</span>'}</div></div>
+          <div><label>Surescripts SPI</label><div>${esc(S.spiNumber||'1234567890001234567890')}</div></div>
+          <div><label>Service Level</label><div>${esc(S.serviceLevel||'Level 6 — Full eRx + Renewals + CancelRx + EPCS')}</div></div>
+          <div><label>EPCS Token</label><div>OATH HOTP — Last sync: ${esc(today())}</div></div>
+        </div>
+      </div></div>
+      <div class="card"><div class="card-h">⚙️ Display Preferences</div><div class="card-b">
+        <p style="font-size:12px;color:var(--txt2)">Reporting level, default pharmacy, and notification settings can be managed under Mailbox → Reporting.</p>
+      </div></div>
+    </div>
+    <div class="status-bar"><span>Tools Module</span><span id="clock">${clockStr()}</span></div>
+  </div>`;
+}
+window._addSurrogate=function(){
+  showModal(`<div class="modal-header"><span>+ Add Surrogate</span><button class="close-btn" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="fg"><label>Surrogate Full Name</label><input class="fc" id="srgName"></div>
+    <div class="fg"><label>NPI</label><input class="fc" id="srgNpi"></div>
+    <div class="fg"><label>Role</label><select class="fc" id="srgRole"><option>Reviewer</option><option>Co-Prescriber</option><option>Coverage Provider</option></select></div>
+    <div class="flex gap-sm jc-e mt-md"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="window._saveSurrogate()">Save</button></div>
+  </div>`);
+};
+window._saveSurrogate=function(){
+  let nm=document.getElementById('srgName').value.trim();
+  let np=document.getElementById('srgNpi').value.trim();
+  if(!nm||!np){toast('Name and NPI required','error');return}
+  if(!S.surrogates)S.surrogates=[];
+  S.surrogates.push({name:nm,npi:np,role:document.getElementById('srgRole').value,active:true});
+  closeModal();toast('Surrogate added','success');render();
+};
+
+/* ═══════════════════════════════════════════════════
+   HEADER HELPER
+   ═══════════════════════════════════════════════════ */
+function _ssPendingTotal(){return (S.renewalRequests||[]).filter(r=>r.status==='pending').length}
+function _navTab(key,label,icon,extra){
+  let map={'patient-summary':'patient-summary','rx':'patient-summary','search':'search','mailbox':'mailbox','vitals':'vitals','hp':'hp','reports':'reports','tools':'tools'};
+  let target=map[key]||key;
+  let active=S.currentPage===target||(key==='rx'&&S.currentPage==='new-order')||(key==='rx'&&S.currentPage==='add-outside-med');
+  return `<div class="ehr-tab ${active?'active':''}" onclick="window._ehrNav('${key}')"><span>${icon}</span>${label}${extra||''}</div>`;
+}
+window._ehrNav=function(k){
+  if(k==='search'){S.currentPage='search';S.selectedPatient=null;render();return}
+  if(k==='patient-summary'||k==='rx'){
+    if(!S.selectedPatient){toast('Select a patient first','warn');S.currentPage='search';render();return}
+    S.currentPage='patient-summary';S.currentNav='summary';render();return
+  }
+  S.currentPage=k;render();
+};
+
+function headerHTML(title){
+  let pend=_ssPendingTotal();
+  let pat=S.patients.find(p=>p.id===S.selectedPatient);
+  let patChip=pat?`<span class="badge" style="background:#fff;color:#1a3a5c">${esc(pat.name)} (${esc(pat.mrn||pat.id)})</span>`:'';
+  let pmpAlert=(pat && (S.patientMeds[pat.id]||[]).some(m=>m.status==='active' && m.drug && (m.drug.schedule==='Schedule II'||m.drug.schedule==='Schedule IV')))?'<span class="pill-pmp">CS</span>':'';
+  let tabs=[
+    _navTab('search','Patient Search','🔍'),
+    _navTab('patient-summary','Patient Summary','📋'),
+    _navTab('rx','Rx (Medications)','💊',pmpAlert),
+    _navTab('hp','History &amp; Physical','📝'),
+    _navTab('vitals','Vitals &amp; Labs','🩺'),
+    _navTab('mailbox','Surescripts Mailbox','📨',pend?`<span class="badge-tab">${pend}</span>`:''),
+    _navTab('reports','Reports','📊'),
+    _navTab('tools','Tools','⚙️')
+  ].join('');
+  return `<div class="ehr-top">
+    <div class="ehr-top-row1">
+      <div class="ehr-brand"><span class="ic">💊</span> SmartCare EHR <span style="opacity:.6;font-weight:400">/ Rx Module</span> <span style="opacity:.6;font-size:11px;font-weight:400">— ${esc(title)}</span></div>
+      <div class="ehr-prescriber">
+        ${patChip}
+        <span>Prescriber: <strong>Dr. Chen, Wei-Lin</strong> <span class="badge">NPI 1234567890</span> <span class="badge">DEA BC1234567</span></span>
+        <button class="ss-mailbox-btn ${pend?'has-pending':''}" onclick="window._ehrNav('mailbox')" title="Surescripts Mailbox">✉️ Mailbox ${pend?`<span class="ct">${pend}</span>`:''}</button>
+        <span class="clk" id="clock">${clockStr()}</span>
+        <button class="btn btn-out btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.06)" onclick="S.loggedIn=false;S.currentPage='login';S.selectedPatient=null;render()">Logout</button>
+      </div>
+    </div>
+    <div class="ehr-tabs">${tabs}</div>
+  </div>`;
+}
+
+/* ─── Boot ─── */
+window._medgym_init(42);
+
+})();
+</script>
+</body>
+</html>

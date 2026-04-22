@@ -1,0 +1,2278 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Nursing Documentation Station — eNR
+
+  REAL-WORLD REFERENCES:
+  1. ANA Nursing Informatics: Scope and Standards of Practice, 3rd Ed. (2022)
+  2. IHI SBAR Technique for Communication
+     - https://www.ihi.org/resources/Pages/Tools/SBARTechniqueforCommunicationASituationalBriefingModel.aspx
+  3. CDC NHANES vital sign measurement protocols
+  4. AACN Procedure Manual for High Acuity, Progressive, and Critical Care, 7th Ed.
+  5. HL7 CDA Nursing Note template
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nursing Documentation Station — eNR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8eef4;--bg4:#d0dde8;
+  --green:#0d47a1;--green2:#1565c0;--green-dark:#0a2f6b;--green-light:#90caf9;
+  --success:#2e7d32;--warn:#ef6c00;--danger:#c62828;--info:#0277bd;
+  --text:#1a2332;--text2:#455a64;--text3:#78909c;
+  --border:#b0bec5;--border2:#e0e4e8;
+  --radius:4px;--shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+}
+html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit;background:#fff;color:var(--text);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--green)}
+textarea{resize:vertical;min-height:80px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border2)}
+th{background:var(--bg3);color:var(--text2);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--bg3)}
+.app{display:flex;flex-direction:column;height:100vh}
+.header{background:#1a2332;border-bottom:2px solid #1565c0;padding:0 24px;height:48px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:10px;letter-spacing:0.2px}
+.header h1 .icon{font-size:18px;color:#64b5f6}
+.header-right{display:flex;align-items:center;gap:16px}
+.header-right .user-info{color:rgba(255,255,255,.85);font-size:13px}
+.header-right .user-info strong{color:#fff}
+.nav{display:flex;gap:4px}
+.nav button{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.8);padding:8px 16px;border-radius:var(--radius);font-size:13px;transition:.15s}
+.nav button:hover{background:rgba(255,255,255,.25);color:#fff}
+.nav button.active{background:rgba(255,255,255,.95);color:#0d47a1;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:var(--radius);font-weight:600;font-size:13px;transition:.15s}
+.btn-primary{background:var(--green);color:#fff}.btn-primary:hover{background:var(--green2)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.9}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.9}
+.btn-warn{background:var(--warn);color:#000}.btn-warn:hover{opacity:.9}
+.btn-info{background:var(--info);color:#fff}.btn-info:hover{opacity:.9}
+.btn-outline{background:none;border:1px solid var(--border2);color:var(--text2)}.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.main{flex:1;overflow-y:auto;padding:24px}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.badge-danger{background:rgba(211,47,47,.15);color:var(--danger)}
+.badge-success{background:rgba(56,142,60,.15);color:var(--success)}
+.badge-warn{background:rgba(249,168,37,.15);color:#e65100}
+.badge-info{background:rgba(25,118,210,.15);color:var(--info)}
+.badge-neutral{background:rgba(148,163,184,.15);color:var(--text3)}
+/* Login */
+.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh;background:#1a2332}
+.login-box{background:#fff;border:1px solid var(--border2);border-radius:12px;padding:48px 40px;width:420px;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+.login-box h2{text-align:center;font-size:20px;margin-bottom:8px;color:#1a2332;font-weight:700;letter-spacing:-0.3px}
+.login-box .subtitle{text-align:center;color:var(--text3);margin-bottom:32px;font-size:13px}
+.login-box .logo{text-align:center;font-size:48px;margin-bottom:16px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:600}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.login-box .btn{width:100%;justify-content:center;padding:12px;font-size:15px}
+.error-msg{color:var(--danger);font-size:13px;margin-top:8px;display:none}
+/* Patient List */
+.patient-card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:16px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:space-between}
+.patient-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12);border-color:var(--green)}
+.patient-card .left{display:flex;align-items:center;gap:14px}
+.patient-card .bed-badge{background:var(--green);color:#fff;padding:6px 12px;border-radius:8px;font-weight:700;font-size:16px;min-width:56px;text-align:center}
+.patient-card .patient-info h3{font-size:15px;margin-bottom:2px}
+.patient-card .patient-info .meta{font-size:12px;color:var(--text3)}
+.patient-card .right{display:flex;align-items:center;gap:12px}
+.patient-card .alerts{display:flex;gap:6px}
+.alert-icon{font-size:18px;cursor:help}
+.patient-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* Sub-nav tabs */
+.sub-nav{display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border2);padding-bottom:0}
+.sub-nav button{background:none;border:none;color:var(--text3);padding:10px 16px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s}
+.sub-nav button:hover{color:var(--green)}
+.sub-nav button.active{color:var(--green-dark);border-bottom-color:var(--green)}
+/* Stats bar */
+.stats-bar{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.stat-item{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 20px;min-width:130px;box-shadow:var(--shadow)}
+.stat-item .stat-val{font-size:24px;font-weight:700;color:var(--green-dark)}
+.stat-item .stat-label{font-size:12px;color:var(--text3);margin-top:2px}
+/* Vital chart */
+.chart-container{position:relative;width:100%;height:280px;border:1px solid var(--border2);border-radius:8px;background:#fff;overflow:hidden}
+.chart-canvas{width:100%;height:100%}
+/* IO table */
+.io-section{margin-bottom:16px}
+.io-section h4{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--green-dark)}
+.io-total{font-size:18px;font-weight:700;margin:8px 0}
+.io-positive{color:var(--success)}
+.io-negative{color:var(--danger)}
+/* Nursing note */
+.note-card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:16px;margin-bottom:12px}
+.note-card .note-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.note-card .note-time{font-size:12px;color:var(--text3)}
+.note-card .note-body{font-size:13px;line-height:1.6}
+/* SBAR */
+.sbar-section{border-left:4px solid var(--green);padding:12px 16px;margin-bottom:12px;background:var(--bg3);border-radius:0 8px 8px 0}
+.sbar-section h4{font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:6px}
+/* Print preview */
+.print-preview{background:#fff;border:1px solid var(--border2);padding:24px;border-radius:8px;font-family:'Courier New',monospace;font-size:12px}
+.print-preview h3{font-size:16px;text-align:center;margin-bottom:16px;font-family:inherit}
+.print-preview table{font-size:11px}
+/* Normal range indicators */
+.range-normal{color:var(--success);font-weight:600}
+.range-abnormal{color:var(--danger);font-weight:600}
+.range-borderline{color:var(--warn);font-weight:600}
+/* Toast */
+.toast-container{position:fixed;top:68px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;box-shadow:var(--shadow);animation:slideIn .3s ease}
+.toast-success{background:var(--success);color:#fff}
+.toast-danger{background:var(--danger);color:#fff}
+.toast-info{background:var(--info);color:#fff}
+.toast-warn{background:var(--warn);color:#000}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border:1px solid var(--border2);border-radius:12px;padding:28px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.15)}
+.modal h3{font-size:18px;margin-bottom:20px;display:flex;align-items:center;gap:8px;color:var(--green-dark)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+/* Responsive */
+@media(max-width:900px){.patient-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}}
+/* Print */
+@media print{.header,.nav,.btn,.toast-container,.modal-overlay,.sub-nav{display:none!important}.main{padding:0}.card{break-inside:avoid;box-shadow:none;border:1px solid #ddd}}
+/* Scrollbar */
+.main::-webkit-scrollbar{width:8px}
+.main::-webkit-scrollbar-track{background:var(--bg)}
+.main::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.main::-webkit-scrollbar-thumb:hover{background:var(--green)}
+/* Animations */
+.patient-card,.note-card,.sbar-section{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* PowerChart Progress Notes — Document workflow */
+.docs-layout{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+@media(max-width:980px){.docs-layout{grid-template-columns:1fr}}
+.doc-list-pane{background:#fff;border:1px solid #d0dde8;border-radius:6px;max-height:78vh;overflow-y:auto}
+.doc-list-toolbar{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid #e0e4e8;background:#f5f8fb;position:sticky;top:0;z-index:2}
+.doc-list-toolbar .pc-icon-btn{background:#fff;border:1px solid #b0bec5;color:#0d47a1;border-radius:3px;padding:5px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px}
+.doc-list-toolbar .pc-icon-btn:hover{background:#e8eef4}
+.doc-list-toolbar .pc-icon-btn.primary{background:#0d47a1;color:#fff;border-color:#0d47a1}
+.doc-list-toolbar .pc-icon-btn.primary:hover{background:#1565c0}
+.doc-list-toolbar .doc-filter{flex:1;font-size:11px;padding:4px 6px;border:1px solid #b0bec5;border-radius:3px;background:#fff}
+.doc-list-header{display:grid;grid-template-columns:22px 1fr 70px;gap:6px;padding:6px 10px;font-size:10px;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:.6px;background:#eaf0f6;border-bottom:1px solid #d0dde8}
+.doc-row{display:grid;grid-template-columns:22px 1fr 70px;gap:6px;padding:8px 10px;border-bottom:1px solid #eef2f6;cursor:pointer;font-size:12px;align-items:center}
+.doc-row:hover{background:#f0f6fc}
+.doc-row.selected{background:#dbe7f3;border-left:3px solid #0d47a1;padding-left:7px}
+.doc-row .doc-status-icon{font-size:13px;text-align:center}
+.doc-row .doc-meta{overflow:hidden}
+.doc-row .doc-subject{font-weight:600;color:#1a2332;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.doc-row .doc-sub{font-size:10.5px;color:#78909c;margin-top:1px}
+.doc-row .doc-time{font-size:10.5px;color:#546e7a;text-align:right;font-variant-numeric:tabular-nums}
+.doc-empty{padding:24px;text-align:center;color:#90a4ae;font-style:italic;font-size:12px}
+.doc-detail-pane{background:#fff;border:1px solid #d0dde8;border-radius:6px;min-height:78vh}
+.doc-detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:#90a4ae;text-align:center}
+.doc-detail-empty i{font-size:48px;color:#cfd8dc;margin-bottom:12px}
+.doc-header-strip{background:#f5f8fb;border-bottom:1px solid #d0dde8;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.doc-header-strip .doc-title-line{font-size:13px;font-weight:700;color:#0a2f6b;display:flex;align-items:center;gap:8px}
+.doc-header-strip .doc-actions{display:flex;gap:4px}
+.doc-meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 16px;padding:14px 16px;background:#fafcfe;border-bottom:1px solid #e0e4e8;font-size:11.5px}
+.doc-meta-grid .meta-cell label{display:block;font-size:10px;color:#78909c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;font-weight:600}
+.doc-meta-grid .meta-cell .val{color:#1a2332;font-weight:600}
+.doc-meta-grid .meta-cell .val.in-progress{color:#ef6c00}
+.doc-meta-grid .meta-cell .val.signed{color:#2e7d32}
+.doc-meta-grid .meta-cell .val.modified{color:#5e35b1}
+.doc-body-area{padding:16px}
+.doc-body-area .field-block{margin-bottom:14px}
+.doc-body-area .field-block label{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#37474f;font-weight:700;margin-bottom:5px}
+.doc-body-area .field-block label .field-flag{font-size:10px;color:#0d47a1;font-weight:500}
+.doc-body-area .signed-text{padding:10px 12px;background:#fdfdfd;border:1px solid #e0e4e8;border-radius:4px;font-size:12px;line-height:1.65;white-space:pre-wrap;color:#1a2332;cursor:text;user-select:text}
+.doc-body-area .signed-text.strikable{cursor:text}
+.doc-body-area .signed-text .struck{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#c62828;color:#90a4ae}
+.doc-body-area .struck-banner{background:#fff8e1;border:1px solid #ffe082;color:#8a6d00;padding:6px 10px;border-radius:3px;font-size:11px;margin-bottom:8px;display:flex;gap:6px;align-items:center}
+.doc-body-area .signed-text.in-progress-text{background:#fffaf2;border-color:#ffe0b2}
+.doc-addendum-block{margin-top:18px;border-top:2px dashed #b0bec5;padding-top:14px}
+.doc-addendum-block h5{font-size:12px;color:#5e35b1;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.addendum-card{background:#f3eefb;border-left:4px solid #5e35b1;border-radius:0 4px 4px 0;padding:10px 12px;margin-bottom:8px;font-size:12px;line-height:1.55}
+.addendum-card .add-meta{font-size:10.5px;color:#5e35b1;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between}
+.spell-check-bar{padding:6px 10px;background:#e8f5e9;border:1px solid #c8e6c9;color:#2e7d32;font-size:11px;border-radius:3px;display:inline-flex;align-items:center;gap:6px;margin-bottom:10px}
+.spell-check-bar.disabled{background:#fafafa;border-color:#e0e0e0;color:#9e9e9e}
+.doc-status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;letter-spacing:.3px}
+.dsb-in-progress{background:#fff3e0;color:#ef6c00;border:1px solid #ffcc80}
+.dsb-signed{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+.dsb-modified{background:#ede7f6;color:#5e35b1;border:1px solid #b39ddb}
+.template-modal-list{max-height:340px;overflow-y:auto;border:1px solid #e0e4e8;border-radius:4px}
+.template-modal-list .tpl-row{padding:10px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.template-modal-list .tpl-row:hover{background:#f0f6fc}
+.template-modal-list .tpl-row.selected{background:#dbe7f3}
+.template-modal-list .tpl-row .tpl-name{font-weight:600;color:#1a2332;font-size:13px}
+.template-modal-list .tpl-row .tpl-desc{font-size:11px;color:#78909c;margin-top:2px}
+.context-menu{position:fixed;background:#fff;border:1px solid #b0bec5;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.18);z-index:3000;min-width:180px;padding:4px 0;display:none}
+.context-menu.show{display:block}
+.context-menu .ctx-item{padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#1a2332}
+.context-menu .ctx-item:hover{background:#e3f2fd}
+.context-menu .ctx-item.disabled{color:#b0bec5;cursor:not-allowed}
+.context-menu .ctx-sep{height:1px;background:#e0e4e8;margin:4px 0}
+.struct-fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:760px){.struct-fields-grid{grid-template-columns:1fr}.doc-meta-grid{grid-template-columns:1fr 1fr}}
+/* Clinical polish overrides */
+th{background:#e8eef4;color:#37474f;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid #b0bec5}
+.card{border:1px solid #d0dde8;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-title{font-size:14px;font-weight:600;color:#1a2332;gap:6px;border-bottom:1px solid #e0e4e8;padding-bottom:12px;margin-bottom:14px}
+.card-title i{color:#0d47a1;font-size:15px}
+.badge{font-size:10px;font-weight:600;border-radius:3px;padding:2px 6px;letter-spacing:.3px}
+.stat-item{border-radius:6px;border:1px solid #d0dde8}
+.stat-item .stat-val{font-size:22px;color:#0a2f6b}
+.patient-card{border:1px solid #d0dde8;border-radius:6px;transition:.15s}
+.patient-card:hover{border-color:#1565c0;box-shadow:0 2px 8px rgba(13,71,161,.12)}
+.patient-card .bed-badge{background:#0d47a1;border-radius:4px;font-size:14px;padding:5px 10px}
+.login-box{border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}
+input:focus,select:focus,textarea:focus{border-color:#1565c0;box-shadow:0 0 0 2px rgba(21,101,192,.15)}
+.toast{border-radius:4px;font-weight:500}
+.sbar-section{border-left:4px solid #0d47a1;background:#e8eef4}
+.sbar-section h4{color:#0a2f6b}
+.note-card{border-radius:6px;border:1px solid #d0dde8}
+.chart-container{border:1px solid #d0dde8;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+<div class="context-menu" id="ctxMenu"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ─── Seeded RNG ─── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=Math.random;
+function randInt(a,b){return Math.floor(rng()*(b-a+1))+a}
+function pick(arr){return arr[Math.floor(rng()*arr.length)]}
+function shuffle(arr){let a=[...arr];for(let i=a.length-1;i>0;i--){let j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function randFloat(a,b){return +(a+rng()*(b-a)).toFixed(1)}
+
+/* ─── State ─── */
+window._taskState={
+  loggedIn:false,currentPage:'login',selectedPatient:null,
+  patients:[],vitalSigns:{},intakeOutputRecords:{},
+  nursingNotes:{},handoffReports:{},templateUsed:[],
+  fluidBalance:{},alertsTriggered:[],
+  woundAssessments:{},
+  selectedDocId:null,docCounter:1,
+  draftDoc:null,        /* In-progress note being edited / new */
+  modifyMode:false,     /* When true the selected signed doc is in modify mode */
+  docFilter:'all'       /* Filter for document list: all|in-progress|signed|modified */
+};
+const S=window._taskState;
+
+/* ─── Data pools ─── */
+const PATIENT_NAMES=[
+'Li Wei','Wang Fang','Zhang Qiang','Chen Mei',
+'Liu Hua','Zhao Jun','Huang Ying','Sun Tao',
+'Zhou Min','Wu Xia','Xu Peng','Ma Ling',
+'Zhu Hao','Gao Fei','Lin Jing','He Yang'
+];
+/* Clinical context: Ward NDU (Nursing Documentation Unit)
+ * Bed 2: Sepsis — deterioration pattern over 3 days (rising temp/HR, falling BP)
+ * Bed 5: Negative fluid balance — dehydration risk (-900 mL)
+ * Beds 1-5: Pre-populated vital sign history
+ * Beds 6-8: Need handoff reports
+ */
+
+const DIAGNOSES=[
+  'Community-acquired pneumonia (moderate, CAP)',
+  'Post-op laparoscopic cholecystectomy (POD 1)',
+  'CHF exacerbation (NYHA III, EF 30%)',
+  'Type 2 DM with hyperglycemia',
+  'COPD exacerbation with acute bronchitis',
+  'Acute ST-elevation MI (s/p PCI)',
+  'Post-op right total hip arthroplasty (POD 2)',
+  'Acute gallstone pancreatitis',
+  'Stage 3 CKD with volume overload',
+  'Upper GI bleed (peptic ulcer disease)',
+  'Acute ischemic stroke (MCA territory)',
+  'Lower extremity cellulitis',
+  'Post-op appendectomy (laparoscopic, POD 0)',
+  'Partial small bowel obstruction (conservative mgmt)',
+  'Acute DVT (left lower extremity)',
+  'Sepsis secondary to UTI'
+];
+
+const CONSCIOUSNESS=['Alert and oriented x4','Drowsy but arousable','Confused / disoriented','Responsive to verbal stimuli','Responsive to painful stimuli only','Unresponsive (GCS 3)'];
+
+const NOTE_TEMPLATES={
+  'post-op':{
+ name:'Post-Op Care',
+    description:'Standard post-operative shift assessment template (incision, pain, ambulation, prophylaxis).',
+    appliesTo:['Nursing Care Note','Post-Op Care'],
+    prefill:{
+      condition:'Patient is post-operative day __, alert and oriented x4. Hemodynamically stable.',
+      interventions:'Surgical incision site assessed: dressing clean, dry, and intact; no erythema, edema, or purulent drainage. Pain managed per orders (current NRS __/10). Incentive spirometry Q1H while awake (goal >1000 mL). Assisted with ambulation per PT plan. DVT prophylaxis measures in place (SCDs + pharmacologic). Foley catheter output monitored (if applicable).',
+      response:'Patient tolerating oral intake, pain controlled, ambulating with assistance. No signs of surgical site infection (SSI). Urine output adequate.',
+      plan:'Continue post-op care pathway. Advance diet as tolerated. DC foley if UO >30 mL/hr x 4h. Follow-up labs in AM. Assess for discharge readiness.'
+    }
+  },
+  'fall-risk':{
+ name:'Fall Risk',
+    description:'Morse Fall Scale evaluation and universal fall precaution interventions.',
+    appliesTo:['Nursing Care Note'],
+    prefill:{
+      condition:'Patient assessed as high fall risk per Morse Fall Scale (score: __). Risk factors: __.',
+      interventions:'Universal fall precautions implemented: bed in lowest position, wheels locked, side rails up x2, bed alarm activated. Non-slip footwear provided and verified in use. Call light and personal items within reach. High-fall-risk armband applied. Hourly rounding initiated. Environment assessed and cleared of tripping hazards. Patient and family educated on fall prevention.',
+      response:'Patient verbalizes understanding of fall prevention measures. Demonstrates use of call light before attempting to get up.',
+      plan:'Continue fall prevention protocol. Reassess Morse Fall Scale Q shift and with any status change. Notify physician of high-risk status. Consider PT/OT consult if not already ordered.'
+    }
+  },
+  'pain-management':{
+ name:'Pain Management',
+    description:'NRS pain assessment with pharmacologic and non-pharmacologic interventions.',
+    appliesTo:['Nursing Care Note','Pain Management Note'],
+    prefill:{
+      condition:'Patient reports pain __/10 (NRS). Location: __. Character: __ (sharp/dull/burning/aching). Onset: __. Aggravating factors: __. Alleviating factors: __.',
+      interventions:'Pharmacologic: Administered __ per order at __:__. Non-pharmacologic interventions: repositioning for comfort, application of ice/heat pack, guided relaxation technique, distraction. Assessed for breakthrough pain.',
+      response:'Pain reassessed 30 min post-intervention. NRS decreased from __/10 to __/10. Patient reports __ relief. Vital signs stable; no adverse effects from analgesic (no respiratory depression, no excessive sedation). Ramsay Sedation Score: __.',
+      plan:'Continue current analgesic regimen. Reassess pain Q4H and 30 min after each PRN dose. If NRS remains >4 after 2 consecutive PRN doses, notify physician for analgesic adjustment. Consider multimodal approach.'
+    }
+  },
+  'admission':{
+    name:'Admission Assessment',
+    description:'Initial head-to-toe assessment performed on admission to the nursing unit.',
+    appliesTo:['Admission Note'],
+    prefill:{
+      condition:'Patient admitted from __ at __. Chief complaint: __. Code status: __. Allergies: __.',
+      interventions:'Full head-to-toe assessment completed. Baseline vitals obtained. IV access established (__ gauge in __). Skin integrity assessed (Braden score: __). Fall risk and pain screening completed. Admission medication reconciliation initiated with pharmacy.',
+      response:'Patient cooperative with admission process. Verbalized understanding of unit routine, call light use and visiting hours.',
+      plan:'Implement physician orders. Complete admission paperwork. Notify primary team of arrival. Initiate problem list and care plan.'
+    }
+  },
+  'rapid-response':{
+ name:'Rapid Response Event',
+    description:'Document rapid response activation: trigger, interventions, notification, response.',
+    appliesTo:['Rapid Response'],
+    structured:'rapidResponse',
+    prefill:{
+      trigger:'Time of recognition: __. Trigger criteria met: SpO2 __%, HR __, BP __/__, RR __, mental status change: __.',
+      interventions:'Patient repositioned to high-Fowler. Supplemental O2 applied via __ at __ L/min. Continuous SpO2 and cardiac monitoring initiated. IV access verified patent. ABG drawn and sent STAT. Bedside glucose obtained.',
+      physicianNotification:'Dr. __ notified at __:__ via paging system. Orders received: __. Rapid Response Team activated: yes/no. Family notified: yes/no.',
+      patientResponse:'After interventions: SpO2 __%, HR __, BP __/__, RR __. Patient mental status: __. Decision: continue current level of care / transfer to higher level of care.'
+    }
+  },
+  'wound-assessment':{
+    name:'Wound Assessment',
+    description:'Structured wound assessment (location, stage, dimensions, bed, exudate, peri-wound).',
+    appliesTo:['Wound Assessment'],
+    structured:'woundAssessment',
+    prefill:{
+      location:'',
+      woundType:'',
+      length:'',width:'',depth:'',
+      woundBed:'',
+      exudateAmount:'',exudateType:'',
+      surroundingSkin:'',
+      treatment:''
+    }
+  },
+  'discharge-summary':{
+    name:'Nursing Discharge Summary',
+    description:'Discharge readiness, education provided, follow-up appointments and prescriptions.',
+    appliesTo:['Discharge Note'],
+    prefill:{
+      condition:'Patient discharged on __. Final diagnosis: __. Discharge disposition: home / SNF / rehab.',
+      interventions:'Discharge instructions reviewed with patient and family member. Medication reconciliation completed; new prescriptions sent to __. Follow-up appointment scheduled with __ on __. Teach-back demonstrated for medication administration and warning signs.',
+      response:'Patient and family verbalize understanding of discharge plan. Patient ambulating with steady gait. Pain controlled.',
+      plan:'Discharge transportation: __. Home health referral: __. Patient education materials provided: __.'
+    }
+  },
+  'general':{
+ name:'General Assessment',
+    description:'Blank template for free-text nursing observations.',
+    appliesTo:['Nursing Care Note','Progress Note'],
+    prefill:{condition:'',interventions:'',response:'',plan:''}
+  }
+};
+
+/* ─── Note types (PowerChart-style note type dropdown) ─── */
+const NOTE_TYPES=[
+  'Nursing Care Note',
+  'Progress Note',
+  'Admission Note',
+  'Post-Op Care',
+  'Pain Management Note',
+  'Rapid Response',
+  'Wound Assessment',
+  'Discharge Note'
+];
+
+/* ─── Document status (PowerChart) ─── */
+const DOC_STATUS={
+  IN_PROGRESS:'In Progress',
+  SIGNED:'Auth (Verified)',
+  MODIFIED:'Modified'
+};
+
+/* ─── Default subject suggestions per note type ─── */
+const DEFAULT_SUBJECTS={
+  'Rapid Response':'RRT — acute deterioration',
+  'Wound Assessment':'Wound assessment',
+  'Post-Op Care':'Post-op shift assessment',
+  'Pain Management Note':'Pain management',
+  'Admission Note':'Admission to unit',
+  'Discharge Note':'Discharge summary',
+  'Progress Note':'Shift progress',
+  'Nursing Care Note':'Routine nursing care'
+};
+
+/* ─── Normal vital sign ranges ─── */
+const NORMAL_RANGES={
+ temp:{min:36.0,max:37.5,unit:'°C',label:'Temperature'},
+ pulse:{min:60,max:100,unit:'bpm',label:'Pulse'},
+ resp:{min:12,max:20,unit:'/min',label:'Respiration'},
+ bp_sys:{min:90,max:140,unit:'mmHg',label:'BP Systolic'},
+ bp_dia:{min:60,max:90,unit:'mmHg',label:'BP Diastolic'},
+ spo2:{min:95,max:100,unit:'%',label:'SpO2'},
+ pain:{min:0,max:3,unit:'/10',label:'Pain'},
+ weight:{min:40,max:120,unit:'kg',label:'Weight'}
+};
+
+let patientIdCounter=200;
+function nextPid(){return patientIdCounter++}
+
+/* ─── Time helpers ─── */
+function timeStr(d){return d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function dateStr(d){return d.toISOString().slice(0,10)}
+function dateTimeStr(d){return dateStr(d)+' '+timeStr(d)}
+
+/* ─── Vital sign generation ─── */
+function generateVitalSet(base,variation){
+  return{
+    temp:+(base.temp+randFloat(-variation,variation)).toFixed(1),
+    pulse:Math.round(base.pulse+randInt(-variation*5,variation*5)),
+    resp:Math.round(base.resp+randInt(-2,2)),
+    bp_sys:Math.round(base.bp_sys+randInt(-variation*3,variation*3)),
+    bp_dia:Math.round(base.bp_dia+randInt(-variation*2,variation*2)),
+    spo2:Math.min(100,Math.max(88,Math.round(base.spo2+randInt(-variation,variation)))),
+    pain:Math.min(10,Math.max(0,Math.round(base.pain+randInt(-1,1)))),
+    weight:+(base.weight+randFloat(-0.3,0.3)).toFixed(1),
+    consciousness:base.consciousness||'Alert'
+  };
+}
+
+/* ─── Sepsis deterioration pattern for Bed 2 ─── */
+function generateDeteriorationHistory(){
+  // 3 days, 3 readings per day = 9 readings, showing subtle sepsis trend
+  const readings=[];
+  const baseDate=new Date(Date.now()-3*86400000);
+  const temps=[37.0,37.1,37.3, 37.4,37.6,37.8, 38.1,38.5,38.9];
+  const hrs=[78,80,82, 85,90,95, 100,105,110];
+  const bpSys=[130,128,125, 122,118,115, 110,102,95];
+  const bpDia=[80,78,78, 76,74,72, 70,66,60];
+  const resps=[16,16,17, 17,18,19, 20,22,24];
+  const spo2s=[98,98,97, 97,97,96, 96,95,94];
+  for(let i=0;i<9;i++){
+    const d=new Date(baseDate.getTime()+(i*8)*3600000);
+    readings.push({
+      time:dateTimeStr(d),
+      temp:temps[i],pulse:hrs[i],resp:resps[i],
+      bp_sys:bpSys[i],bp_dia:bpDia[i],spo2:spo2s[i],
+      pain:randInt(2,5),weight:65.0,consciousness:i<6?'Alert':'Drowsy',
+      recordedThisShift:false
+    });
+  }
+  return readings;
+}
+
+/* ─── Init ─── */
+window._medgym_init=function(seed){
+  rng=mulberry32(seed||42);
+  patientIdCounter=200;
+  S.loggedIn=false;S.currentPage='login';S.selectedPatient=null;
+  S.patients=[];S.vitalSigns={};S.intakeOutputRecords={};
+  S.nursingNotes={};S.handoffReports={};S.templateUsed=[];
+  S.fluidBalance={};S.alertsTriggered=[];
+  S.woundAssessments={};
+  S.selectedDocId=null;S.docCounter=1;S.draftDoc=null;
+  S.modifyMode=false;S.docFilter='all';
+
+  const namePool=shuffle(PATIENT_NAMES);
+  let nIdx=0;
+  const diagPool=shuffle(DIAGNOSES);
+  let dIdx=0;
+
+  /* Build 8 patients */
+  for(let bed=1;bed<=8;bed++){
+    const pid=nextPid();
+    const name=namePool[nIdx++%namePool.length];
+    const diag=bed===2?'Sepsis — suspected source: bacteremia (blood cultures pending, Abx Day 2)':diagPool[dIdx++%diagPool.length];
+    const age=randInt(35,85);
+    const daysAdmitted=randInt(2,8);
+    const admitDate=new Date(Date.now()-daysAdmitted*86400000).toISOString().slice(0,10);
+    const weight=randFloat(48,95);
+
+    /* Documentation status flags */
+    let vitalsDue=bed<=5;        /* first 5 patients have vitals pre-populated */
+    let notesPending=bed%2===0;
+    let handoffNeeded=bed>=6;
+
+    S.patients.push({
+      id:pid,bed,name,diagnosis:diag,age,
+      gender:pick(['M','F']),
+      bloodType:pick(['A+','A-','B+','B-','AB+','AB-','O+','O-']),
+      admitDate,room:'NDU-'+String(100+bed),
+      weight,
+ physician:'Dr.'+pick(['Li','Wang','Zhang','Chen','Zhao']),
+      vitalsDue:!vitalsDue,
+      notesPending,
+      handoffNeeded,
+      allergies:pick(['NKDA','Penicillin','Sulfa','Aspirin','Codeine','NKDA','NKDA'])
+    });
+  }
+
+  /* ─── Generate 3-day vital sign history for pre-populated patients ─── */
+  const baseDate=new Date(Date.now()-3*86400000);
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    S.vitalSigns[pid]=[];
+    S.intakeOutputRecords[pid]=[];
+    S.nursingNotes[pid]=[];
+    S.handoffReports[pid]=[];
+    S.woundAssessments[pid]=[];
+
+    if(p.bed===2){
+      /* Bed 2: deterioration pattern (sepsis) */
+      S.vitalSigns[pid]=generateDeteriorationHistory();
+    } else if(p.bed<=5){
+      /* Pre-populate history for beds 1-5 (except 2 handled above) */
+      const baseVitals={
+        temp:randFloat(36.2,37.2),
+        pulse:randInt(65,90),
+        resp:randInt(14,18),
+        bp_sys:randInt(110,135),
+        bp_dia:randInt(65,85),
+        spo2:randInt(96,99),
+        pain:randInt(0,4),
+        weight:p.weight,
+        consciousness:'Alert'
+      };
+      for(let day=0;day<3;day++){
+        for(let shift=0;shift<3;shift++){
+          const d=new Date(baseDate.getTime()+(day*24+shift*8)*3600000);
+          const v=generateVitalSet(baseVitals,0.5);
+          v.time=dateTimeStr(d);
+          v.recordedThisShift=false;
+          S.vitalSigns[pid].push(v);
+        }
+      }
+    }
+
+    /* ─── I&O history ─── */
+    if(p.bed===5){
+      /* Bed 5: negative fluid balance (dehydration) */
+      const ioBase=new Date(Date.now()-24*3600000);
+      const intakeItems=[
+        {time:dateTimeStr(new Date(ioBase.getTime()+2*3600000)),direction:'intake',type:'IV',substance:'NS 0.9%',amount:250,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+6*3600000)),direction:'intake',type:'Oral',substance:'Water',amount:100,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+14*3600000)),direction:'intake',type:'IV',substance:'NS 0.9%',amount:250,recordedThisShift:false},
+      ];
+      const outputItems=[
+        {time:dateTimeStr(new Date(ioBase.getTime()+3*3600000)),direction:'output',type:'Urine',substance:'',amount:450,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+7*3600000)),direction:'output',type:'Urine',substance:'',amount:380,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+11*3600000)),direction:'output',type:'Drain',substance:'JP Drain',amount:150,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+15*3600000)),direction:'output',type:'Urine',substance:'',amount:320,recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+19*3600000)),direction:'output',type:'Emesis',substance:'',amount:200,recordedThisShift:false},
+      ];
+      S.intakeOutputRecords[pid]=[...intakeItems,...outputItems];
+      /* Balance: 600 intake - 1500 output = -900 */
+      S.fluidBalance[pid]=-900;
+    } else if(p.bed<=4){
+      /* Normal I&O for other patients */
+      const ioBase=new Date(Date.now()-24*3600000);
+      const intake=randInt(1500,2500);
+      const output=randInt(1200,2200);
+      S.intakeOutputRecords[pid]=[
+        {time:dateTimeStr(new Date(ioBase.getTime()+2*3600000)),direction:'intake',type:'IV',substance:'NS 0.9%',amount:Math.round(intake*0.4),recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+6*3600000)),direction:'intake',type:'Oral',substance:'Fluids',amount:Math.round(intake*0.35),recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+14*3600000)),direction:'intake',type:'IV',substance:'D5W',amount:Math.round(intake*0.25),recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+4*3600000)),direction:'output',type:'Urine',substance:'',amount:Math.round(output*0.45),recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+10*3600000)),direction:'output',type:'Urine',substance:'',amount:Math.round(output*0.35),recordedThisShift:false},
+        {time:dateTimeStr(new Date(ioBase.getTime()+18*3600000)),direction:'output',type:'Urine',substance:'',amount:Math.round(output*0.2),recordedThisShift:false},
+      ];
+      S.fluidBalance[pid]=intake-output;
+    }
+  });
+
+  /* ─── Pre-populate historical signed Progress Notes for several patients ─── */
+  /* Each patient gets 1-3 prior signed notes from past shifts so the document
+     list looks realistic on first open (PowerChart-style activity). */
+  const SHIFT_AUTHORS=['N. Wang, RN','N. Chen, RN','N. Liu, RN','N. Sun, RN','N. Huang, RN'];
+  const HISTORY_BODIES={
+    'Nursing Care Note':{
+      condition:'Patient resting in bed, alert and oriented x4. Reports mild discomfort at incision site. Skin warm and dry. Lung sounds clear bilaterally on auscultation.',
+      interventions:'Routine nursing care provided: AM care, oral hygiene, repositioning Q2H. IV site assessed (left forearm, 20G), patent without redness or infiltration. Heparin SC administered per DVT prophylaxis order. Incentive spirometry coached x10 reps.',
+      response:'Patient tolerated care well. Verbalized improved comfort after repositioning. Pain remained at NRS 2/10. No new complaints.',
+      plan:'Continue routine monitoring Q4H. Encourage ambulation TID. Reassess pain after next PRN dose.'
+    },
+    'Progress Note':{
+      condition:'Patient stable on day 3 of admission. Vitals within personal baseline. No acute distress noted.',
+      interventions:'Reviewed plan of care with patient. Verified patient understanding of medication regimen using teach-back method. Coordinated with PT for afternoon mobilization session.',
+      response:'Patient cooperative and engaged. Demonstrates correct technique for incentive spirometer.',
+      plan:'Continue current plan. Daily weights. Lab follow-up in AM.'
+    },
+    'Pain Management Note':{
+      condition:'Pain reported as NRS 5/10 at rest, sharp, located at surgical site, radiating mildly to right flank.',
+      interventions:'Administered oxycodone 5 mg PO per order at 14:30. Repositioned to right lateral with pillow support. Cold pack applied for 20 min.',
+      response:'Reassessed at 15:00 — pain reduced to NRS 2/10. Patient resting comfortably. No respiratory depression. Ramsay 2.',
+      plan:'Continue PRN analgesic. Reassess Q4H. Notify physician if NRS >4 sustained.'
+    }
+  };
+
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const numHist=(p.bed===1||p.bed===4)?3:(p.bed===2?2:1);
+    const types=['Nursing Care Note','Progress Note','Pain Management Note'];
+    for(let h=0;h<numHist;h++){
+      const t=types[h%types.length];
+      const body=HISTORY_BODIES[t];
+      const ago=(numHist-h)*8+randInt(0,3); /* hours ago */
+      const when=new Date(Date.now()-ago*3600000);
+      const docId='DOC'+String(S.docCounter++).padStart(5,'0');
+      S.nursingNotes[pid].push({
+        docId,
+        noteType:t,
+        subject:DEFAULT_SUBJECTS[t]||'Routine nursing care',
+        author:pick(SHIFT_AUTHORS),
+        time:dateTimeStr(when),
+        signedTime:dateTimeStr(new Date(when.getTime()+15*60000)),
+        status:DOC_STATUS.SIGNED,
+        condition:body.condition,
+        interventions:body.interventions,
+        response:body.response,
+        plan:body.plan,
+        addendums:[],
+        strikes:[],         /* list of struck text snippets */
+        template:'',
+        savedThisShift:false
+      });
+    }
+  });
+
+  /* Bed 7: pre-existing wound on admission (will be re-assessed by tasks) */
+  const bed7=S.patients.find(p=>p.bed===7);
+  if(bed7){
+    const pid7=String(bed7.id);
+    const docId='DOC'+String(S.docCounter++).padStart(5,'0');
+    S.nursingNotes[pid7].push({
+      docId,
+      noteType:'Wound Assessment',
+      subject:'Pressure injury — left sacrum (initial)',
+      author:'N. Liu, RN',
+      time:dateTimeStr(new Date(Date.now()-30*3600000)),
+      signedTime:dateTimeStr(new Date(Date.now()-30*3600000+10*60000)),
+      status:DOC_STATUS.SIGNED,
+      structured:'woundAssessment',
+      location:'Left sacrum',
+      woundType:'Pressure injury — Stage II',
+      length:'2.8',width:'1.9',depth:'0.4',
+      woundBed:'70% pink granulation tissue, 30% yellow slough; no eschar.',
+      exudateAmount:'Small',exudateType:'Serous',
+      surroundingSkin:'Mild erythema, intact, no induration or maceration. Braden total 14.',
+      treatment:'Cleansed with sterile NS, hydrocolloid dressing applied, repositioning schedule Q2H.',
+      addendums:[],strikes:[],template:'wound-assessment',savedThisShift:false
+    });
+    /* Mirror into woundAssessments for cross-checking and realism */
+    S.woundAssessments[pid7].push({
+      docId,time:dateTimeStr(new Date(Date.now()-30*3600000)),
+      location:'Left sacrum',
+      type:'Pressure injury — Stage II',
+      length:'2.8',width:'1.9',depth:'0.4',
+      woundBed:'70% pink granulation tissue, 30% yellow slough; no eschar.',
+      exudate:'Small Serous',
+      surroundingSkin:'Mild erythema, intact, no induration or maceration. Braden total 14.',
+      treatment:'Cleansed with sterile NS, hydrocolloid dressing applied, repositioning schedule Q2H.',
+      historical:true
+    });
+  }
+
+  /* ─── Pre-write 2 handoff reports ─── */
+  const bed3=S.patients.find(p=>p.bed===3);
+  const bed4=S.patients.find(p=>p.bed===4);
+  if(bed3){
+    const pid3=String(bed3.id);
+    S.handoffReports[pid3].push({
+      time:dateTimeStr(new Date(Date.now()-8*3600000)),
+ nurse:'Zhang Nurse',
+      situation:bed3.name+' admitted for '+bed3.diagnosis+', currently stable.',
+      background:'Day '+randInt(2,5)+' of admission. Current orders: IV ABx, routine vitals Q4H, regular diet.',
+      assessment:'Vitals stable. No acute distress. Pain controlled. Ambulating independently.',
+      recommendation:'Continue current plan. Follow-up labs in AM. May consider discharge if afebrile x24h.',
+      savedThisShift:false
+    });
+  }
+  if(bed4){
+    const pid4=String(bed4.id);
+    S.handoffReports[pid4].push({
+      time:dateTimeStr(new Date(Date.now()-8*3600000)),
+ nurse:'Li Nurse',
+      situation:bed4.name+' '+bed4.diagnosis+', post-procedure day 1.',
+      background:'Underwent procedure yesterday. Current orders: NPO→clear liquids, PCA morphine, foley catheter.',
+      assessment:'Incision site clean and dry. Pain 4/10 managed with PCA. Urine output adequate.',
+      recommendation:'Advance diet as tolerated. DC foley if output >30mL/hr. Encourage incentive spirometry.',
+      savedThisShift:false
+    });
+  }
+
+  render();
+};
+
+/* ─── Toast ─── */
+function toast(msg,type){
+  const c=document.getElementById('toasts');
+  const d=document.createElement('div');
+  d.className='toast toast-'+(type||'info');
+  d.textContent=msg;
+  c.appendChild(d);
+  setTimeout(()=>d.remove(),4000);
+}
+
+/* ─── Modal ─── */
+function showModal(html){
+  document.getElementById('modalContent').innerHTML=html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+window.closeModal=closeModal;
+
+/* ─── Navigation ─── */
+function showPage(page){
+  S.currentPage=page;
+  render();
+}
+window.showPage=showPage;
+
+function selectPatient(bed){
+  const p=S.patients.find(x=>x.bed===bed);
+  if(p){S.selectedPatient=p;S.currentPage='vitals';render();}
+}
+window.selectPatient=selectPatient;
+
+function backToWard(){
+  S.selectedPatient=null;S.currentPage='ward';render();
+}
+window.backToWard=backToWard;
+
+/* ─── Range check ─── */
+function rangeClass(field,val){
+  const r=NORMAL_RANGES[field];
+  if(!r)return'';
+  if(val<r.min||val>r.max)return'range-abnormal';
+  const margin=(r.max-r.min)*0.15;
+  if(val<r.min+margin||val>r.max-margin)return'range-borderline';
+  return'range-normal';
+}
+
+function rangeLabel(field,val){
+  const r=NORMAL_RANGES[field];
+  if(!r)return'';
+  if(val<r.min)return'↓ Low';
+  if(val>r.max)return'↑ High';
+  return'Normal';
+}
+
+/* ─── I&O calculation ─── */
+function calcIO(pid){
+  const records=S.intakeOutputRecords[pid]||[];
+  const totalIn=records.filter(r=>r.direction==='intake').reduce((s,r)=>s+r.amount,0);
+  const totalOut=records.filter(r=>r.direction==='output').reduce((s,r)=>s+r.amount,0);
+  return{totalIn,totalOut,balance:totalIn-totalOut};
+}
+
+/* ─── Simple line chart renderer (canvas-based) ─── */
+function drawTempChart(canvasId,vitals,field,label,unit){
+  setTimeout(()=>{
+    const canvas=document.getElementById(canvasId);
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    const W=canvas.width=canvas.parentElement.clientWidth;
+    const H=canvas.height=260;
+    const pad={top:30,right:40,bottom:40,left:60};
+    const cw=W-pad.left-pad.right;
+    const ch=H-pad.top-pad.bottom;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+
+    if(!vitals||vitals.length<2)return;
+
+    const vals=vitals.map(v=>v[field]).filter(v=>v!=null);
+    if(vals.length<2)return;
+
+    const minV=Math.min(...vals)-1;
+    const maxV=Math.max(...vals)+1;
+    const rangeV=maxV-minV||1;
+
+    /* Grid */
+    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+    for(let i=0;i<=5;i++){
+      const y=pad.top+ch*(1-i/5);
+      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cw,y);ctx.stroke();
+      ctx.fillStyle='#94a3b8';ctx.font='11px sans-serif';ctx.textAlign='right';
+      ctx.fillText((minV+rangeV*(i/5)).toFixed(1),pad.left-8,y+4);
+    }
+
+    /* Normal range band */
+    const nr=NORMAL_RANGES[field];
+    if(nr){
+      const y1=pad.top+ch*(1-(nr.max-minV)/rangeV);
+      const y2=pad.top+ch*(1-(nr.min-minV)/rangeV);
+      ctx.fillStyle='rgba(13,71,161,0.08)';
+      ctx.fillRect(pad.left,Math.max(pad.top,y1),cw,Math.min(ch,y2-y1));
+      ctx.fillStyle='rgba(13,71,161,0.4)';ctx.font='10px sans-serif';ctx.textAlign='left';
+      ctx.fillText('Normal',pad.left+4,Math.max(pad.top+12,y1+12));
+    }
+
+    /* Line */
+    ctx.strokeStyle='#0d47a1';ctx.lineWidth=2;ctx.beginPath();
+    vitals.forEach((v,i)=>{
+      if(v[field]==null)return;
+      const x=pad.left+cw*(i/(vitals.length-1));
+      const y=pad.top+ch*(1-(v[field]-minV)/rangeV);
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    /* Points */
+    vitals.forEach((v,i)=>{
+      if(v[field]==null)return;
+      const x=pad.left+cw*(i/(vitals.length-1));
+      const y=pad.top+ch*(1-(v[field]-minV)/rangeV);
+      const abnormal=nr&&(v[field]<nr.min||v[field]>nr.max);
+      ctx.fillStyle=abnormal?'#c62828':'#0d47a1';
+      ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#1e293b';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText(v[field],x,y-10);
+    });
+
+    /* X labels */
+    ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.textAlign='center';
+    vitals.forEach((v,i)=>{
+      if(i%Math.ceil(vitals.length/8)!==0&&i!==vitals.length-1)return;
+      const x=pad.left+cw*(i/(vitals.length-1));
+      const t=(v.time||'').slice(5,16);
+      ctx.fillText(t,x,H-pad.bottom+20);
+    });
+
+    /* Title */
+    ctx.fillStyle='#1e293b';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
+    ctx.fillText(label+' ('+unit+')',pad.left,pad.top-12);
+  },50);
+}
+
+/* ─── Main Render ─── */
+function render(){
+  const app=document.getElementById('app');
+
+  if(!S.loggedIn){
+    app.innerHTML=renderLogin();return;
+  }
+
+  let navHtml=`
+  <div class="app">
+    <div class="header">
+ <h1><span class="icon"><i class="fa-solid fa-clipboard-list"></i></span>Nursing Documentation Station</h1>
+      <div class="header-right">
+        <div class="nav">
+ <button class="${S.currentPage==='ward'?'active':''}" onclick="showPage('ward')">My Ward</button>
+          ${S.selectedPatient?`
+ <button class="${S.currentPage==='vitals'?'active':''}" onclick="showPage('vitals')">Vital Signs</button>
+ <button class="${S.currentPage==='io'?'active':''}" onclick="showPage('io')">I&O</button>
+ <button class="${S.currentPage==='notes'?'active':''}" onclick="showPage('notes')">Nursing Notes</button>
+ <button class="${S.currentPage==='handoff'?'active':''}" onclick="showPage('handoff')">Handoff</button>
+ <button class="${S.currentPage==='tempSheet'?'active':''}" onclick="showPage('tempSheet')">Temp Sheet</button>
+          `:''}
+        </div>
+        <div class="user-info">
+ <strong>Nurse Zhang</strong><br>
+ <span id="headerClock">${new Date().toLocaleTimeString()}</span> | Ward NDU 
+        </div>
+      </div>
+    </div>
+    <div class="main" id="mainContent">`;
+
+  switch(S.currentPage){
+    case 'ward': navHtml+=renderWard(); break;
+    case 'vitals': navHtml+=renderVitals(); break;
+    case 'io': navHtml+=renderIO(); break;
+    case 'notes': navHtml+=renderNotes(); break;
+    case 'handoff': navHtml+=renderHandoff(); break;
+    case 'tempSheet': navHtml+=renderTempSheet(); break;
+    default: navHtml+=renderWard(); break;
+  }
+
+  navHtml+=`</div></div>`;
+  app.innerHTML=navHtml;
+
+  /* Draw charts if on vitals or tempSheet page */
+  if(S.currentPage==='vitals'&&S.selectedPatient){
+    const pid=String(S.selectedPatient.id);
+    const v=S.vitalSigns[pid]||[];
+ drawTempChart('chartTemp',v,'temp','Temperature','°C');
+ drawTempChart('chartPulse',v,'pulse','Pulse','bpm');
+  }
+  if(S.currentPage==='tempSheet'&&S.selectedPatient){
+    const pid=String(S.selectedPatient.id);
+    const v=S.vitalSigns[pid]||[];
+ drawTempChart('printChartTemp',v,'temp','Temperature','°C');
+ drawTempChart('printChartPulse',v,'pulse','Pulse','bpm');
+  }
+}
+
+/* ─── Login Page ─── */
+function renderLogin(){
+  return`<div class="login-wrap">
+    <div class="login-box">
+      <div class="logo"><i class="fa-solid fa-clipboard-list" style="font-size:48px;color:#0d47a1"></i></div>
+      <h2>Nursing Documentation Station</h2>
+ <p class="subtitle">Electronic Nursing Record (eNR) — Documentation Module</p>
+      <div class="form-group">
+ <label>Username</label>
+        <input type="text" id="loginUser" placeholder="Enter username" value="">
+      </div>
+      <div class="form-group">
+ <label>Password</label>
+        <input type="password" id="loginPass" placeholder="Enter password" value="">
+      </div>
+      <div class="error-msg" id="loginError">Invalid credentials. Please try again.</div>
+ <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+    </div>
+  </div>`;
+}
+
+window.doLogin=function(){
+  const u=(document.getElementById('loginUser')||{}).value||'';
+  const p=(document.getElementById('loginPass')||{}).value||'';
+  if(u.toLowerCase()==='nurse'&&p==='doc123'){
+    S.loggedIn=true;S.currentPage='ward';render();
+ toast('Welcome, Nurse Zhang','success');
+  } else {
+    const el=document.getElementById('loginError');
+    if(el)el.style.display='block';
+  }
+};
+
+/* ─── My Ward Page ─── */
+function renderWard(){
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+ <h2 style="font-size:20px;color:var(--green-dark)"><i class="fa-solid fa-bed-pulse"></i> My Ward</h2>
+    <span class="badge badge-info" style="font-size:13px;padding:6px 14px">${S.patients.length} Patients</span>
+  </div>`;
+
+  /* Stats */
+  const vitalsDueCount=S.patients.filter(p=>p.vitalsDue).length;
+  const notesPendingCount=S.patients.filter(p=>p.notesPending).length;
+  const handoffCount=S.patients.filter(p=>p.handoffNeeded).length;
+
+  html+=`<div class="stats-bar">
+ <div class="stat-item"><div class="stat-val">${S.patients.length}</div><div class="stat-label">Total Patients</div></div>
+ <div class="stat-item"><div class="stat-val" style="color:var(--warn)">${vitalsDueCount}</div><div class="stat-label">Vitals Due</div></div>
+ <div class="stat-item"><div class="stat-val" style="color:var(--info)">${notesPendingCount}</div><div class="stat-label">Notes Pending</div></div>
+ <div class="stat-item"><div class="stat-val" style="color:var(--danger)">${handoffCount}</div><div class="stat-label">Handoff Needed</div></div>
+  </div>`;
+
+  html+=`<div class="patient-grid">`;
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const io=calcIO(pid);
+
+    /* Status icons */
+    let alerts='';
+    if(p.vitalsDue) alerts+=`<span class="alert-icon" title="Vitals Due">🌡️</span>`;
+    if(p.notesPending) alerts+=`<span class="alert-icon" title="Notes Pending">📝</span>`;
+    if(p.handoffNeeded) alerts+=`<span class="alert-icon" title="Handoff Needed">🔄</span>`;
+    if(io.balance<-500) alerts+=`<span class="alert-icon" title="Negative Fluid Balance">💧</span>`;
+
+    /* Latest vitals summary */
+    const vitals=S.vitalSigns[pid]||[];
+    const last=vitals.length?vitals[vitals.length-1]:null;
+    let vitalSummary='No vitals recorded';
+    if(last){
+      vitalSummary=`T:${last.temp}°C P:${last.pulse} R:${last.resp} BP:${last.bp_sys}/${last.bp_dia} SpO2:${last.spo2}%`;
+    }
+
+    html+=`<div class="patient-card" onclick="selectPatient(${p.bed})">
+      <div class="left">
+        <div class="bed-badge">${p.bed}</div>
+        <div class="patient-info">
+          <h3>${p.name}</h3>
+          <div class="meta">${p.age}y ${p.gender} | ${p.diagnosis} | Room ${p.room}</div>
+          <div class="meta" style="margin-top:2px">${vitalSummary}</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="alerts">${alerts}</div>
+        <span style="font-size:20px;color:var(--text3)">→</span>
+      </div>
+    </div>`;
+  });
+  html+=`</div>`;
+  return html;
+}
+
+/* ─── Vital Signs Page ─── */
+function renderVitals(){
+  const p=S.selectedPatient;
+  if(!p) return`<p>Select a patient first.</p>`;
+  const pid=String(p.id);
+  const vitals=S.vitalSigns[pid]||[];
+  const latest=vitals.length?vitals[vitals.length-1]:null;
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="backToWard()">← Back to Ward</button>
+      <span style="margin-left:12px;font-size:18px;font-weight:700">Bed ${p.bed} — ${p.name}</span>
+      <span class="badge badge-info" style="margin-left:8px">${p.diagnosis}</span>
+    </div>
+  </div>`;
+
+  /* Charts */
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-temperature-half"></i> Temperature Trend (Past 3 Days)</div>
+    <div class="chart-container"><canvas id="chartTemp" class="chart-canvas"></canvas></div>
+  </div>`;
+
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-heart-pulse"></i> Pulse Trend (Past 3 Days)</div>
+    <div class="chart-container"><canvas id="chartPulse" class="chart-canvas"></canvas></div>
+  </div>`;
+
+  /* Latest vitals summary */
+  if(latest){
+    html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-chart-line"></i> Latest Vitals</div>
+      <table>
+ <thead><tr><th>Parameter</th><th>Value</th><th>Normal Range</th><th>Status</th></tr></thead>
+        <tbody>`;
+    const fields=['temp','pulse','resp','bp_sys','bp_dia','spo2','pain'];
+    fields.forEach(f=>{
+      const nr=NORMAL_RANGES[f];
+      if(!nr)return;
+      const val=latest[f];
+      if(val==null)return;
+      html+=`<tr>
+        <td>${nr.label}</td>
+        <td class="${rangeClass(f,val)}"><strong>${val}</strong> ${nr.unit}</td>
+        <td>${nr.min}–${nr.max} ${nr.unit}</td>
+        <td><span class="${rangeClass(f,val)}">${rangeLabel(f,val)}</span></td>
+      </tr>`;
+    });
+ html+=`<tr><td>Consciousness</td><td><strong>${latest.consciousness||'—'}</strong></td><td>Alert</td><td></td></tr>`;
+    html+=`</tbody></table></div>`;
+  }
+
+  /* Vital history table */
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-table-list"></i> Vital Signs History</div>
+    <div style="overflow-x:auto">
+    <table style="font-size:12px">
+ <thead><tr><th>Time</th><th>Temp °C</th><th>Pulse</th><th>Resp</th><th>BP sys</th><th>BP dia</th><th>SpO2%</th><th>Pain</th><th>Consciousness</th></tr></thead>
+      <tbody>`;
+  [...vitals].reverse().forEach(v=>{
+    html+=`<tr>
+      <td>${v.time}</td>
+      <td class="${rangeClass('temp',v.temp)}">${v.temp}</td>
+      <td class="${rangeClass('pulse',v.pulse)}">${v.pulse}</td>
+      <td class="${rangeClass('resp',v.resp)}">${v.resp}</td>
+      <td class="${rangeClass('bp_sys',v.bp_sys)}">${v.bp_sys}</td>
+      <td class="${rangeClass('bp_dia',v.bp_dia)}">${v.bp_dia}</td>
+      <td class="${rangeClass('spo2',v.spo2)}">${v.spo2}</td>
+      <td>${v.pain}</td>
+      <td>${v.consciousness}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+
+  /* Entry form */
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-pen"></i> Record New Vital Signs</div>
+    <div class="form-row">
+ <div class="form-group"><label>Temperature (°C)</label><input type="number" id="vTemp" step="0.1" min="34" max="43" placeholder="e.g., 37.0"></div>
+ <div class="form-group"><label>Pulse (bpm)</label><input type="number" id="vPulse" min="30" max="200" placeholder="e.g., 80"></div>
+    </div>
+    <div class="form-row">
+ <div class="form-group"><label>Respiration (/min)</label><input type="number" id="vResp" min="5" max="50" placeholder="e.g., 16"></div>
+ <div class="form-group"><label>SpO2 (%)</label><input type="number" id="vSpo2" min="50" max="100" placeholder="e.g., 98"></div>
+    </div>
+    <div class="form-row-3">
+ <div class="form-group"><label>BP Systolic (mmHg)</label><input type="number" id="vBpSys" min="40" max="300" placeholder="e.g., 120"></div>
+ <div class="form-group"><label>BP Diastolic (mmHg)</label><input type="number" id="vBpDia" min="20" max="200" placeholder="e.g., 80"></div>
+ <div class="form-group"><label>Pain Score (0-10)</label><input type="number" id="vPain" min="0" max="10" placeholder="e.g., 3"></div>
+    </div>
+    <div class="form-row">
+ <div class="form-group"><label>Weight (kg)</label><input type="number" id="vWeight" step="0.1" min="20" max="200" placeholder="e.g., 65.0"></div>
+ <div class="form-group"><label>Consciousness</label>
+        <select id="vConscious">
+ <option value="Alert">Alert</option>
+ <option value="Drowsy">Drowsy</option>
+ <option value="Confused">Confused</option>
+ <option value="Responsive to Voice">Responsive to Voice</option>
+ <option value="Responsive to Pain">Responsive to Pain</option>
+ <option value="Unresponsive">Unresponsive</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+ <button class="btn btn-primary" onclick="saveVitals()"><i class="fa-solid fa-floppy-disk"></i> Save Vitals</button>
+ <button class="btn btn-outline" onclick="clearVitalForm()">Clear</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px">Normal ranges shown for reference. Abnormal values will be highlighted.</p>
+  </div>`;
+
+  return html;
+}
+
+window.saveVitals=function(){
+  const p=S.selectedPatient;
+  if(!p){toast('No patient selected','danger');return;}
+  const pid=String(p.id);
+
+  const temp=parseFloat((document.getElementById('vTemp')||{}).value);
+  const pulse=parseInt((document.getElementById('vPulse')||{}).value);
+  const resp=parseInt((document.getElementById('vResp')||{}).value);
+  const bpSys=parseInt((document.getElementById('vBpSys')||{}).value);
+  const bpDia=parseInt((document.getElementById('vBpDia')||{}).value);
+  const spo2=parseInt((document.getElementById('vSpo2')||{}).value);
+  const pain=parseInt((document.getElementById('vPain')||{}).value);
+  const weight=parseFloat((document.getElementById('vWeight')||{}).value);
+  const conscious=(document.getElementById('vConscious')||{}).value||'Alert';
+
+  if(isNaN(temp)||isNaN(pulse)||isNaN(resp)||isNaN(bpSys)||isNaN(bpDia)){
+    toast('Please fill in at least Temp, Pulse, Resp, and BP.','danger');
+    return;
+  }
+
+  const entry={
+    time:dateTimeStr(new Date()),
+    temp,pulse,resp,bp_sys:bpSys,bp_dia:bpDia,
+    spo2:isNaN(spo2)?null:spo2,
+    pain:isNaN(pain)?null:pain,
+    weight:isNaN(weight)?null:weight,
+    consciousness:conscious,
+    recordedThisShift:true
+  };
+
+  /* Plausibility alerts */
+  const alerts=[];
+  if(temp<34||temp>42)alerts.push('Temperature out of plausible range');
+  if(pulse<30||pulse>200)alerts.push('Pulse out of plausible range');
+  if(bpSys<50||bpSys>300)alerts.push('BP systolic out of plausible range');
+  if(bpDia<20||bpDia>200)alerts.push('BP diastolic out of plausible range');
+  if(bpDia>=bpSys)alerts.push('Diastolic ≥ Systolic — possible transcription error');
+
+  if(alerts.length){
+    S.alertsTriggered.push(...alerts.map(a=>({time:new Date().toISOString(),alert:a,bed:p.bed})));
+    toast('⚠️ '+alerts.join('; '),'warn');
+  }
+
+  if(!S.vitalSigns[pid])S.vitalSigns[pid]=[];
+  S.vitalSigns[pid].push(entry);
+  p.vitalsDue=false;
+  toast('Vital signs saved for '+p.name,'success');
+  render();
+};
+
+window.clearVitalForm=function(){
+  ['vTemp','vPulse','vResp','vBpSys','vBpDia','vSpo2','vPain','vWeight'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+};
+
+/* ─── Intake/Output Page ─── */
+function renderIO(){
+  const p=S.selectedPatient;
+  if(!p) return`<p>Select a patient first.</p>`;
+  const pid=String(p.id);
+  const records=S.intakeOutputRecords[pid]||[];
+  const io=calcIO(pid);
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="backToWard()">← Back to Ward</button>
+      <span style="margin-left:12px;font-size:18px;font-weight:700">Bed ${p.bed} — ${p.name}</span>
+      <span class="badge badge-info" style="margin-left:8px">${p.diagnosis}</span>
+    </div>
+  </div>`;
+
+  /* 24h Balance Summary */
+  const balClass=io.balance<0?'io-negative':'io-positive';
+  const balSign=io.balance>=0?'+':'';
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-droplet"></i> 24-Hour Fluid Balance 24</div>
+    <div class="stats-bar">
+ <div class="stat-item"><div class="stat-val" style="color:var(--info)">${io.totalIn}</div><div class="stat-label">Total Intake (mL)</div></div>
+ <div class="stat-item"><div class="stat-val" style="color:var(--warn)">${io.totalOut}</div><div class="stat-label">Total Output (mL)</div></div>
+ <div class="stat-item"><div class="stat-val ${balClass}">${balSign}${io.balance}</div><div class="stat-label">Balance (mL)</div></div>
+    </div>`;
+  if(io.balance<-500){
+    html+=`<div style="background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;padding:10px 16px;color:var(--danger);font-weight:600;margin-top:8px">
+      ⚠️ Significant negative fluid balance — Risk of dehydration. Consider increasing fluid intake or notifying physician.
+    </div>`;
+  }
+  html+=`</div>`;
+
+  /* Intake records */
+  const intakeRecs=records.filter(r=>r.direction==='intake');
+  const outputRecs=records.filter(r=>r.direction==='output');
+
+  html+=`<div class="card io-section">
+ <div class="card-title" style="color:var(--info)"><i class="fa-solid fa-arrow-down"></i> Intake Records</div>
+ <table><thead><tr><th>Time</th><th>Type</th><th>Substance</th><th>Amount (mL)</th></tr></thead><tbody>`;
+  if(intakeRecs.length){
+    intakeRecs.forEach(r=>{
+      html+=`<tr><td>${r.time}</td><td>${r.type}</td><td>${r.substance||'—'}</td><td><strong>${r.amount}</strong></td></tr>`;
+    });
+ html+=`<tr style="font-weight:700;background:var(--bg3)"><td colspan="3">Total Intake</td><td>${io.totalIn} mL</td></tr>`;
+  } else {
+    html+=`<tr><td colspan="4" style="color:var(--text3)">No intake records.</td></tr>`;
+  }
+  html+=`</tbody></table></div>`;
+
+  /* Output records */
+  html+=`<div class="card io-section">
+ <div class="card-title" style="color:var(--warn)"><i class="fa-solid fa-arrow-up"></i> Output Records</div>
+ <table><thead><tr><th>Time</th><th>Type</th><th>Substance</th><th>Amount (mL)</th></tr></thead><tbody>`;
+  if(outputRecs.length){
+    outputRecs.forEach(r=>{
+      html+=`<tr><td>${r.time}</td><td>${r.type}</td><td>${r.substance||'—'}</td><td><strong>${r.amount}</strong></td></tr>`;
+    });
+ html+=`<tr style="font-weight:700;background:var(--bg3)"><td colspan="3">Total Output</td><td>${io.totalOut} mL</td></tr>`;
+  } else {
+    html+=`<tr><td colspan="4" style="color:var(--text3)">No output records.</td></tr>`;
+  }
+  html+=`</tbody></table></div>`;
+
+  /* Entry form */
+  html+=`<div class="card">
+ <div class="card-title"><i class="fa-solid fa-pen-to-square"></i> Record New I&O</div>
+
+ <h4 style="color:var(--info);margin-bottom:8px">Intake</h4>
+    <div class="form-row-3">
+ <div class="form-group"><label>Type</label>
+        <select id="ioInType">
+ <option value="IV">IV</option>
+ <option value="Oral">Oral</option>
+ <option value="Blood Products">Blood Products</option>
+ <option value="Tube Feeding">Tube Feeding</option>
+        </select>
+      </div>
+ <div class="form-group"><label>Substance</label><input type="text" id="ioInSubstance" placeholder="e.g., NS 0.9%"></div>
+ <div class="form-group"><label>Amount (mL)</label><input type="number" id="ioInAmount" min="0" placeholder="e.g., 500"></div>
+    </div>
+ <button class="btn btn-info btn-sm" onclick="addIntake()" style="margin-bottom:16px">+ Add Intake</button>
+
+ <h4 style="color:var(--warn);margin-bottom:8px">Output</h4>
+    <div class="form-row-3">
+ <div class="form-group"><label>Type</label>
+        <select id="ioOutType">
+ <option value="Urine">Urine</option>
+ <option value="Drain">Drain</option>
+ <option value="Emesis">Emesis</option>
+ <option value="Stool">Stool</option>
+ <option value="Blood Loss">Blood Loss</option>
+        </select>
+      </div>
+ <div class="form-group"><label>Substance</label><input type="text" id="ioOutSubstance" placeholder="e.g., JP Drain"></div>
+ <div class="form-group"><label>Amount (mL)</label><input type="number" id="ioOutAmount" min="0" placeholder="e.g., 350"></div>
+    </div>
+ <button class="btn btn-warn btn-sm" onclick="addOutput()" style="margin-bottom:16px">+ Add Output</button>
+
+    <hr style="border:none;border-top:1px solid var(--border2);margin:16px 0">
+    <div style="display:flex;gap:8px">
+ <button class="btn btn-primary" onclick="saveIO()"><i class="fa-solid fa-floppy-disk"></i> Save I&O</button>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+/* Temp staging for new I/O entries */
+let _pendingIntake=[];
+let _pendingOutput=[];
+
+window.addIntake=function(){
+  const type=(document.getElementById('ioInType')||{}).value||'IV';
+  const sub=(document.getElementById('ioInSubstance')||{}).value||'';
+  const amt=parseInt((document.getElementById('ioInAmount')||{}).value);
+  if(isNaN(amt)||amt<=0){toast('Enter a valid intake amount.','danger');return;}
+  _pendingIntake.push({type,substance:sub,amount:amt});
+  toast(`Added intake: ${type} ${amt} mL`,'info');
+  const el=document.getElementById('ioInAmount');if(el)el.value='';
+  const el2=document.getElementById('ioInSubstance');if(el2)el2.value='';
+};
+
+window.addOutput=function(){
+  const type=(document.getElementById('ioOutType')||{}).value||'Urine';
+  const sub=(document.getElementById('ioOutSubstance')||{}).value||'';
+  const amt=parseInt((document.getElementById('ioOutAmount')||{}).value);
+  if(isNaN(amt)||amt<=0){toast('Enter a valid output amount.','danger');return;}
+  _pendingOutput.push({type,substance:sub,amount:amt});
+  toast(`Added output: ${type} ${amt} mL`,'info');
+  const el=document.getElementById('ioOutAmount');if(el)el.value='';
+  const el2=document.getElementById('ioOutSubstance');if(el2)el2.value='';
+};
+
+window.saveIO=function(){
+  const p=S.selectedPatient;
+  if(!p){toast('No patient selected','danger');return;}
+  const pid=String(p.id);
+
+  if(_pendingIntake.length===0&&_pendingOutput.length===0){
+    toast('Add at least one intake or output entry first.','danger');
+    return;
+  }
+
+  const now=dateTimeStr(new Date());
+  _pendingIntake.forEach(r=>{
+    S.intakeOutputRecords[pid].push({
+      time:now,direction:'intake',type:r.type,substance:r.substance,
+      amount:r.amount,recordedThisShift:true
+    });
+  });
+  _pendingOutput.forEach(r=>{
+    S.intakeOutputRecords[pid].push({
+      time:now,direction:'output',type:r.type,substance:r.substance,
+      amount:r.amount,recordedThisShift:true
+    });
+  });
+
+  /* Recalculate balance */
+  const io=calcIO(pid);
+  S.fluidBalance[pid]=io.balance;
+
+  const totalAdded=_pendingIntake.reduce((s,r)=>s+r.amount,0)+_pendingOutput.reduce((s,r)=>s+r.amount,0);
+  _pendingIntake=[];_pendingOutput=[];
+
+  toast(`I&O saved for ${p.name}. Balance: ${io.balance>=0?'+':''}${io.balance} mL`,'success');
+  render();
+};
+
+/* ─── Nursing Notes Page (PowerChart-style Progress Notes) ─── */
+/*  UI: two-pane layout
+ *    Left: Document list with toolbar (Add Document, Filter)
+ *    Right: Document detail / editor / addendum panel
+ *  Workflow per PowerChart manual:
+ *    1. Add Document opens editor (status: In Progress)
+ *    2. Pick a Type, optionally apply a Template, fill Subject + Body
+ *    3. Spell-check available before signing
+ *    4. Sign button → status becomes "Auth (Verified)"; body becomes read-only
+ *    5. Right-click signed doc → Modify → can add an Addendum
+ *       and apply Strike-through to selected text in the original
+ */
+
+function _docStatusBadge(status){
+  const cls = status===DOC_STATUS.IN_PROGRESS?'dsb-in-progress'
+            : status===DOC_STATUS.MODIFIED?'dsb-modified'
+            : 'dsb-signed';
+  const ico = status===DOC_STATUS.IN_PROGRESS?'fa-pen-to-square'
+            : status===DOC_STATUS.MODIFIED?'fa-clock-rotate-left'
+            : 'fa-circle-check';
+  return `<span class="doc-status-badge ${cls}"><i class="fa-solid ${ico}"></i>${status}</span>`;
+}
+
+function _docStatusIcon(status){
+  if(status===DOC_STATUS.IN_PROGRESS) return '<i class="fa-solid fa-pen-to-square" title="In Progress" style="color:#ef6c00"></i>';
+  if(status===DOC_STATUS.MODIFIED)    return '<i class="fa-solid fa-clock-rotate-left" title="Modified (Addendum)" style="color:#5e35b1"></i>';
+  return '<i class="fa-solid fa-circle-check" title="Auth (Verified)" style="color:#2e7d32"></i>';
+}
+
+function _renderStruckText(text, strikes){
+  if(!text) return '';
+  if(!strikes||!strikes.length) return _esc(text);
+  /* Apply strikethroughs by wrapping each strike substring (first match only) */
+  let out = _esc(text);
+  strikes.forEach(s=>{
+    const safe = _esc(s);
+    const idx = out.indexOf(safe);
+    if(idx>=0){
+      out = out.slice(0,idx) + '<span class="struck">' + safe + '</span>' + out.slice(idx+safe.length);
+    }
+  });
+  return out;
+}
+
+function _esc(s){
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderNotes(){
+  const p=S.selectedPatient;
+  if(!p) return`<p>Select a patient first.</p>`;
+  const pid=String(p.id);
+  const notes=S.nursingNotes[pid]||[];
+
+  /* Apply filter */
+  let filtered = notes.slice();
+  if(S.docFilter==='in-progress') filtered = filtered.filter(n=>n.status===DOC_STATUS.IN_PROGRESS);
+  else if(S.docFilter==='signed') filtered = filtered.filter(n=>n.status===DOC_STATUS.SIGNED);
+  else if(S.docFilter==='modified') filtered = filtered.filter(n=>n.status===DOC_STATUS.MODIFIED);
+  /* Newest first */
+  filtered.sort((a,b)=> (b.time||'').localeCompare(a.time||''));
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="backToWard()">← Back to Ward</button>
+      <span style="margin-left:12px;font-size:18px;font-weight:700">Bed ${p.bed} — ${_esc(p.name)}</span>
+      <span class="badge badge-info" style="margin-left:8px">${_esc(p.diagnosis)}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3)">Documents: <strong>${notes.length}</strong> &middot; Filter:
+      <select onchange="setDocFilter(this.value)" style="display:inline-block;width:auto;padding:3px 6px;font-size:11px">
+        <option value="all" ${S.docFilter==='all'?'selected':''}>All</option>
+        <option value="in-progress" ${S.docFilter==='in-progress'?'selected':''}>In Progress</option>
+        <option value="signed" ${S.docFilter==='signed'?'selected':''}>Auth (Verified)</option>
+        <option value="modified" ${S.docFilter==='modified'?'selected':''}>Modified</option>
+      </select>
+    </div>
+  </div>`;
+
+  html+=`<div class="docs-layout">`;
+
+  /* ─── Left pane: Document list ─── */
+  html+=`<div class="doc-list-pane">
+    <div class="doc-list-toolbar">
+      <button class="pc-icon-btn primary" onclick="newDocument()" title="Add Document"><i class="fa-solid fa-plus"></i> Add Document</button>
+      <button class="pc-icon-btn" onclick="newDocumentFromToolbar()" title="Open Clinical Notes"><i class="fa-regular fa-clipboard"></i></button>
+      <button class="pc-icon-btn" onclick="render()" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+    </div>
+    <div class="doc-list-header">
+      <div></div><div>Subject / Type</div><div style="text-align:right">Date</div>
+    </div>`;
+
+  if(filtered.length===0){
+    html+=`<div class="doc-empty">No documents match this filter.<br>Click <strong>+ Add Document</strong> to create one.</div>`;
+  } else {
+    filtered.forEach(n=>{
+      const sel = (S.selectedDocId===n.docId && !S.draftDoc) ? 'selected' : '';
+      const dateOnly = (n.time||'').slice(5,16);
+      html+=`<div class="doc-row ${sel}" onclick="openDocument('${n.docId}')" oncontextmenu="showDocContextMenu(event,'${n.docId}');return false;">
+        <div class="doc-status-icon">${_docStatusIcon(n.status)}</div>
+        <div class="doc-meta">
+          <div class="doc-subject">${_esc(n.subject||'(no subject)')}</div>
+          <div class="doc-sub">${_esc(n.noteType)} &middot; ${_esc(n.author||'N. Zhang, RN')}${n.addendums&&n.addendums.length?` &middot; +${n.addendums.length} addendum`:''}</div>
+        </div>
+        <div class="doc-time">${dateOnly}</div>
+      </div>`;
+    });
+  }
+  html+=`</div>`;
+
+  /* ─── Right pane: Detail / Editor ─── */
+  html+=`<div class="doc-detail-pane">`;
+
+  if(S.draftDoc){
+    /* Editor for new / in-progress doc */
+    html+=_renderDocEditor(S.draftDoc, p);
+  } else if(S.selectedDocId){
+    const doc = notes.find(n=>n.docId===S.selectedDocId);
+    if(doc){
+      html+=_renderDocDetail(doc, p);
+    } else {
+      html+=`<div class="doc-detail-empty"><i class="fa-regular fa-file"></i><div>Document not found.</div></div>`;
+    }
+  } else {
+    html+=`<div class="doc-detail-empty">
+      <i class="fa-regular fa-folder-open"></i>
+      <div><strong>Clinical Notes</strong></div>
+      <div style="margin-top:6px;max-width:360px">Select a document on the left to view, or click <strong>+ Add Document</strong> to create a new note.</div>
+      <div style="margin-top:8px;font-size:11px">Right-click a signed document to add an Addendum or apply Strike-through corrections.</div>
+    </div>`;
+  }
+  html+=`</div>`;       /* /doc-detail-pane */
+
+  html+=`</div>`;       /* /docs-layout */
+
+  return html;
+}
+
+function _renderDocEditor(d, p){
+  const isStructured = !!d.structured;
+  let html=`<div class="doc-header-strip">
+    <div class="doc-title-line"><i class="fa-solid fa-file-pen"></i> Clinical Note — Editor</div>
+    <div class="doc-actions">
+      <button class="pc-icon-btn" onclick="openTemplateSelector()" title="Template"><i class="fa-solid fa-layer-group"></i> Template</button>
+      <button class="pc-icon-btn" onclick="runSpellCheck()" title="Spell Check"><i class="fa-solid fa-spell-check"></i> Spell Check</button>
+      <button class="pc-icon-btn primary" onclick="signDocument()" title="Sign / Authenticate"><i class="fa-solid fa-signature"></i> Sign</button>
+      <button class="pc-icon-btn" onclick="saveDraft()" title="Save Draft"><i class="fa-solid fa-floppy-disk"></i> Save Draft</button>
+      <button class="pc-icon-btn" onclick="cancelDraft()" title="Cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>
+    </div>
+  </div>
+
+  <div class="doc-meta-grid">
+    <div class="meta-cell"><label>Type</label>
+      <select id="edNoteType" onchange="onTypeChange()" style="padding:4px 6px;font-size:12px">
+        ${NOTE_TYPES.map(t=>`<option value="${t}" ${d.noteType===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="meta-cell"><label>Author</label><div class="val">${_esc(d.author||'N. Zhang, RN')}</div></div>
+    <div class="meta-cell"><label>Date / Time</label><div class="val">${_esc(d.time)}</div></div>
+    <div class="meta-cell"><label>Status</label><div class="val in-progress">${DOC_STATUS.IN_PROGRESS}</div></div>
+  </div>
+
+  <div class="doc-body-area">
+    <div class="spell-check-bar"><i class="fa-solid fa-info-circle"></i> Spell-check available — only before signing.</div>
+
+    <div class="field-block">
+      <label>Subject (Focus) <span class="field-flag">summary phrase</span></label>
+      <input type="text" id="edSubject" value="${_esc(d.subject||'')}" placeholder="e.g., Post-op shift assessment">
+    </div>`;
+
+  if(isStructured && d.structured==='rapidResponse'){
+    html+=`
+    <div class="field-block">
+      <label>Trigger / Recognition</label>
+      <textarea id="edTrigger" rows="3" placeholder="Time of recognition, trigger criteria (SpO2, HR, BP, mental status)...">${_esc(d.trigger||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Interventions Performed</label>
+      <textarea id="edInterventions" rows="4" placeholder="O2, positioning, IV access verification, monitoring, labs...">${_esc(d.interventions||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Physician Notification</label>
+      <textarea id="edPhysicianNotification" rows="3" placeholder="Time, who notified, orders received, RRT activation, family notification...">${_esc(d.physicianNotification||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Patient Response &amp; Disposition</label>
+      <textarea id="edPatientResponse" rows="3" placeholder="Vitals after interventions, mental status, level-of-care decision...">${_esc(d.patientResponse||'')}</textarea>
+    </div>`;
+  } else if(isStructured && d.structured==='woundAssessment'){
+    html+=`
+    <div class="struct-fields-grid">
+      <div class="field-block"><label>Location</label>
+        <input type="text" id="edLocation" value="${_esc(d.location||'')}" placeholder="e.g., Left sacrum"></div>
+      <div class="field-block"><label>Wound Type / Stage</label>
+        <input type="text" id="edWoundType" value="${_esc(d.woundType||'')}" placeholder="e.g., Pressure injury — Stage II"></div>
+      <div class="field-block"><label>Length (cm)</label>
+        <input type="number" step="0.1" id="edLength" value="${_esc(d.length||'')}" placeholder="3.0"></div>
+      <div class="field-block"><label>Width (cm)</label>
+        <input type="number" step="0.1" id="edWidth" value="${_esc(d.width||'')}" placeholder="2.0"></div>
+      <div class="field-block"><label>Depth (cm)</label>
+        <input type="number" step="0.1" id="edDepth" value="${_esc(d.depth||'')}" placeholder="0.5"></div>
+      <div class="field-block"><label>Exudate Amount</label>
+        <select id="edExudateAmount" style="padding:8px 10px">
+          ${['','None','Scant','Small','Moderate','Large'].map(o=>`<option value="${o}" ${d.exudateAmount===o?'selected':''}>${o||'— Select'}</option>`).join('')}
+        </select></div>
+      <div class="field-block"><label>Exudate Type</label>
+        <select id="edExudateType" style="padding:8px 10px">
+          ${['','Serous','Sanguinous','Serosanguinous','Purulent'].map(o=>`<option value="${o}" ${d.exudateType===o?'selected':''}>${o||'— Select'}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="field-block"><label>Wound Bed Description</label>
+      <textarea id="edWoundBed" rows="2" placeholder="% granulation, slough, eschar, undermining, tunneling...">${_esc(d.woundBed||'')}</textarea></div>
+    <div class="field-block"><label>Surrounding Skin (peri-wound)</label>
+      <textarea id="edSurroundingSkin" rows="2" placeholder="Erythema, induration, maceration, intact...">${_esc(d.surroundingSkin||'')}</textarea></div>
+    <div class="field-block"><label>Treatment Applied</label>
+      <textarea id="edTreatment" rows="2" placeholder="Cleansing solution, dressing type, frequency, repositioning schedule...">${_esc(d.treatment||'')}</textarea></div>`;
+  } else {
+    html+=`
+    <div class="field-block">
+      <label>Patient Condition</label>
+      <textarea id="edCondition" rows="3" placeholder="Describe current patient condition, mental status, vitals trend...">${_esc(d.condition||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Nursing Interventions</label>
+      <textarea id="edInterventions" rows="4" placeholder="List nursing actions performed this shift...">${_esc(d.interventions||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Patient Response</label>
+      <textarea id="edResponse" rows="3" placeholder="How did the patient respond to the interventions?...">${_esc(d.response||'')}</textarea>
+    </div>
+    <div class="field-block">
+      <label>Plan</label>
+      <textarea id="edPlan" rows="2" placeholder="Next steps and care plan...">${_esc(d.plan||'')}</textarea>
+    </div>`;
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+function _renderDocDetail(doc, p){
+  const inModify = S.modifyMode && S.selectedDocId===doc.docId;
+  let html=`<div class="doc-header-strip">
+    <div class="doc-title-line"><i class="fa-solid fa-file-lines"></i> ${_esc(doc.subject||doc.noteType)}
+      ${_docStatusBadge(doc.status)}
+    </div>
+    <div class="doc-actions">`;
+
+  if(doc.status===DOC_STATUS.IN_PROGRESS){
+    html+=`<button class="pc-icon-btn primary" onclick="resumeDraft('${doc.docId}')"><i class="fa-solid fa-pen"></i> Resume Editing</button>`;
+  } else {
+    if(inModify){
+      html+=`<button class="pc-icon-btn primary" onclick="saveAddendum()"><i class="fa-solid fa-floppy-disk"></i> Save Addendum</button>
+      <button class="pc-icon-btn" onclick="exitModify()"><i class="fa-solid fa-xmark"></i> Done</button>`;
+    } else {
+      html+=`<button class="pc-icon-btn" onclick="enterModifyMode('${doc.docId}')"><i class="fa-solid fa-clock-rotate-left"></i> Modify (Addendum)</button>`;
+    }
+    html+=`<button class="pc-icon-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>`;
+  }
+  html+=`</div></div>
+
+  <div class="doc-meta-grid">
+    <div class="meta-cell"><label>Type</label><div class="val">${_esc(doc.noteType)}</div></div>
+    <div class="meta-cell"><label>Author</label><div class="val">${_esc(doc.author||'N. Zhang, RN')}</div></div>
+    <div class="meta-cell"><label>Created</label><div class="val">${_esc(doc.time)}</div></div>
+    <div class="meta-cell"><label>Status</label>
+      <div class="val ${doc.status===DOC_STATUS.IN_PROGRESS?'in-progress':doc.status===DOC_STATUS.MODIFIED?'modified':'signed'}">${_esc(doc.status)}${doc.signedTime?` &middot; ${_esc(doc.signedTime)}`:''}</div>
+    </div>
+  </div>
+
+  <div class="doc-body-area">`;
+
+  if(inModify){
+    html+=`<div class="struck-banner">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>Authenticated documents cannot be edited directly. Highlight text in the original below and click <strong>Strike Selected</strong>, then add your <strong>Addendum</strong> at the bottom.</span>
+    </div>
+    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="pc-icon-btn" onclick="strikeSelected()"><i class="fa-solid fa-strikethrough"></i> Strike Selected</button>
+      <button class="pc-icon-btn" onclick="clearStrikes('${doc.docId}')"><i class="fa-solid fa-rotate-left"></i> Clear Strikes</button>
+    </div>`;
+  }
+
+  /* Body rendering depending on note shape */
+  const fields = doc.structured==='rapidResponse'
+    ? [['Trigger','trigger'],['Interventions','interventions'],['Physician Notification','physicianNotification'],['Patient Response','patientResponse']]
+    : doc.structured==='woundAssessment'
+      ? null
+      : [['Condition','condition'],['Interventions','interventions'],['Response','response'],['Plan','plan']];
+
+  if(doc.structured==='woundAssessment'){
+    html+=`<div class="struct-fields-grid">
+      <div class="field-block"><label>Location</label><div class="signed-text">${_esc(doc.location||'—')}</div></div>
+      <div class="field-block"><label>Wound Type / Stage</label><div class="signed-text">${_esc(doc.woundType||'—')}</div></div>
+      <div class="field-block"><label>Size (L × W × D, cm)</label><div class="signed-text">${_esc(doc.length||'—')} × ${_esc(doc.width||'—')} × ${_esc(doc.depth||'—')}</div></div>
+      <div class="field-block"><label>Exudate</label><div class="signed-text">${_esc(doc.exudateAmount||'—')} / ${_esc(doc.exudateType||'—')}</div></div>
+    </div>
+    <div class="field-block"><label>Wound Bed</label><div class="signed-text strikable" data-field="woundBed">${_renderStruckText(doc.woundBed,doc.strikes||[])}</div></div>
+    <div class="field-block"><label>Surrounding Skin</label><div class="signed-text strikable" data-field="surroundingSkin">${_renderStruckText(doc.surroundingSkin,doc.strikes||[])}</div></div>
+    <div class="field-block"><label>Treatment</label><div class="signed-text strikable" data-field="treatment">${_renderStruckText(doc.treatment,doc.strikes||[])}</div></div>`;
+  } else if(fields){
+    fields.forEach(([label,key])=>{
+      const cls = (doc.status===DOC_STATUS.IN_PROGRESS) ? 'in-progress-text' : '';
+      html+=`<div class="field-block"><label>${label}</label>
+        <div class="signed-text strikable ${cls}" data-field="${key}">${_renderStruckText(doc[key],doc.strikes||[])||'—'}</div>
+      </div>`;
+    });
+  }
+
+  /* Addendum block */
+  if((doc.addendums&&doc.addendums.length) || inModify){
+    html+=`<div class="doc-addendum-block">
+      <h5><i class="fa-solid fa-plus-circle"></i> Addendum${doc.addendums&&doc.addendums.length>1?'s':''}</h5>`;
+    (doc.addendums||[]).forEach(a=>{
+      html+=`<div class="addendum-card">
+        <div class="add-meta"><span>${_esc(a.author||'N. Zhang, RN')}</span><span>${_esc(a.time)}</span></div>
+        <div>${_esc(a.text)}</div>
+      </div>`;
+    });
+    if(inModify){
+      html+=`<div class="field-block" style="margin-top:8px">
+        <label>New Addendum Text</label>
+        <textarea id="addendumText" rows="3" placeholder="Add clarification, correction, or follow-up information..."></textarea>
+      </div>`;
+    }
+    html+=`</div>`;
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+/* ─── Document workflow helpers ─── */
+function setDocFilter(v){S.docFilter=v;render();}
+window.setDocFilter=setDocFilter;
+
+function _newDraft(p){
+  const now=new Date();
+  return {
+    docId:'DOC'+String(S.docCounter++).padStart(5,'0'),
+    noteType:'Nursing Care Note',
+    subject:DEFAULT_SUBJECTS['Nursing Care Note']||'',
+    author:'N. Zhang, RN',
+    time:dateTimeStr(now),
+    signedTime:null,
+    status:DOC_STATUS.IN_PROGRESS,
+    structured:null,
+    condition:'',interventions:'',response:'',plan:'',
+    /* rapid response fields */
+    trigger:'',physicianNotification:'',patientResponse:'',
+    /* wound assessment fields */
+    location:'',woundType:'',length:'',width:'',depth:'',
+    woundBed:'',exudateAmount:'',exudateType:'',
+    surroundingSkin:'',treatment:'',
+    addendums:[],strikes:[],template:''
+  };
+}
+
+window.newDocument=function(){
+  if(!S.selectedPatient){toast('No patient selected','danger');return;}
+  S.draftDoc=_newDraft(S.selectedPatient);
+  S.selectedDocId=S.draftDoc.docId;
+  S.modifyMode=false;
+  render();
+};
+window.newDocumentFromToolbar=function(){window.newDocument();};
+
+window.openDocument=function(docId){
+  S.selectedDocId=docId;
+  S.draftDoc=null;
+  S.modifyMode=false;
+  hideContextMenu();
+  render();
+};
+
+window.resumeDraft=function(docId){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const idx=(S.nursingNotes[pid]||[]).findIndex(n=>n.docId===docId);
+  if(idx<0)return;
+  /* Pull the note out into draftDoc; will be re-added on save */
+  S.draftDoc=Object.assign({},S.nursingNotes[pid][idx]);
+  S.nursingNotes[pid].splice(idx,1);
+  render();
+};
+
+window.cancelDraft=function(){
+  S.draftDoc=null;
+  S.selectedDocId=null;
+  render();
+};
+
+function _readEditorIntoDraft(){
+  if(!S.draftDoc) return;
+  const d=S.draftDoc;
+  const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  d.noteType = v('edNoteType') || d.noteType;
+  d.subject  = v('edSubject');
+  /* update structured flag based on type */
+  if(d.noteType==='Rapid Response') d.structured='rapidResponse';
+  else if(d.noteType==='Wound Assessment') d.structured='woundAssessment';
+  else d.structured=null;
+
+  if(d.structured==='rapidResponse'){
+    d.trigger=v('edTrigger');
+    d.interventions=v('edInterventions');
+    d.physicianNotification=v('edPhysicianNotification');
+    d.patientResponse=v('edPatientResponse');
+  } else if(d.structured==='woundAssessment'){
+    d.location=v('edLocation');
+    d.woundType=v('edWoundType');
+    d.length=v('edLength');d.width=v('edWidth');d.depth=v('edDepth');
+    d.exudateAmount=v('edExudateAmount');d.exudateType=v('edExudateType');
+    d.woundBed=v('edWoundBed');
+    d.surroundingSkin=v('edSurroundingSkin');
+    d.treatment=v('edTreatment');
+  } else {
+    d.condition=v('edCondition');
+    d.interventions=v('edInterventions');
+    d.response=v('edResponse');
+    d.plan=v('edPlan');
+  }
+}
+
+window.onTypeChange=function(){
+  _readEditorIntoDraft();
+  /* Suggest a subject if blank */
+  if(S.draftDoc && !S.draftDoc.subject){
+    S.draftDoc.subject = DEFAULT_SUBJECTS[S.draftDoc.noteType]||'';
+  }
+  render();
+};
+
+window.saveDraft=function(){
+  const p=S.selectedPatient;if(!p){return;}
+  _readEditorIntoDraft();
+  if(!S.draftDoc.subject.trim()){
+    toast('Subject (Focus) is required.','danger');return;
+  }
+  const pid=String(p.id);
+  S.draftDoc.savedThisShift=true;
+  S.nursingNotes[pid].push(S.draftDoc);
+  toast('Draft saved (status: In Progress)','info');
+  S.selectedDocId=S.draftDoc.docId;
+  S.draftDoc=null;
+  render();
+};
+
+window.signDocument=function(){
+  const p=S.selectedPatient;if(!p){return;}
+  _readEditorIntoDraft();
+  const d=S.draftDoc;
+  if(!d){toast('No document open.','danger');return;}
+  if(!d.subject.trim()){toast('Subject (Focus) is required before signing.','danger');return;}
+  /* Validate based on type */
+  if(d.structured==='rapidResponse'){
+    if(!(d.trigger||'').trim()||!(d.interventions||'').trim()){
+      toast('Rapid Response requires Trigger and Interventions.','danger');return;
+    }
+  } else if(d.structured==='woundAssessment'){
+    if(!(d.location||'').trim()||!(d.woundType||'').trim()){
+      toast('Wound Assessment requires Location and Wound Type.','danger');return;
+    }
+  } else {
+    if(!(d.condition||'').trim()&&!(d.interventions||'').trim()){
+      toast('Please document Condition and Interventions before signing.','danger');return;
+    }
+  }
+  d.status=DOC_STATUS.SIGNED;
+  d.signedTime=dateTimeStr(new Date());
+  d.savedThisShift=true;
+  /* Persist into note list */
+  const pid=String(p.id);
+  S.nursingNotes[pid].push(d);
+  /* Mirror wound assessments into woundAssessments map */
+  if(d.structured==='woundAssessment'){
+    if(!S.woundAssessments[pid]) S.woundAssessments[pid]=[];
+    S.woundAssessments[pid].push({
+      docId:d.docId,time:d.time,
+      location:d.location,type:d.woundType,
+      length:d.length,width:d.width,depth:d.depth,
+      woundBed:d.woundBed,
+      exudate:`${d.exudateAmount||''} ${d.exudateType||''}`.trim(),
+      surroundingSkin:d.surroundingSkin,
+      treatment:d.treatment
+    });
+  }
+  p.notesPending=false;
+  toast('Document signed (Auth Verified) — '+d.docId,'success');
+  S.selectedDocId=d.docId;
+  S.draftDoc=null;
+  render();
+};
+
+window.runSpellCheck=function(){
+  toast('Spell-check complete — no issues found.','info');
+};
+
+/* ─── Template selection (modal) ─── */
+window.openTemplateSelector=function(){
+  if(!S.draftDoc){toast('Open a document first.','danger');return;}
+  const noteType = S.draftDoc.noteType;
+  const eligible = Object.entries(NOTE_TEMPLATES).filter(([k,t])=>{
+    if(!t.appliesTo) return true;
+    return t.appliesTo.includes(noteType) || t.appliesTo.includes('Nursing Care Note');
+  });
+  let html=`<h3><i class="fa-solid fa-layer-group"></i> Template Selection</h3>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Select a template appropriate for note type: <strong>${_esc(noteType)}</strong></p>
+    <div class="template-modal-list">`;
+  eligible.forEach(([k,t])=>{
+    html+=`<div class="tpl-row" onclick="applyTemplate('${k}')">
+      <div>
+        <div class="tpl-name">${_esc(t.name)}</div>
+        <div class="tpl-desc">${_esc(t.description||'')}</div>
+      </div>
+      <i class="fa-solid fa-chevron-right" style="color:#90a4ae"></i>
+    </div>`;
+  });
+  html+=`</div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Cancel</button></div>`;
+  showModal(html);
+};
+
+window.applyTemplate=function(tplKey){
+  const tpl=NOTE_TEMPLATES[tplKey];
+  if(!tpl||!S.draftDoc){closeModal();return;}
+  _readEditorIntoDraft();
+  const d=S.draftDoc;
+  /* Switch type if template implies a structured note */
+  if(tpl.structured==='rapidResponse'){
+    d.noteType='Rapid Response';d.structured='rapidResponse';
+  } else if(tpl.structured==='woundAssessment'){
+    d.noteType='Wound Assessment';d.structured='woundAssessment';
+  }
+  /* Fill in prefill values, preferring existing user content */
+  Object.entries(tpl.prefill).forEach(([k,v])=>{
+    if(!d[k] || !String(d[k]).trim()) d[k]=v;
+  });
+  d.template=tplKey;
+  S.templateUsed.push(tplKey);
+  toast(`Template "${tpl.name}" applied.`,'info');
+  closeModal();
+  render();
+};
+
+/* ─── Modify / Addendum / Strike-through workflow ─── */
+window.enterModifyMode=function(docId){
+  S.selectedDocId=docId;S.modifyMode=true;S.draftDoc=null;
+  hideContextMenu();
+  render();
+};
+window.exitModify=function(){S.modifyMode=false;render();};
+
+window.saveAddendum=function(){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const doc=(S.nursingNotes[pid]||[]).find(n=>n.docId===S.selectedDocId);
+  if(!doc){toast('Document not found.','danger');return;}
+  const ta=document.getElementById('addendumText');
+  const text=(ta&&ta.value||'').trim();
+  if(!text && (!doc.strikes||doc.strikes.length===0)){
+    toast('Add addendum text or apply at least one strike-through.','danger');return;
+  }
+  if(text){
+    doc.addendums=doc.addendums||[];
+    doc.addendums.push({
+      text,author:'N. Zhang, RN',time:dateTimeStr(new Date())
+    });
+  }
+  doc.status=DOC_STATUS.MODIFIED;
+  doc.savedThisShift=true;
+  toast('Addendum saved. Document marked as Modified.','success');
+  S.modifyMode=false;
+  render();
+};
+
+window.strikeSelected=function(){
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed){toast('Highlight text in the original first.','warn');return;}
+  const text=sel.toString().trim();
+  if(text.length<2){toast('Selection too short.','warn');return;}
+  const node=sel.anchorNode;
+  let el=node && node.nodeType===3 ? node.parentElement : node;
+  while(el && !el.classList?.contains('strikable')){el=el.parentElement;}
+  if(!el){toast('Selection must be within a document field.','warn');return;}
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const doc=(S.nursingNotes[pid]||[]).find(n=>n.docId===S.selectedDocId);
+  if(!doc)return;
+  doc.strikes=doc.strikes||[];
+  if(!doc.strikes.includes(text)) doc.strikes.push(text);
+  toast('Strike applied to selected text.','info');
+  render();
+};
+
+window.clearStrikes=function(docId){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const doc=(S.nursingNotes[pid]||[]).find(n=>n.docId===docId);
+  if(doc){doc.strikes=[];render();}
+};
+
+/* ─── Right-click context menu (PowerChart-style) ─── */
+window.showDocContextMenu=function(ev,docId){
+  ev.preventDefault();
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const doc=(S.nursingNotes[pid]||[]).find(n=>n.docId===docId);
+  if(!doc)return;
+  const menu=document.getElementById('ctxMenu');
+  const isSigned=doc.status!==DOC_STATUS.IN_PROGRESS;
+  menu.innerHTML=`
+    <div class="ctx-item" onclick="openDocument('${docId}')"><i class="fa-regular fa-file-lines"></i> Open</div>
+    ${doc.status===DOC_STATUS.IN_PROGRESS
+      ? `<div class="ctx-item" onclick="resumeDraft('${docId}');hideContextMenu();"><i class="fa-solid fa-pen"></i> Resume Editing</div>`
+      : `<div class="ctx-item" onclick="enterModifyMode('${docId}')"><i class="fa-solid fa-clock-rotate-left"></i> Modify (Addendum)</div>`}
+    <div class="ctx-sep"></div>
+    <div class="ctx-item ${isSigned?'disabled':''}" ${isSigned?'':`onclick="deleteDraft('${docId}')"`}><i class="fa-solid fa-trash"></i> Delete Draft</div>
+    <div class="ctx-item" onclick="hideContextMenu()"><i class="fa-solid fa-xmark"></i> Cancel</div>`;
+  menu.style.left=Math.min(ev.clientX,window.innerWidth-220)+'px';
+  menu.style.top=Math.min(ev.clientY,window.innerHeight-200)+'px';
+  menu.classList.add('show');
+};
+
+function hideContextMenu(){
+  const m=document.getElementById('ctxMenu');
+  if(m)m.classList.remove('show');
+}
+window.hideContextMenu=hideContextMenu;
+document.addEventListener('click',hideContextMenu);
+
+window.deleteDraft=function(docId){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const arr=S.nursingNotes[pid]||[];
+  const idx=arr.findIndex(n=>n.docId===docId&&n.status===DOC_STATUS.IN_PROGRESS);
+  if(idx>=0){arr.splice(idx,1);toast('Draft deleted.','info');}
+  if(S.selectedDocId===docId)S.selectedDocId=null;
+  hideContextMenu();
+  render();
+};
+
+/* ─── Shift Handoff Page ─── */
+function renderHandoff(){
+  const p=S.selectedPatient;
+  if(!p) return`<p>Select a patient first.</p>`;
+  const pid=String(p.id);
+  const handoffs=S.handoffReports[pid]||[];
+  const vitals=S.vitalSigns[pid]||[];
+  const notes=S.nursingNotes[pid]||[];
+  const latest=vitals.length?vitals[vitals.length-1]:null;
+
+  /* Auto-populate hints */
+  let autoSituation=p.name+' in Bed '+p.bed+', '+p.age+'y '+p.gender+', admitted for '+p.diagnosis+'.';
+  let autoBackground='Day of admission: '+p.admitDate+'. Allergies: '+(p.allergies||'NKDA')+'. Physician: '+p.physician+'.';
+  let autoAssessment='';
+  if(latest){
+    autoAssessment='Latest vitals: T '+latest.temp+'°C, P '+latest.pulse+', R '+latest.resp+', BP '+latest.bp_sys+'/'+latest.bp_dia+', SpO2 '+latest.spo2+'%. Consciousness: '+latest.consciousness+'.';
+  }
+  let autoRecommendation='';
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="backToWard()">← Back to Ward</button>
+      <span style="margin-left:12px;font-size:18px;font-weight:700">Bed ${p.bed} — ${p.name}</span>
+      <span class="badge badge-info" style="margin-left:8px">${p.diagnosis}</span>
+    </div>
+ <button class="btn btn-primary" onclick="showNewHandoff()">+ New Handoff</button>
+  </div>`;
+
+  /* New handoff form */
+  html+=`<div class="card" id="handoffFormArea" style="display:none">
+ <div class="card-title"><i class="fa-solid fa-right-left"></i> New SBAR Handoff Report SBAR</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">SBAR: Situation, Background, Assessment, Recommendation</p>
+
+    <div class="form-group">
+ <label>S — Situation <span style="color:var(--text3)">(one-liner summary)</span></label>
+      <textarea id="sbarSituation" rows="2" placeholder="One-sentence summary of the patient's current situation...">${autoSituation}</textarea>
+    </div>
+    <div class="form-group">
+ <label>B — Background <span style="color:var(--text3)">(history + current orders)</span></label>
+      <textarea id="sbarBackground" rows="3" placeholder="Relevant history, current orders, treatments...">${autoBackground}</textarea>
+    </div>
+    <div class="form-group">
+ <label>A — Assessment <span style="color:var(--text3)">(current status + trends)</span></label>
+      <textarea id="sbarAssessment" rows="3" placeholder="Current condition, vital sign trends, concerns...">${autoAssessment}</textarea>
+    </div>
+    <div class="form-group">
+ <label>R — Recommendation <span style="color:var(--text3)">(plan for next shift)</span></label>
+      <textarea id="sbarRecommendation" rows="3" placeholder="Recommendations for the incoming shift...">${autoRecommendation}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+ <button class="btn btn-primary" onclick="saveHandoff()"><i class="fa-solid fa-floppy-disk"></i> Save Handoff</button>
+ <button class="btn btn-outline" onclick="cancelHandoff()">Cancel</button>
+    </div>
+  </div>`;
+
+  /* Existing handoffs */
+ html+=`<div class="card"><div class="card-title"><i class="fa-solid fa-clipboard-list"></i> Previous Handoff Reports</div>`;
+  if(handoffs.length){
+    [...handoffs].reverse().forEach(h=>{
+      html+=`<div style="margin-bottom:16px;border:1px solid var(--border2);border-radius:8px;padding:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <strong>SBAR Handoff Report</strong>
+          <span style="font-size:12px;color:var(--text3)">${h.time} | ${h.nurse||'N. Zhang'}</span>
+        </div>
+ <div class="sbar-section"><h4>S — Situation</h4><p>${h.situation||'—'}</p></div>
+ <div class="sbar-section"><h4>B — Background</h4><p>${h.background||'—'}</p></div>
+ <div class="sbar-section"><h4>A — Assessment</h4><p>${h.assessment||'—'}</p></div>
+ <div class="sbar-section"><h4>R — Recommendation</h4><p>${h.recommendation||'—'}</p></div>
+      </div>`;
+    });
+  } else {
+    html+=`<p style="color:var(--text3)">No handoff reports recorded yet.</p>`;
+  }
+  html+=`</div>`;
+
+  return html;
+}
+
+window.showNewHandoff=function(){
+  const el=document.getElementById('handoffFormArea');
+  if(el)el.style.display='block';
+};
+
+window.cancelHandoff=function(){
+  const el=document.getElementById('handoffFormArea');
+  if(el)el.style.display='none';
+};
+
+window.saveHandoff=function(){
+  const p=S.selectedPatient;
+  if(!p){toast('No patient selected','danger');return;}
+  const pid=String(p.id);
+
+  const situation=(document.getElementById('sbarSituation')||{}).value||'';
+  const background=(document.getElementById('sbarBackground')||{}).value||'';
+  const assessment=(document.getElementById('sbarAssessment')||{}).value||'';
+  const recommendation=(document.getElementById('sbarRecommendation')||{}).value||'';
+
+  if(!situation.trim()||!background.trim()||!assessment.trim()||!recommendation.trim()){
+    toast('Please complete all four SBAR sections.','danger');
+    return;
+  }
+
+  const handoff={
+    time:dateTimeStr(new Date()),
+ nurse:'N. Zhang',
+    situation,background,assessment,recommendation,
+    savedThisShift:true
+  };
+
+  S.handoffReports[pid].push(handoff);
+  p.handoffNeeded=false;
+  toast('SBAR handoff saved for '+p.name,'success');
+  document.getElementById('handoffFormArea').style.display='none';
+  render();
+};
+
+/* ─── Temperature Sheet Print Preview ─── */
+function renderTempSheet(){
+  const p=S.selectedPatient;
+  if(!p) return`<p>Select a patient first.</p>`;
+  const pid=String(p.id);
+  const vitals=S.vitalSigns[pid]||[];
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="backToWard()">← Back to Ward</button>
+      <span style="margin-left:12px;font-size:18px;font-weight:700">Bed ${p.bed} — ${p.name}</span>
+    </div>
+ <button class="btn btn-info btn-sm" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
+  </div>`;
+
+  html+=`<div class="print-preview">
+ <h3>Temperature Sheet</h3>
+    <table style="margin-bottom:16px;font-size:13px">
+ <tr><td><strong>Patient :</strong> ${p.name}</td><td><strong>Bed :</strong> ${p.bed}</td><td><strong>Room :</strong> ${p.room}</td></tr>
+ <tr><td><strong>Age :</strong> ${p.age}</td><td><strong>Gender :</strong> ${p.gender}</td><td><strong>Diagnosis :</strong> ${p.diagnosis}</td></tr>
+ <tr><td><strong>Admission :</strong> ${p.admitDate}</td><td><strong>Physician :</strong> ${p.physician}</td><td><strong>Allergies :</strong> ${p.allergies||'NKDA'}</td></tr>
+    </table>
+
+ <div class="card-title">🌡️ Temperature Chart</div>
+    <div class="chart-container" style="height:220px"><canvas id="printChartTemp" class="chart-canvas"></canvas></div>
+
+ <div class="card-title" style="margin-top:16px">💓 Pulse Chart</div>
+    <div class="chart-container" style="height:220px"><canvas id="printChartPulse" class="chart-canvas"></canvas></div>
+
+ <div class="card-title" style="margin-top:16px">📊 Vital Signs Data</div>
+    <table style="font-size:11px">
+      <thead><tr><th>Date/Time</th><th>Temp °C</th><th>Pulse</th><th>Resp</th><th>BP</th><th>SpO2</th><th>Pain</th><th>Weight</th><th>Conscious</th></tr></thead>
+      <tbody>`;
+
+  [...vitals].reverse().forEach(v=>{
+    html+=`<tr>
+      <td>${v.time}</td>
+      <td>${v.temp}</td><td>${v.pulse}</td><td>${v.resp}</td>
+      <td>${v.bp_sys}/${v.bp_dia}</td><td>${v.spo2}%</td>
+      <td>${v.pain!=null?v.pain:'—'}</td><td>${v.weight||'—'}</td>
+      <td>${v.consciousness||'—'}</td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table>
+
+ <div class="card-title" style="margin-top:16px">💧 I&O Summary</div>`;
+
+  const io=calcIO(pid);
+  const balSign=io.balance>=0?'+':'';
+  html+=`<table style="font-size:12px">
+ <tr><td><strong>Total Intake :</strong></td><td>${io.totalIn} mL</td></tr>
+ <tr><td><strong>Total Output :</strong></td><td>${io.totalOut} mL</td></tr>
+ <tr><td><strong>Balance :</strong></td><td class="${io.balance<0?'range-abnormal':'range-normal'}"><strong>${balSign}${io.balance} mL</strong></td></tr>
+  </table>
+
+    <div style="margin-top:24px;text-align:center;font-size:11px;color:var(--text3)">
+ Printed: ${dateTimeStr(new Date())} | Nurse: Zhang | Ward: NDU
+    </div>
+  </div>`;
+
+  return html;
+}
+
+/* ─── Dashboard / Safety Panel (for debug/audit) ─── */
+window.showSafetyAudit=function(){
+  let html=`<h3>🔒 Safety Audit Panel</h3>`;
+
+  /* Alerts triggered */
+  html+=`<h4 style="margin-bottom:8px;color:var(--green-dark)">⚠️ Alerts Triggered</h4>`;
+  if(S.alertsTriggered.length){
+    html+=`<table style="font-size:12px"><thead><tr><th>Time</th><th>Bed</th><th>Alert</th></tr></thead><tbody>`;
+    S.alertsTriggered.forEach(a=>{
+      html+=`<tr><td>${a.time}</td><td>${a.bed}</td><td>${a.alert}</td></tr>`;
+    });
+    html+=`</tbody></table>`;
+  } else {
+    html+=`<p style="color:var(--text3)">No alerts.</p>`;
+  }
+
+  /* Documentation completeness */
+  html+=`<h4 style="margin-top:16px;margin-bottom:8px;color:var(--green-dark)">📋 Documentation Status</h4>`;
+  html+=`<table style="font-size:12px"><thead><tr><th>Bed</th><th>Patient</th><th>Vitals</th><th>I&O</th><th>Notes</th><th>Handoff</th></tr></thead><tbody>`;
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const vNew=S.vitalSigns[pid]?.some(v=>v.recordedThisShift);
+    const ioNew=S.intakeOutputRecords[pid]?.some(r=>r.recordedThisShift);
+    const noteNew=S.nursingNotes[pid]?.some(n=>n.savedThisShift);
+    const hoNew=S.handoffReports[pid]?.some(h=>h.savedThisShift);
+    const chk=v=>v?'<span style="color:var(--success)">✓</span>':'<span style="color:var(--text3)">—</span>';
+    html+=`<tr><td>${p.bed}</td><td>${p.name}</td><td>${chk(vNew)}</td><td>${chk(ioNew)}</td><td>${chk(noteNew)}</td><td>${chk(hoNew)}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+
+  /* Fluid balance overview */
+  html+=`<h4 style="margin-top:16px;margin-bottom:8px;color:var(--green-dark)">💧 Fluid Balance Overview</h4>`;
+  html+=`<table style="font-size:12px"><thead><tr><th>Bed</th><th>Patient</th><th>Intake</th><th>Output</th><th>Balance</th><th>Status</th></tr></thead><tbody>`;
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const io=calcIO(pid);
+    const bal=io.balance;
+    const cls=bal<-500?'badge-danger':bal<0?'badge-warn':'badge-success';
+    const label=bal<-500?'DEHYDRATION RISK':bal<0?'Negative':'OK';
+    html+=`<tr><td>${p.bed}</td><td>${p.name}</td><td>${io.totalIn} mL</td><td>${io.totalOut} mL</td>
+      <td>${bal>=0?'+':''}${bal} mL</td><td><span class="badge ${cls}">${label}</span></td></tr>`;
+  });
+  html+=`</tbody></table>`;
+
+  /* Deterioration patient highlight */
+  const bed2=S.patients.find(p=>p.bed===2);
+  if(bed2){
+    const pid2=String(bed2.id);
+    const v2=S.vitalSigns[pid2]||[];
+    if(v2.length>=3){
+      const first=v2[0];const last=v2[v2.length-1];
+      html+=`<h4 style="margin-top:16px;margin-bottom:8px;color:var(--danger)">🚨 Deterioration Watch — Bed 2</h4>
+      <div style="background:rgba(211,47,47,.06);border:1px solid rgba(211,47,47,.2);border-radius:8px;padding:12px">
+        <p><strong>${bed2.name}</strong> — ${bed2.diagnosis}</p>
+        <p>Temp: ${first.temp} → ${last.temp}°C | HR: ${first.pulse} → ${last.pulse} | BP: ${first.bp_sys}/${first.bp_dia} → ${last.bp_sys}/${last.bp_dia}</p>
+        <p style="color:var(--danger);font-weight:700">Pattern: Rising temp + Rising HR + Falling BP = Possible Sepsis</p>
+      </div>`;
+    }
+  }
+
+  html+=`<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>`;
+  showModal(html);
+};
+
+/* ─── Auto-init with default seed if not called externally ─── */
+if (!window._medgym_init_called) {
+  window._medgym_init(42);
+  window._medgym_init_called = true;
+}
+
+/* ─── Clock ─── */
+setInterval(()=>{
+  const el=document.getElementById('headerClock');
+  if(el)el.textContent=new Date().toLocaleTimeString();
+},1000);
+
+/* ─── Keyboard shortcuts ─── */
+document.addEventListener('keydown',function(e){
+  if(!S.loggedIn)return;
+  if(e.altKey){
+    switch(e.key){
+      case '1': e.preventDefault(); showPage('ward'); break;
+      case '2': e.preventDefault(); if(S.selectedPatient)showPage('vitals'); break;
+      case '3': e.preventDefault(); if(S.selectedPatient)showPage('io'); break;
+      case '4': e.preventDefault(); if(S.selectedPatient)showPage('notes'); break;
+      case '5': e.preventDefault(); if(S.selectedPatient)showPage('handoff'); break;
+      case '6': e.preventDefault(); if(S.selectedPatient)showPage('tempSheet'); break;
+    }
+  }
+  if(e.key==='Escape') closeModal();
+});
+
+})();
+</script>
+</body>
+</html>

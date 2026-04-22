@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<!--
+  MedGym: Emergency Triage — EDIS (Emergency Department Integration Software)
+  Strict reconstruction per VA OIT EDIS User Guide v4.4 (Revised July 2023).
+  Views: CPE (Active Patients), Restore, Edit Closed, Display Board,
+         Assign Staff, Reports, Configure.
+  Acuity: ESI 1–5 per AHRQ Emergency Severity Index v4.
+  All terminology (statuses, dispositions, sources, delay reasons) follows
+  the National Definitions in EDIS UG §1.7.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EDIS — Emergency Department Integration Software</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;background:#f1f1f1;color:#323a45}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 10px;text-align:left}
+a{color:#0071bc;text-decoration:none}
+.hidden{display:none!important}
+/* EDIS VA palette */
+:root{--blue:#003f72;--blue-l:#0071bc;--blue-pale:#e1f3f8;--gray:#5b616b;--gray-l:#aeb0b5;--gray-ll:#d6d7d9;--gray-lll:#f1f1f1;--red:#e31c3d;--orange:#e27600;--yellow:#fdb81e;--green:#2e8540;
+--esi1:#d50000;--esi2:#e65100;--esi3:#f9a825;--esi4:#2e7d32;--esi5:#1565c0}
+/* Toast */
+.toast-container{position:fixed;top:52px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:4px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);animation:slideIn .3s ease;color:#fff}
+.toast-success{background:#2e8540}.toast-error{background:#e31c3d}.toast-info{background:#0071bc}.toast-warn{background:#e27600}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:6px;width:580px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal-header{padding:12px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;color:#fff;background:var(--blue)}
+.modal-header .close-btn{background:none;border:none;color:rgba(255,255,255,.8);font-size:18px;cursor:pointer}
+.modal-body{padding:20px}
+/* Login */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(180deg,#003f72,#0071bc)}
+.login-box{background:#fff;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);padding:40px 36px;width:420px;max-width:95vw}
+.login-box .logo{text-align:center;margin-bottom:24px}
+.login-box .logo .title{font-size:22px;font-weight:700;color:var(--blue)}
+.login-box .logo .sub{font-size:11px;color:var(--gray);margin-top:4px}
+.sys-info{background:var(--gray-lll);border:1px solid var(--gray-ll);border-radius:4px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:var(--gray)}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:600;color:var(--gray);margin-bottom:4px}
+.fc{width:100%;padding:8px 10px;border:1px solid var(--gray-ll);border-radius:4px;outline:none;font-size:13px}
+.fc:focus{border-color:var(--blue-l);box-shadow:0 0 0 2px rgba(0,113,188,.2)}
+.err{color:var(--red);font-size:12px;margin-top:6px;display:none}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;border:1px solid transparent;border-radius:4px;font-size:12px;font-weight:600;transition:.15s}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#00517e}
+.btn-bl{background:var(--blue-l);color:#fff}.btn-bl:hover{background:#005ea2}
+.btn-g{background:var(--green);color:#fff}.btn-g:hover{background:#256e36}
+.btn-r{background:var(--red);color:#fff}.btn-r:hover{background:#b91c2e}
+.btn-o{background:var(--orange);color:#fff}.btn-o:hover{background:#c26400}
+.btn-out{background:#fff;border:1px solid var(--gray-ll);color:#323a45}.btn-out:hover{background:var(--gray-lll)}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 24px;font-size:14px}.btn-block{width:100%}
+/* App shell */
+.app{display:flex;flex-direction:column;height:100vh}
+.hdr{background:var(--blue);color:#fff;height:44px;display:flex;align-items:center;padding:0 16px;justify-content:space-between;flex-shrink:0}
+.hdr .t{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.hdr .r{display:flex;align-items:center;gap:14px;font-size:11px}
+.hdr .r .clk{font-family:Consolas,monospace;font-size:12px;color:rgba(255,255,255,.85)}
+/* Patient info bar */
+.pi-bar{background:#4a7c59;color:#fff;padding:6px 16px;font-size:12px;display:none;align-items:center;gap:16px;flex-shrink:0}
+.pi-bar .nm{font-weight:700;font-size:14px}
+/* Nav tabs */
+.nav{background:#1a4480;display:flex;padding:0 12px;flex-shrink:0}
+.nav button{background:none;border:none;color:rgba(255,255,255,.7);padding:9px 16px;font-size:12px;font-weight:600;transition:.15s;position:relative}
+.nav button:hover{color:#fff;background:rgba(255,255,255,.08)}
+.nav button.active{color:#fff;background:rgba(255,255,255,.14)}
+.nav button.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--yellow)}
+.main{flex:1;overflow-y:auto;padding:12px 16px}
+/* Active patients table */
+.apt{background:#fff;border:1px solid var(--gray-ll);border-radius:4px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.apt thead th{background:#e8f0fe;color:var(--blue);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:2px solid var(--blue-l);white-space:nowrap}
+.apt tbody tr{border-bottom:1px solid var(--gray-lll);transition:.15s;cursor:pointer}
+.apt tbody tr:hover{background:#f0f6ff}
+.apt tbody tr.sel{background:var(--blue-pale);border-left:3px solid var(--blue-l)}
+.apt tbody td{padding:7px 10px;font-size:12px}
+/* ESI */
+.esi{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:700;color:#fff}
+.esi-1{background:var(--esi1)}.esi-2{background:var(--esi2)}.esi-3{background:var(--esi3);color:#333}.esi-4{background:var(--esi4)}.esi-5{background:var(--esi5)}
+/* Status badge */
+.sb{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.sb-w{background:#e3f2fd;color:#1565c0}.sb-t{background:#e8f5e9;color:#2e7d32}.sb-ip{background:#fff3e0;color:#e65100}
+/* Arrival badge */
+.ab{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+.ab-w{background:#e8eaf6;color:#283593}.ab-a{background:#fce4ec;color:#c62828}.ab-tr{background:#fff8e1;color:#f57f17}
+/* Visit panel */
+.vp{background:#fff;border:1px solid var(--gray-ll);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.1);max-height:100%;overflow-y:auto}
+.vp .vh{background:var(--blue);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.vs{border-bottom:1px solid var(--gray-ll)}
+.vs-t{padding:8px 16px;background:var(--gray-lll);font-size:12px;font-weight:700;color:var(--gray);cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.vs-t:hover{background:#e8e8e8}
+.vs-b{padding:12px 16px;display:none}.vs-b.open{display:block}
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.vrow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+/* Vitals grid */
+.vg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.vi{background:var(--gray-lll);border:1px solid var(--gray-ll);border-radius:4px;padding:8px;text-align:center}
+.vi .vl{font-size:10px;color:var(--gray);text-transform:uppercase;font-weight:600}
+.vi .vv{font-size:18px;font-weight:700;font-family:Consolas,monospace;margin-top:2px}
+.vi .vu{font-size:10px;color:var(--gray-l)}
+.v-normal{color:var(--green)}.v-abnormal{color:var(--orange)}.v-critical{color:var(--red)}
+/* Pain */
+.ps{display:flex;gap:4px;margin-top:8px}
+.pb{width:32px;height:32px;border-radius:50%;border:2px solid var(--gray-ll);background:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:.15s}
+.pb:hover{border-color:var(--blue-l)}.pb.act{color:#fff;border-color:transparent}
+/* Display board */
+.db{background:#1a1a2e;color:#e0e0e0;border-radius:4px;overflow:hidden}
+.db-h{background:#16213e;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.db-h h3{color:#fff;font-size:16px}
+.db table th{background:#0f3460;color:#e0e0e0;padding:8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;border-bottom:1px solid #1a4480}
+.db table td{padding:7px 10px;font-size:12px;border-bottom:1px solid #2a2a4a;font-family:Consolas,monospace}
+.db table tr:hover{background:rgba(255,255,255,.05)}
+.db-crit{background:rgba(229,57,53,.2)!important}
+/* Report card */
+.rc{background:#fff;border:1px solid var(--gray-ll);border-radius:4px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.rc-t{font-size:14px;font-weight:700;color:var(--blue);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* Tab bar */
+.tb{display:flex;gap:2px;border-bottom:2px solid var(--gray-ll);margin-bottom:14px}
+.tb button{background:none;border:none;color:var(--gray);padding:8px 14px;font-size:12px;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s}
+.tb button:hover{color:var(--blue-l)}.tb button.active{color:var(--blue);border-bottom-color:var(--blue-l)}
+@media(max-width:768px){.vrow,.vrow3{grid-template-columns:1fr}.vg{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<!-- Login Page -->
+<div id="page-login" class="login-page">
+  <div class="login-box">
+    <div class="logo"><div class="title">&#x1F3E5; EDIS</div><div class="sub">Emergency Department Integration Software</div></div>
+    <div class="sys-info">
+      <div><strong>Department of Veterans Affairs &mdash; Office of Information &amp; Technology</strong></div>
+      <div>VistA/CPRS Integration &bull; EDIS GUI v2.2.46 &bull; EDP*2.0*24</div>
+      <div>Facility: VA Medical Center &mdash; Emergency Department</div>
+      <div style="margin-top:4px;font-style:italic">Authorized users only. All activity is monitored and recorded.</div>
+    </div>
+    <form id="login-form" onsubmit="return false">
+      <div class="fg"><label>Access Code</label><input class="fc" id="login-username" placeholder="VistA Access Code" autocomplete="off"></div>
+      <div class="fg"><label>Verify Code</label><input type="password" class="fc" id="login-password" placeholder="VistA Verify Code"></div>
+      <div class="err" id="login-error">Not a valid Access Code/Verify Code pair.</div>
+      <button type="submit" class="btn btn-p btn-block btn-lg" id="btn-login">Sign In</button>
+    </form>
+    <div style="text-align:center;margin-top:16px;font-size:10px;color:var(--gray-l)">PIV card authentication is the preferred method on supported workstations.<br>If SSOi is unavailable, log in with your VistA Access &amp; Verify Codes.<br>Ref: EDIS User Guide v4.4, July 2023 &mdash; VA OIT</div>
+  </div>
+</div>
+<!-- App Shell -->
+<div id="app-shell" class="app hidden">
+  <div class="hdr">
+    <div class="t"><span>&#x1F3E5;</span> EDIS — Emergency Department</div>
+    <div class="r"><span>&#x1F464; <strong id="hdr-user">admin</strong> | Triage RN</span><span class="clk" id="header-clock">--:--:--</span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" id="btn-logout">Sign Out</button></div>
+  </div>
+  <div class="pi-bar" id="pi-bar"><span class="nm" id="pi-nm"></span><span id="pi-dt"></span></div>
+  <div class="nav" id="edis-nav">
+    <button class="active" data-v="cpe">CPE</button>
+    <button data-v="restore">Restore</button>
+    <button data-v="edit_closed">Edit Closed</button>
+    <button data-v="display_board">Display Board</button>
+    <button data-v="assign_staff">Assign Staff</button>
+    <button data-v="reports">Reports</button>
+    <button data-v="configure">Configure</button>
+  </div>
+  <div class="main" id="M"></div>
+</div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+// ── Seeded RNG ──
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+var _rng = Math.random;
+function rI(a,b){return Math.floor(_rng()*(b-a+1))+a;}
+function rF(a,b,d){return parseFloat((a+_rng()*(b-a)).toFixed(d||1));}
+function rP(a){return a[Math.floor(_rng()*a.length)];}
+function rS(a){var r=[].concat(a);for(var i=r.length-1;i>0;i--){var j=Math.floor(_rng()*(i+1));var t=r[i];r[i]=r[j];r[j]=t;}return r;}
+
+// ── UI Helpers ──
+function toast(m,t){t=t||'info';var c=document.getElementById('toasts'),d=document.createElement('div');d.className='toast toast-'+t;d.textContent=m;c.appendChild(d);setTimeout(function(){d.remove();},4000);}
+function openModal(t,h){var m=document.getElementById('modalContent');m.innerHTML='<div class="modal-header"><span>'+t+'</span><button class="close-btn" onclick="closeModal()">&times;</button></div><div class="modal-body">'+h+'</div>';document.getElementById('modalOverlay').classList.add('show');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+window.closeModal = closeModal;
+document.getElementById('modalOverlay').addEventListener('click', function(e){if(e.target===this)closeModal();});
+function updateClock(){var n=new Date(),el=document.getElementById('header-clock');if(el)el.textContent=n.toLocaleTimeString('en-US',{hour12:false});}
+setInterval(updateClock,1000);updateClock();
+
+// ══════════════════════════════════════════════════════════════════════
+// EDIS National Definitions (User Guide §1.7)
+// ══════════════════════════════════════════════════════════════════════
+// §1.7.4 Sources
+var SOURCES = ['Non-referred','On-site Clinic','On-site Nursing Home','VA Clinic, Off-site','VA Nursing Home, Off-site','Non-VA Clinic/Office','Non-VA Nursing Home','Transfer, Other'];
+// §1.7.1 National Statuses (site configurable)
+var STATUSES = [
+  {id:'awaiting_triage', l:'Awaiting Triage'},
+  {id:'en_route',         l:'En Route/Prearrival'},
+  {id:'ed_patient',       l:'ED Patient'},
+  {id:'admitted',         l:'Admitted', flag:'A'},
+  {id:'ed_boarding',      l:'ED Boarding [Hold]', flag:'AO'},
+  {id:'ed_observation',   l:'ED Observation Unit', flag:'O'},
+  {id:'discharged',       l:'Discharged'}
+];
+var SL = {}; STATUSES.forEach(function(s){SL[s.id]=s.l;});
+// §1.7.2 National Dispositions (with EDIS abbreviations)
+var DISPS = [
+  {id:'admitted_va_ward',  l:'Admitted to VA Ward',           ab:'VA',  flag:'VA'},
+  {id:'ama',               l:'Left Against Medical Advice',   ab:'AMA', flag:'M'},
+  {id:'urgent_care_clinic',l:'Sent to Urgent Care Clinic',    ab:'CL'},
+  {id:'deceased',          l:'Deceased',                      ab:'D'},
+  {id:'eloped',            l:'Eloped',                        ab:'E',   flag:'M'},
+  {id:'name_in_error',     l:'Patient Name Entered in Error', ab:'ERR'},
+  {id:'home',              l:'Home',                          ab:'H'},
+  {id:'admitted_icu',      l:'Admitted to ICU',               ab:'ICU', flag:'VA'},
+  {id:'lwbs',              l:'Left Without Being Treated/Seen', ab:'L', flag:'M'},
+  {id:'nurse_eval',        l:'Sent to Nurse Eval / Drop-in Clinic', ab:'NEC'},
+  {id:'admitted_psych',    l:'Admitted to Psychiatry',        ab:'PSY', flag:'VA'},
+  {id:'admitted_telemetry',l:'Admitted to Telemetry',         ab:'T',   flag:'VA'},
+  {id:'transferred_non_va',l:'Transferred to a Non-VA Facility', ab:'NVA'},
+  {id:'transferred_va',    l:'Transferred to VA Facility',    ab:'O'}
+];
+var DL = {}; DISPS.forEach(function(d){DL[d.id]=d.l;});
+var DAB = {}; DISPS.forEach(function(d){DAB[d.id]=d.ab;});
+// §1.7.3 National Delay Reasons (when stay > 360 min)
+var DELAY_REASONS = ['Obtain Accepting Physician','Admit Physician Writing Dispo','Admitting Physician Evaluation','Patient Admitted to Observation','Obtain Ambulance Services','Obtain Consultant','ED to Hospital Bed','Obtain Escort','Patient Transport Home','Obtain Imaging Results','Obtain Imaging Studies','Obtain Inpatient Bed','Interfacility Transfer','Obtain Lab Results','Obtain Lab Studies','On-call Staff','Overcrowding of ED','Obtain Drugs/Pharmacology','ED Physician Limits','ED Staff Limits','Obtain Medical Supplies','Arrange Emergency Surgery','Patient Transport Other'];
+// ESI v4 labels (AHRQ)
+var ELAB = ['','Resuscitation','Emergent','Urgent','Less Urgent','Non-urgent'];
+// Rooms / Areas (Configure §8.1)
+var ROOMS = ['Waiting Room','Triage 1','Triage 2','Trauma 1','Trauma 2','Treatment 1','Treatment 2','Treatment 3','Treatment 4','Treatment 5','Treatment 6','Fast Track 1','Fast Track 2','Fast Track 3','Obs 1','Obs 2','EDIS_DEFAULT'];
+var PROVS = ['Smith,John A','Johnson,Mary B','Williams,Robert C','Brown,Linda D','Davis,Michael E'];
+var PROV_INI = {'Smith,John A':'JAS','Johnson,Mary B':'MBJ','Williams,Robert C':'RCW','Brown,Linda D':'LDB','Davis,Michael E':'MED'};
+var RESS = ['Garcia,Carlos R','Miller,Sarah J'];
+var RES_INI = {'Garcia,Carlos R':'CRG','Miller,Sarah J':'SJM'};
+var NURSES = ['Adams,Patricia','Baker,Thomas','Clark,Janet','Dixon,Robert','Evans,Susan','Foster,William'];
+var NURSE_INI = {'Adams,Patricia':'PA','Baker,Thomas':'TB','Clark,Janet':'JC','Dixon,Robert':'RD','Evans,Susan':'SE','Foster,William':'WF'};
+var COMPS = {chest_pain:{l:'Chest Pain'},head_injury:{l:'Head Injury'},abdominal_pain:{l:'Abdominal Pain'},dyspnea:{l:'Dyspnea / SOB'},altered_mental:{l:'Altered Mental Status'},fever:{l:'Fever'},trauma:{l:'Multiple Trauma'},ankle_sprain:{l:'Ankle Sprain'},sore_throat:{l:'Sore Throat'},laceration:{l:'Laceration'},seizure:{l:'Seizure'},allergic_reaction:{l:'Allergic Reaction'}};
+var SN = ['Smith','Johnson','Williams','Brown','Jones','Davis','Miller','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Thompson','Garcia','Martinez','Robinson'];
+var GM = ['James','John','Robert','Michael','William','David','Richard','Joseph','Thomas','Charles'];
+var GF = ['Mary','Patricia','Jennifer','Linda','Barbara','Elizabeth','Susan','Jessica','Sarah','Karen'];
+var ALG = ['NKDA','Penicillin','Sulfa','Aspirin','Cephalosporins','Iodine Contrast','Latex'];
+// Adult normal vital ranges — temp in Fahrenheit (EDIS UG §3.3.3 T(f))
+var NVA = {hr:[60,100],sbp:[90,140],dbp:[60,90],spo2:[95,100],tempf:[96.8,99.5],rr:[12,20],gcs:[15,15]};
+var NVP = {hr:[70,120],sbp:[80,115],dbp:[50,80],spo2:[95,100],tempf:[96.8,99.5],rr:[18,30],gcs:[15,15]};
+// Helpers: Celsius ↔ Fahrenheit
+function c2f(c){return Math.round((c*9/5+32)*10)/10;}
+function f2c(f){return Math.round(((f-32)*5/9)*10)/10;}
+
+// ══════════════════════════════════════════════════════════════════════
+// Patient Archetypes (vitals temp expressed in Celsius; converted to F at gen)
+// ══════════════════════════════════════════════════════════════════════
+var ARCH = [
+  {c:'chest_pain',m:'Ambulance',ac:'critical',eESI:2,n:'Diaphoresis, radiates to left arm',v:{hr:[110,130],sbp:[80,95],dbp:[50,60],spo2:[88,92],temp:[36.5,37.2],rr:[22,28],gcs:[15,15]},isTrap:true,trapNote:'Conversant but unstable — possible STEMI',ar:[55,75],sx:'M'},
+  {c:'altered_mental',m:'Ambulance',ac:'critical',eESI:1,n:'Decreasing GCS, unequal pupils',v:{hr:[50,60],sbp:[170,200],dbp:[100,120],spo2:[93,96],temp:[36.8,37.5],rr:[8,12],gcs:[5,8]},ar:[48,70],sx:null},
+  {c:'trauma',m:'Ambulance',ac:'critical',eESI:1,n:'MVC, multiple fractures, guarding',v:{hr:[120,140],sbp:[70,85],dbp:[40,55],spo2:[90,94],temp:[35.5,36.5],rr:[24,32],gcs:[10,13]},ar:[25,45],sx:null},
+  {c:'abdominal_pain',m:'Walk-in',ac:'urgent',eESI:3,n:'RLQ rebound tenderness, febrile',v:{hr:[90,110],sbp:[110,130],dbp:[70,85],spo2:[96,99],temp:[38.2,39.5],rr:[18,22],gcs:[15,15]},ar:[18,40],sx:null},
+  {c:'dyspnea',m:'Walk-in',ac:'urgent',eESI:3,n:'Acute asthma, accessory muscle use',v:{hr:[100,120],sbp:[120,140],dbp:[75,90],spo2:[89,93],temp:[36.5,37],rr:[26,36],gcs:[15,15]},ar:[20,50],sx:null},
+  {c:'fever',m:'Walk-in',ac:'urgent',eESI:3,isPed:true,n:'Post-febrile seizure, now alert',v:{hr:[110,140],sbp:[85,100],dbp:[55,70],spo2:[95,98],temp:[39.5,40.5],rr:[24,32],gcs:[14,15]},allergy:'Penicillin',ar:[3,8],sx:null},
+  {c:'ankle_sprain',m:'Walk-in',ac:'minor',eESI:4,n:'Twisted ankle, localized swelling',v:{hr:[72,88],sbp:[110,130],dbp:[65,80],spo2:[97,100],temp:[36.2,37],rr:[14,18],gcs:[15,15]},ar:[20,55],sx:null},
+  {c:'sore_throat',m:'Walk-in',ac:'minor',eESI:5,n:'3-day sore throat, no stridor',v:{hr:[68,82],sbp:[115,130],dbp:[70,80],spo2:[98,100],temp:[37,37.8],rr:[14,18],gcs:[15,15]},ar:[18,35],sx:null}
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// Data Generation
+// ══════════════════════════════════════════════════════════════════════
+function genPts(seed) {
+  var pts = [], arch = rS(ARCH), bH = rI(6,10);
+  for (var i = 0; i < 8; i++) {
+    var a = arch[i], isPed = a.isPed || false, age = rI(a.ar[0], a.ar[1]);
+    var sex = a.sx; if (!sex) sex = _rng() < 0.5 ? 'M' : 'F';
+    var nm = rP(sex === 'M' ? GM : GF) + ',' + rP(SN);  // EDIS: Last,First
+    var aT = String(bH + Math.floor(i * 0.4)).padStart(2,'0') + ':' + String(rI(0,55)).padStart(2,'0');
+    var v = a.v;
+    var vit = {hr:rI(v.hr[0],v.hr[1]),sbp:rI(v.sbp[0],v.sbp[1]),dbp:rI(v.dbp[0],v.dbp[1]),spo2:rI(v.spo2[0],v.spo2[1]),temp:rF(v.temp[0],v.temp[1],1),rr:rI(v.rr[0],v.rr[1]),gcs:rI(v.gcs[0],v.gcs[1]),ht:rI(60,75),wt:rI(140,220)};
+    vit.tempf = c2f(vit.temp);
+    var al = a.allergy || (_rng() < 0.25 ? rP(ALG.slice(1)) : 'NKDA');
+    pts.push({
+      id: 'ED' + String(seed).padStart(3,'0') + String(i+1).padStart(2,'0'),
+      index: i, name: nm, sex: sex, age: age, isPediatric: isPed,
+      complaint: a.c, complaintLabel: COMPS[a.c].l,
+      arrivalMode: a.m, arrivalTime: aT, acuity: a.ac, expectedESI: a.eESI,
+      notes: a.n || '', isTrap: a.isTrap || false, trapNote: a.trapNote || '',
+      allergy: al, ssn: String(rI(1000,9999)),
+      preVitals: vit, triageStatus: 'waiting', pain: null,
+      recordedVitals: null, assignedESI: null, suggestedESI: null,
+      disposition: null, room: 'Waiting Room', provider: '', resident: '', nurse: '',
+      status: 'awaiting_triage', source: 'Non-referred', triageTimestamp: null,
+      visitCreated: false,                  // EDIS §3.1: PCE encounter created when provider assigned
+      wristbandPrinted: false,              // legacy alias kept for checker compat
+      longComplaint: a.n || '', comment: '',
+      delayReason: ''
+    });
+  }
+  return pts;
+}
+
+function preTriage(pts) {
+  var minor = pts.filter(function(p){return p.acuity === 'minor';}).slice(0, 2);
+  minor.forEach(function(p) {
+    p.triageStatus = 'completed'; p.status = 'ed_patient';
+    p.recordedVitals = {hr:p.preVitals.hr,sbp:p.preVitals.sbp,dbp:p.preVitals.dbp,spo2:p.preVitals.spo2,temp:p.preVitals.temp,tempf:p.preVitals.tempf,rr:p.preVitals.rr,gcs:p.preVitals.gcs,ht:p.preVitals.ht,wt:p.preVitals.wt};
+    p.pain = rI(1,4);
+    p.assignedESI = p.expectedESI; p.suggestedESI = p.expectedESI;
+    if (p.expectedESI <= 2) { p.disposition = 'admitted_icu'; p.room = 'Trauma 1'; }
+    else if (p.expectedESI === 3) { p.disposition = 'admitted_va_ward'; p.room = 'Treatment 1'; }
+    else if (p.expectedESI === 4) { p.disposition = 'home'; p.room = 'Fast Track 1'; }
+    else { p.disposition = 'home'; p.room = 'Fast Track 2'; }
+    p.triageTimestamp = p.arrivalTime;
+    p.provider = rP(PROVS); p.nurse = rP(NURSES);
+    p.visitCreated = true;                 // EDIS auto-creates PCE encounter when provider assigned
+    p.wristbandPrinted = true;             // legacy alias
+    var st = window._taskState;
+    st.triageCompleted[p.id] = {vitals:p.recordedVitals, esiLevel:p.assignedESI, disposition:p.disposition, timestamp:p.triageTimestamp, pain:p.pain};
+    st.dispositions[p.id] = p.disposition;
+    if (st.wristbandsPrinted.indexOf(p.id) === -1) st.wristbandsPrinted.push(p.id);
+    if (st.visitsCreated.indexOf(p.id) === -1) st.visitsCreated.push(p.id);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ESI Calculation (AHRQ ESI v4 Algorithm)
+// ══════════════════════════════════════════════════════════════════════
+function calcESI(v, c, age, isPed) {
+  if (v.gcs && v.gcs <= 8) return 1;
+  if (c === 'altered_mental' && v.gcs && v.gcs <= 10) return 1;
+  if (c === 'trauma' && v.sbp && v.sbp < 80) return 1;
+  var d = (v.hr && (v.hr > 130 || v.hr < 45)) || (v.sbp && v.sbp < 90) || (v.spo2 && v.spo2 < 90) || (v.rr && (v.rr > 30 || v.rr < 8)) || (v.gcs && v.gcs < 13);
+  var hr = ['chest_pain','altered_mental','trauma','seizure'].indexOf(c) >= 0;
+  if (d && hr) return 1; if (d || hr) return 2;
+  if (isPed && v.temp && v.temp >= 39) return 3;
+  var m = (v.hr && (v.hr > 110 || v.hr < 55)) || (v.sbp && (v.sbp < 100 || v.sbp > 180)) || (v.spo2 && v.spo2 < 94) || (v.temp && (v.temp >= 38.5 || v.temp < 35.5)) || (v.rr && (v.rr > 24 || v.rr < 10));
+  if (m || ['abdominal_pain','dyspnea','fever','allergic_reaction'].indexOf(c) >= 0) return 3;
+  if (['ankle_sprain','laceration','head_injury'].indexOf(c) >= 0) return 4;
+  return 5;
+}
+
+function evVit(k, val, isPed) {
+  if (val == null || val === '') return 'unknown';
+  var R = isPed ? NVP : NVA, r = R[k]; if (!r) return 'normal';
+  var v = parseFloat(val); if (isNaN(v)) return 'unknown';
+  var C = {hr:[30,180],sbp:[60,220],dbp:[30,140],spo2:[85,101],temp:[33,41.5],tempf:[91.4,106.7],rr:[5,40],gcs:[3,9]};
+  if (k === 'gcs') { if (v <= 8) return 'critical'; if (v <= 12) return 'abnormal'; return 'normal'; }
+  var cr = C[k]; if (cr && (v <= cr[0] || v >= cr[1])) return 'critical';
+  if (v < r[0] || v > r[1]) return 'abnormal'; return 'normal';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// _medgym_init — Scenario Initialization
+// ══════════════════════════════════════════════════════════════════════
+window._medgym_init = function(seed) {
+  seed = seed || 42;
+  _rng = mulberry32(seed);
+  window._taskState = {
+    loggedIn: false,
+    currentPage: 'login',
+    patients: [],
+    triageCompleted: {},
+    triageInProgress: null,
+    esiOverrides: [],
+    dispositions: {},
+    wristbandsPrinted: [],     // legacy alias for visitsCreated
+    visitsCreated: [],         // EDIS PCE encounters created (provider assigned)
+    removedPatients: [],       // §3.6 Remove Patients
+    alertsTriggered: [],
+    alertsDismissed: []
+  };
+  var pts = genPts(seed);
+  window._taskState.patients = pts;
+  preTriage(pts);
+  renderLogin();
+};
+
+window._medgym_navigate = function(h) {
+  if (h === 'login') showPg('login');
+  else if (h === 'queue' || h === 'cpe') showV('cpe');
+  else if (h === 'restore') showV('restore');
+  else if (h === 'history' || h === 'edit_closed') showV('edit_closed');
+  else if (h === 'display_board') showV('display_board');
+  else if (h === 'assign_staff') showV('assign_staff');
+  else if (h === 'reports') showV('reports');
+  else if (h === 'configure') showV('configure');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Login
+// ══════════════════════════════════════════════════════════════════════
+function renderLogin() {
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  window._taskState.currentPage = 'login';
+}
+
+document.getElementById('login-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var u = document.getElementById('login-username').value.trim();
+  var p = document.getElementById('login-password').value.trim();
+  document.getElementById('login-error').style.display = 'none';
+  if (!u || !p) return;
+  if (u === 'admin' && p === 'triage123') {
+    window._taskState.loggedIn = true;
+    document.getElementById('hdr-user').textContent = u;
+    document.getElementById('page-login').classList.add('hidden');
+    document.getElementById('app-shell').classList.remove('hidden');
+    curV = 'cpe'; selIdx = null; split = false;
+    renV();
+    toast('Welcome to EDIS.', 'success');
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+});
+
+document.getElementById('btn-logout').addEventListener('click', function() {
+  window._taskState.loggedIn = false;
+  window._taskState.currentPage = 'login';
+  renderLogin();
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// View Navigation
+// ══════════════════════════════════════════════════════════════════════
+var curV = 'cpe', selIdx = null, split = false;
+
+function showV(v) { curV = v; window._taskState.currentPage = v; renV(); }
+function showPg(p) { if (p === 'login') renderLogin(); else showV(p); }
+
+document.getElementById('edis-nav').addEventListener('click', function(e) {
+  if (e.target.tagName === 'BUTTON' && e.target.dataset.v) showV(e.target.dataset.v);
+});
+
+function renV() {
+  var btns = document.querySelectorAll('#edis-nav button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', btns[i].dataset.v === curV);
+  var M = document.getElementById('M');
+  if (curV === 'cpe') M.innerHTML = renCPE();
+  else if (curV === 'restore') M.innerHTML = renRestore();
+  else if (curV === 'edit_closed') M.innerHTML = renEC();
+  else if (curV === 'display_board') M.innerHTML = renDB();
+  else if (curV === 'assign_staff') M.innerHTML = renAS();
+  else if (curV === 'reports') M.innerHTML = renRpt();
+  else if (curV === 'configure') M.innerHTML = renCfg();
+  else M.innerHTML = renCPE();
+  // Patient info bar
+  var bar = document.getElementById('pi-bar');
+  if (selIdx !== null && curV === 'cpe') {
+    var p = window._taskState.patients[selIdx];
+    if (p) {
+      bar.style.display = 'flex';
+      document.getElementById('pi-nm').textContent = p.name;
+      document.getElementById('pi-dt').textContent = p.sex + ' | Age ' + p.age + (p.isPediatric ? ' (Peds)' : '') + ' | SSN: ***-**-' + p.ssn + ' | Allergy: ' + p.allergy + ' | ' + p.complaintLabel;
+      return;
+    }
+  }
+  bar.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CPE View (Current Patient Edition) — primary triage view
+// ══════════════════════════════════════════════════════════════════════
+function renCPE() {
+  var st = window._taskState, pts = st.patients;
+  var w = 0, ip = 0, c = 0;
+  for (var i = 0; i < pts.length; i++) {
+    if (pts[i].triageStatus === 'waiting') w++;
+    else if (pts[i].triageStatus === 'in_progress') ip++;
+    else c++;
+  }
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="display:flex;gap:12px;font-size:12px;color:var(--gray)"><span>Active: <b>' + pts.length + '</b></span><span>Waiting: <b style="color:var(--esi5)">' + w + '</b></span><span>In Triage: <b style="color:var(--esi2)">' + ip + '</b></span><span>Triaged: <b style="color:var(--green)">' + c + '</b></span></div>';
+  h += '<div style="display:flex;gap:6px"><button class="btn btn-bl btn-sm" onclick="addNP()">+ New Patient</button>';
+  if (selIdx !== null) h += '<button class="btn btn-out btn-sm" onclick="togSplit()">&#9776; Patient</button>';
+  h += '</div></div>';
+  if (split && selIdx !== null) {
+    h += '<div style="display:grid;grid-template-columns:1fr 420px;gap:12px"><div>' + renAT() + '</div><div>' + renVP() + '</div></div>';
+  } else {
+    h += renAT();
+  }
+  return h;
+}
+
+// ── Active Patients Table (CPE §3.1) ──
+function tMin(p){
+  var now=new Date(), parts=p.arrivalTime.split(':');
+  var arr=new Date(now.getFullYear(),now.getMonth(),now.getDate(),parseInt(parts[0]),parseInt(parts[1]));
+  return Math.max(0, Math.round((now - arr)/60000));
+}
+function renAT() {
+  var pts = window._taskState.patients;
+  var h = '<table class="apt"><thead><tr><th>Room/Bed</th><th>Patient</th><th>Complaint</th><th>Acuity</th><th>Prv</th><th>Res</th><th>RN</th><th>Status</th><th>Disposition</th><th>Comment</th><th>Visit</th><th>Total Min</th><th>Time In</th><th>Actions</th></tr></thead><tbody>';
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i];
+    var sel = (i === selIdx) ? ' sel' : '';
+    var crit = (p.assignedESI === 1 || (p.expectedESI === 1 && p.triageStatus === 'waiting')) ? ' style="background:rgba(229,57,53,.08)"' : '';
+    var esi = p.assignedESI ? '<span class="esi esi-' + p.assignedESI + '">' + p.assignedESI + '</span>' : '<span style="color:var(--gray-l)">&mdash;</span>';
+    var sc = p.triageStatus === 'waiting' ? 'sb-w' : p.triageStatus === 'in_progress' ? 'sb-ip' : 'sb-t';
+    var sl = SL[p.status] || (p.triageStatus === 'waiting' ? 'Awaiting Triage' : p.triageStatus === 'in_progress' ? 'In Triage' : 'ED Patient');
+    h += '<tr class="' + sel + '"' + crit + ' onclick="selPt(' + i + ')">';
+    h += '<td>' + p.room + '</td><td><span class="flag-icon" title="View patient demographics" style="color:var(--gray);font-weight:700;margin-right:4px">&#9888;</span><b>' + p.name + '</b>';
+    if (p.allergy !== 'NKDA') h += ' <span style="color:var(--red);font-size:10px" title="Allergy: ' + p.allergy + '">&starf;</span>';
+    if (p.isPediatric) h += ' <span style="color:var(--esi5);font-size:10px">&#x1F9D2;</span>';
+    h += '<br><span style="font-size:10px;color:var(--gray)">' + p.sex + ', ' + p.age + 'y | SSN ****' + p.ssn + '</span></td>';
+    h += '<td>' + p.complaintLabel + '</td><td>' + esi + '</td>';
+    h += '<td style="font-size:11px">' + (p.provider ? (PROV_INI[p.provider]||p.provider) : '&mdash;') + '</td>';
+    h += '<td style="font-size:11px">' + (p.resident ? (RES_INI[p.resident]||p.resident) : '&mdash;') + '</td>';
+    h += '<td style="font-size:11px">' + (p.nurse ? (NURSE_INI[p.nurse]||p.nurse) : '&mdash;') + '</td>';
+    h += '<td><span class="sb ' + sc + '">' + sl + '</span></td>';
+    h += '<td style="font-size:11px">' + (p.disposition ? (DAB[p.disposition]||DL[p.disposition]) : '&mdash;') + '</td>';
+    h += '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (p.comment||'') + '">' + (p.comment || '&mdash;') + '</td>';
+    h += '<td style="text-align:center">' + (p.visitCreated ? '<span style="color:var(--green);font-weight:700">&#10003;</span>' : '&mdash;') + '</td>';
+    h += '<td style="font-family:Consolas,monospace;font-size:11px">' + tMin(p) + '</td>';
+    h += '<td style="font-family:Consolas,monospace;font-size:11px">' + p.arrivalTime + '</td><td>';
+    if (p.triageStatus === 'waiting') h += '<button class="btn btn-bl btn-sm" onclick="event.stopPropagation();stTri(' + i + ')">Triage</button>';
+    else if (p.triageStatus === 'completed') h += '<button class="btn btn-out btn-sm" onclick="event.stopPropagation();viewRec(' + i + ')">View</button>';
+    else h += '<button class="btn btn-o btn-sm" onclick="event.stopPropagation();resTri(' + i + ')">Continue</button>';
+    h += '</td></tr>';
+  }
+  h += '</tbody></table>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Visit Panel (Patient Detail — Complaint, Vitals, Status, Disposition)
+// ══════════════════════════════════════════════════════════════════════
+function renVP() {
+  if (selIdx === null) return '';
+  var p = window._taskState.patients[selIdx]; if (!p) return '';
+  var h = '<div class="vp"><div class="vh"><span>Visit &mdash; ' + p.name + '</span><span style="cursor:pointer;font-size:16px" onclick="split=false;renV()">&times;</span></div>';
+
+  // Complaint section
+  h += '<div class="vs"><div class="vs-t" onclick="togSec(this)">Complaint <span>&#9654;</span></div><div class="vs-b open">';
+  h += '<div class="vrow"><div class="fg"><label>Source</label><select class="fc" onchange="pF(' + selIdx + ',\'source\',this.value)">';
+  for (var si = 0; si < SOURCES.length; si++) h += '<option' + (p.source === SOURCES[si] ? ' selected' : '') + '>' + SOURCES[si] + '</option>';
+  h += '</select></div><div class="fg"><label>Display Board Complaint</label><input class="fc" value="' + p.complaintLabel + '" onchange="pF(' + selIdx + ',\'complaintLabel\',this.value)"></div></div>';
+  h += '<div class="fg"><label>Long Complaint (optional)</label><textarea class="fc" rows="2" onchange="pF(' + selIdx + ',\'longComplaint\',this.value)">' + (p.longComplaint || '') + '</textarea></div></div></div>';
+
+  // Vitals section (read-only) — EDIS UG §3.3.2 / 3.3.3
+  h += '<div class="vs"><div class="vs-t" onclick="togSec(this)">Vitals <span>&#9654;</span></div><div class="vs-b">';
+  if (p.recordedVitals) {
+    var rv = p.recordedVitals;
+    h += '<div class="vg">';
+    var vDefs = [['sbp','SBP','mmHg'],['dbp','DBP','mmHg'],['tempf','T(f)','&deg;F'],['hr','P','bpm'],['rr','RR','/min'],['spo2','SpO2','%'],['ht','Ht','in'],['wt','Wt','lbs'],['gcs','GCS','/15']];
+    for (var vi = 0; vi < vDefs.length; vi++) {
+      var vd = vDefs[vi], val = rv[vd[0]], cls = 'v-' + evVit(vd[0], val, p.isPediatric);
+      h += '<div class="vi"><div class="vl">' + vd[1] + '</div><div class="vv ' + cls + '">' + (val != null ? val : '&mdash;') + '</div><div class="vu">' + vd[2] + '</div></div>';
+    }
+    h += '</div>';
+    if (p.pain !== null) h += '<div style="margin-top:8px;font-size:12px">Pain Severity: <b>' + p.pain + '/10</b></div>';
+  } else {
+    h += '<div style="color:var(--gray-l);font-size:12px;text-align:center;padding:12px">No vitals recorded yet.</div>';
+  }
+  h += '</div></div>';
+
+  // Update Vitals section — EDIS UG §3.3.3 (BP, T(f), P, RR, Ht (in), Wt (lbs), Pain Severity)
+  h += '<div class="vs"><div class="vs-t" onclick="togSec(this)">Updated Vitals <span>&#9654;</span></div><div class="vs-b">';
+  var rv2 = p.recordedVitals || {};
+  h += '<div class="vrow3">';
+  h += '<div class="fg"><label>BP (SBP/DBP)</label><div style="display:flex;gap:4px"><input class="fc" id="v-sbp" type="number" placeholder="SBP" value="' + (rv2.sbp || '') + '" style="width:65px"><span style="align-self:center">/</span><input class="fc" id="v-dbp" type="number" placeholder="DBP" value="' + (rv2.dbp || '') + '" style="width:65px"></div></div>';
+  h += '<div class="fg"><label>T(f) &deg;F</label><input class="fc" id="v-tempf" type="number" step="0.1" value="' + (rv2.tempf || '') + '"></div>';
+  h += '<div class="fg"><label>P (Pulse)</label><input class="fc" id="v-hr" type="number" value="' + (rv2.hr || '') + '"></div>';
+  h += '</div><div class="vrow3">';
+  h += '<div class="fg"><label>RR</label><input class="fc" id="v-rr" type="number" value="' + (rv2.rr || '') + '"></div>';
+  h += '<div class="fg"><label>SpO2</label><input class="fc" id="v-spo2" type="number" value="' + (rv2.spo2 || '') + '"></div>';
+  h += '<div class="fg"><label>GCS</label><input class="fc" id="v-gcs" type="number" min="3" max="15" value="' + (rv2.gcs || '') + '"></div>';
+  h += '</div><div class="vrow3">';
+  h += '<div class="fg"><label>Ht (in)</label><input class="fc" id="v-ht" type="number" value="' + (rv2.ht || '') + '"></div>';
+  h += '<div class="fg"><label>Wt (lbs)</label><input class="fc" id="v-wt" type="number" value="' + (rv2.wt || '') + '"></div>';
+  h += '<div class="fg">&nbsp;</div>';
+  h += '</div>';
+  h += '<div class="fg"><label>Pain Severity (0–10)</label><div class="ps">';
+  for (var pi = 0; pi <= 10; pi++) {
+    var act = p.pain === pi ? ' act' : '';
+    var bg = pi <= 3 ? 'var(--green)' : pi <= 6 ? 'var(--yellow)' : 'var(--red)';
+    h += '<div class="pb' + act + '" style="' + (p.pain === pi ? 'background:' + bg : '') + '" onclick="sP(' + selIdx + ',' + pi + ')">' + pi + '</div>';
+  }
+  h += '</div></div>';
+  h += '<button class="btn btn-g btn-sm" onclick="saveV(' + selIdx + ')">Save Vitals</button>';
+  h += '</div></div>';
+
+  // Status / Responsibility section — EDIS UG §3.3.4
+  h += '<div class="vs"><div class="vs-t" onclick="togSec(this)">Status / Responsibility <span>&#9654;</span></div><div class="vs-b">';
+  h += '<div class="vrow"><div class="fg"><label>Room / Area *</label><select class="fc" onchange="pF(' + selIdx + ',\'room\',this.value)">';
+  for (var ri = 0; ri < ROOMS.length; ri++) h += '<option' + (p.room === ROOMS[ri] ? ' selected' : '') + '>' + ROOMS[ri] + '</option>';
+  h += '</select></div><div class="fg"><label>Acuity (ESI) *</label><select class="fc" onchange="sESI(' + selIdx + ',parseInt(this.value))"><option value="">&mdash;</option>';
+  for (var ei = 1; ei <= 5; ei++) h += '<option value="' + ei + '"' + (p.assignedESI === ei ? ' selected' : '') + '>ESI ' + ei + ' &mdash; ' + ELAB[ei] + '</option>';
+  h += '</select></div></div>';
+  h += '<div class="vrow"><div class="fg"><label>Status</label><select class="fc" onchange="pF(' + selIdx + ',\'status\',this.value)"><option value="">&mdash;</option>';
+  for (var stI = 0; stI < STATUSES.length; stI++) h += '<option value="' + STATUSES[stI].id + '"' + (p.status === STATUSES[stI].id ? ' selected' : '') + '>' + STATUSES[stI].l + '</option>';
+  h += '</select></div><div class="fg"><label>Source</label><select class="fc" onchange="pF(' + selIdx + ',\'source\',this.value)"><option value="">&mdash;</option>';
+  for (var si2 = 0; si2 < SOURCES.length; si2++) h += '<option' + (p.source === SOURCES[si2] ? ' selected' : '') + '>' + SOURCES[si2] + '</option>';
+  h += '</select></div></div>';
+  h += '<div class="vrow"><div class="fg"><label>Provider</label><select class="fc" onchange="sProv(' + selIdx + ',this.value)"><option value="">&mdash;</option>';
+  for (var pri = 0; pri < PROVS.length; pri++) h += '<option' + (p.provider === PROVS[pri] ? ' selected' : '') + '>' + PROVS[pri] + '</option>';
+  h += '</select></div><div class="fg"><label>Resident</label><select class="fc" onchange="pF(' + selIdx + ',\'resident\',this.value)"><option value="">&mdash;</option>';
+  for (var rI2 = 0; rI2 < RESS.length; rI2++) h += '<option' + (p.resident === RESS[rI2] ? ' selected' : '') + '>' + RESS[rI2] + '</option>';
+  h += '</select></div></div>';
+  h += '<div class="fg"><label>Nurse</label><select class="fc" onchange="pF(' + selIdx + ',\'nurse\',this.value)"><option value="">&mdash;</option>';
+  for (var ni = 0; ni < NURSES.length; ni++) h += '<option' + (p.nurse === NURSES[ni] ? ' selected' : '') + '>' + NURSES[ni] + '</option>';
+  h += '</select></div>';
+  if (p.visitCreated) h += '<div style="font-size:11px;color:var(--green);margin-top:4px">&#10003; PCE encounter created in CPRS</div>';
+  h += '</div></div>';
+
+  // Disposition section
+  h += '<div class="vs"><div class="vs-t" onclick="togSec(this)">Disposition <span>&#9654;</span></div><div class="vs-b">';
+  h += '<div class="fg"><label>Comments</label><textarea class="fc" rows="2" onchange="pF(' + selIdx + ',\'comment\',this.value)">' + (p.comment || '') + '</textarea></div>';
+  h += '<div class="fg"><label>Disposition</label><select class="fc" onchange="sDisp(' + selIdx + ',this.value)"><option value="">&mdash;</option>';
+  for (var di = 0; di < DISPS.length; di++) h += '<option value="' + DISPS[di].id + '"' + (p.disposition === DISPS[di].id ? ' selected' : '') + '>' + DISPS[di].l + ' (' + DISPS[di].ab + ')</option>';
+  h += '</select></div>';
+  // Delay reason if visit > 360 min (EDIS UG §8.4.6)
+  if (tMin(p) > 360) {
+    h += '<div class="fg"><label>Delay Reason (required, visit > 360 min)</label><select class="fc" onchange="pF(' + selIdx + ',\'delayReason\',this.value)"><option value="">&mdash;</option>';
+    for (var dri = 0; dri < DELAY_REASONS.length; dri++) h += '<option' + (p.delayReason === DELAY_REASONS[dri] ? ' selected' : '') + '>' + DELAY_REASONS[dri] + '</option>';
+    h += '</select></div>';
+  }
+  h += '</div></div>';
+
+  // Action buttons
+  h += '<div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">';
+  h += '<button class="btn btn-p" onclick="saveRet(' + selIdx + ')">Save</button>';
+  if (p.triageStatus !== 'completed') {
+    if (!p.visitCreated) h += '<button class="btn btn-bl" onclick="crPCE(' + selIdx + ')">Create PCE Encounter (Assign Provider)</button>';
+    h += '<button class="btn btn-r" onclick="compTri(' + selIdx + ')">Save &amp; Complete Triage</button>';
+    h += '<button class="btn btn-o" onclick="removeP(' + selIdx + ')">Save &amp; Remove from Board</button>';
+  }
+  h += '<button class="btn btn-out" onclick="split=false;renV()">Cancel</button>';
+  h += '</div></div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CPE Actions
+// ══════════════════════════════════════════════════════════════════════
+window.selPt = function(i) { selIdx = i; renV(); };
+window.togSplit = function() { split = !split; renV(); };
+window.togSec = function(el) { var b = el.nextElementSibling; b.classList.toggle('open'); };
+window.pF = function(i, f, v) { window._taskState.patients[i][f] = v; };
+window.sP = function(i, v) { window._taskState.patients[i].pain = v; renV(); };
+
+window.saveV = function(i) {
+  var p = window._taskState.patients[i];
+  function gV(id) { var el = document.getElementById(id); return el && el.value !== '' ? parseFloat(el.value) : null; }
+  var tempf = gV('v-tempf');
+  p.recordedVitals = {hr:gV('v-hr'), sbp:gV('v-sbp'), dbp:gV('v-dbp'), spo2:gV('v-spo2'), tempf:tempf, temp:(tempf!=null?f2c(tempf):null), rr:gV('v-rr'), gcs:gV('v-gcs'), ht:gV('v-ht'), wt:gV('v-wt')};
+  if (p.recordedVitals.hr !== null) p.suggestedESI = calcESI(p.recordedVitals, p.complaint, p.age, p.isPediatric);
+  if (p.triageStatus === 'waiting') { p.triageStatus = 'in_progress'; p.status = 'ed_patient'; window._taskState.triageInProgress = p.id; }
+  toast('Vitals saved for ' + p.name + '.', 'success'); renV();
+};
+
+window.sESI = function(i, lv) {
+  if (!lv || isNaN(lv)) return;
+  var p = window._taskState.patients[i]; p.assignedESI = lv;
+  window._taskState.esiOverrides.push({patientId:p.id, level:lv, ts:new Date().toISOString()});
+  if (p.suggestedESI && lv > p.suggestedESI + 1) {
+    window._taskState.alertsTriggered.push({type:'undertriage', patientId:p.id, assigned:lv, suggested:p.suggestedESI});
+    toast('Warning: Possible undertriage. Suggested ESI ' + p.suggestedESI + ', assigned ESI ' + lv + '.', 'warn');
+  }
+  renV();
+};
+
+window.sDisp = function(i, v) {
+  var p = window._taskState.patients[i]; p.disposition = v || null;
+  if (v) window._taskState.dispositions[p.id] = v;
+};
+
+window.sProv = function(i, v) {
+  // EDIS UG §3.1 — Assigning a provider auto-creates PCE encounter in CPRS
+  var p = window._taskState.patients[i];
+  p.provider = v;
+  if (v && !p.visitCreated) {
+    p.visitCreated = true;
+    p.wristbandPrinted = true;  // legacy alias
+    var st = window._taskState;
+    if (st.visitsCreated.indexOf(p.id) === -1) st.visitsCreated.push(p.id);
+    if (st.wristbandsPrinted.indexOf(p.id) === -1) st.wristbandsPrinted.push(p.id);
+    toast('PCE encounter created in CPRS for ' + p.name + '.', 'success');
+  } else if (!v) {
+    toast('Provider unassigned.', 'info');
+  }
+  renV();
+};
+
+window.crPCE = function(i) {
+  // Convenience: assign first available provider to create PCE encounter
+  var p = window._taskState.patients[i];
+  if (!p.provider) p.provider = PROVS[0];
+  if (!p.visitCreated) {
+    p.visitCreated = true; p.wristbandPrinted = true;
+    var st = window._taskState;
+    if (st.visitsCreated.indexOf(p.id) === -1) st.visitsCreated.push(p.id);
+    if (st.wristbandsPrinted.indexOf(p.id) === -1) st.wristbandsPrinted.push(p.id);
+  }
+  toast('PCE encounter created in CPRS for ' + p.name + ' under ' + p.provider + '.', 'success');
+  renV();
+};
+
+// Legacy alias — print wristband action now creates PCE encounter
+window.prWB = function(i){ window.crPCE(i); };
+
+window.removeP = function(i){
+  // EDIS UG §3.6 Remove Patients (requires disposition)
+  var p = window._taskState.patients[i], st = window._taskState;
+  if (!p.disposition) { toast('Disposition required before removing patient (EDIS §8.4.5).', 'error'); return; }
+  if (tMin(p) > 360 && !p.delayReason && p.disposition !== 'ed_observation') { toast('Delay Reason required for visits exceeding 360 min.', 'error'); return; }
+  if (st.removedPatients.indexOf(p.id) === -1) st.removedPatients.push(p.id);
+  p.triageStatus = 'completed'; p.status = 'discharged';
+  st.triageCompleted[p.id] = {vitals:p.recordedVitals||{}, esiLevel:p.assignedESI, disposition:p.disposition, timestamp:new Date().toLocaleTimeString('en-US',{hour12:false}), pain:p.pain};
+  toast('Patient removed from board: ' + p.name + ' (' + (DAB[p.disposition]||p.disposition) + ').', 'success');
+  split = false; renV();
+};
+
+window.compTri = function(i) {
+  var p = window._taskState.patients[i];
+  if (!p.recordedVitals) { toast('Record vitals first.', 'error'); return; }
+  if (!p.assignedESI) { toast('Assign ESI first.', 'error'); return; }
+  p.triageStatus = 'completed'; p.status = p.status === 'awaiting_triage' ? 'ed_patient' : p.status;
+  p.triageTimestamp = new Date().toLocaleTimeString('en-US', {hour12:false});
+  if (!p.disposition) {
+    if (p.assignedESI === 1) p.disposition = 'admitted_icu';
+    else if (p.assignedESI === 2) p.disposition = 'admitted_va_ward';
+    else if (p.assignedESI === 3) p.disposition = 'admitted_va_ward';
+    else p.disposition = 'home';
+  }
+  // Map disposition to default room
+  if (p.disposition === 'admitted_icu' || p.disposition === 'admitted_telemetry') p.room = 'Trauma 1';
+  else if (p.disposition === 'admitted_va_ward' || p.disposition === 'admitted_psych') p.room = 'Treatment ' + rI(1,6);
+  else if (p.disposition === 'home') p.room = 'Fast Track ' + rI(1,3);
+  // Auto-create PCE encounter if not yet (provider will be auto-assigned)
+  if (!p.visitCreated) {
+    if (!p.provider) p.provider = PROVS[0];
+    p.visitCreated = true; p.wristbandPrinted = true;
+    if (window._taskState.visitsCreated.indexOf(p.id) === -1) window._taskState.visitsCreated.push(p.id);
+    if (window._taskState.wristbandsPrinted.indexOf(p.id) === -1) window._taskState.wristbandsPrinted.push(p.id);
+  }
+  window._taskState.triageCompleted[p.id] = {vitals:p.recordedVitals, esiLevel:p.assignedESI, disposition:p.disposition, timestamp:p.triageTimestamp, pain:p.pain};
+  window._taskState.dispositions[p.id] = p.disposition;
+  window._taskState.triageInProgress = null;
+  split = false;
+  toast('Triage completed for ' + p.name + '. ESI ' + p.assignedESI + ' → ' + (DL[p.disposition] || p.disposition) + '.', 'success');
+  renV();
+};
+
+window.stTri = function(i) {
+  var p = window._taskState.patients[i];
+  p.triageStatus = 'in_progress';
+  window._taskState.triageInProgress = p.id;
+  selIdx = i; split = true; renV();
+};
+
+window.resTri = function(i) { selIdx = i; split = true; renV(); };
+
+window.viewRec = function(i) {
+  var p = window._taskState.patients[i], rv = p.recordedVitals || {};
+  var h = '<table style="width:100%;font-size:12px">';
+  h += '<tr><td style="width:130px;font-weight:600;color:var(--blue)">Patient</td><td>' + p.name + ' (' + p.sex + ', ' + p.age + 'y)</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Complaint</td><td>' + p.complaintLabel + '</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">ESI Level</td><td>ESI ' + p.assignedESI + ' &mdash; ' + ELAB[p.assignedESI] + '</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Disposition</td><td>' + (DL[p.disposition] || p.disposition || '—') + ' (' + (DAB[p.disposition]||'') + ')</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Room</td><td>' + p.room + '</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Status</td><td>' + (SL[p.status]||p.status) + '</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Source</td><td>' + (p.source||'—') + '</td></tr>';
+  h += '<tr><td style="font-weight:600;color:var(--blue)">Visit (PCE)</td><td>' + (p.visitCreated?'<span style="color:var(--green)">&#10003; Created</span>':'—') + '</td></tr></table>';
+  h += '<div style="margin-top:12px;font-weight:700;color:var(--blue);font-size:12px">Vital Signs:</div><div class="vg" style="margin-top:6px">';
+  var vDefs = [['sbp','SBP','mmHg'],['dbp','DBP','mmHg'],['tempf','T(f)','°F'],['hr','P','bpm'],['rr','RR','/min'],['spo2','SpO2','%'],['ht','Ht','in'],['wt','Wt','lbs'],['gcs','GCS','/15']];
+  for (var vi = 0; vi < vDefs.length; vi++) {
+    var vd = vDefs[vi], val = rv[vd[0]], cls = 'v-' + evVit(vd[0], val, p.isPediatric);
+    h += '<div class="vi"><div class="vl">' + vd[1] + '</div><div class="vv ' + cls + '">' + (val != null ? val : '—') + '</div><div class="vu">' + vd[2] + '</div></div>';
+  }
+  h += '</div>';
+  if (p.pain !== null) h += '<div style="margin-top:8px;font-size:12px">Pain Severity: <b>' + p.pain + '/10</b></div>';
+  openModal('Triage Record — ' + p.name, h);
+};
+
+window.saveRet = function() { toast('Changes saved.', 'success'); split = false; renV(); };
+
+// ── New Patient (EDIS §2.5.1 — Add Patient: VistA search, non-VistA, Ambulance unknown) ──
+window.addNP = function() {
+  var h = '<p style="font-size:12px;color:var(--gray);margin-bottom:14px">Select an option to add a patient to EDIS:</p>';
+  h += '<div style="margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--gray-ll);border-radius:4px;cursor:pointer;margin-bottom:6px"><input type="radio" name="npo" value="1" checked> <b>Search for Patient in VistA</b></label>';
+  h += '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--gray-ll);border-radius:4px;cursor:pointer;margin-bottom:6px"><input type="radio" name="npo" value="2"> <b>Enter Name, Patient Is Not in VistA</b></label>';
+  h += '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--gray-ll);border-radius:4px;cursor:pointer"><input type="radio" name="npo" value="3"> <b>Ambulance Is Arriving, Patient Name Is Unknown</b></label></div>';
+  h += '<div class="fg"><label>Patient Name (Last,First)</label><input class="fc" id="np-nm" placeholder="e.g., Smith,John or last 4 SSN"></div>';
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="npGo()">Continue</button></div>';
+  openModal('+ New Patient', h);
+};
+
+window.npGo = function() {
+  // EDIS UG §3.2 — three add-patient options
+  var opt = document.querySelector('input[name=npo]:checked');
+  var v = opt ? opt.value : '1';
+  var nm, src;
+  if (v === '3') { nm = 'UU-AMBULANCE EN ROUTE'; src = 'Transfer, Other'; }
+  else {
+    var el = document.getElementById('np-nm');
+    nm = el ? el.value.trim() : '';
+    if (!nm) { toast('Enter a patient name (Last,First) or SSN.', 'error'); return; }
+    src = 'Non-referred';
+  }
+  var st = window._taskState, nid = 'ED' + String(Date.now()).slice(-6);
+  st.patients.push({
+    id:nid, index:st.patients.length, name:nm, sex:'U', age:0, isPediatric:false,
+    complaint:'', complaintLabel:'(New Patient)', arrivalMode:v==='3'?'Ambulance':'Walk-in',
+    arrivalTime:new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'}),
+    acuity:'', expectedESI:null, notes:'', isTrap:false, trapNote:'', allergy:'NKDA',
+    ssn:'----', preVitals:{}, triageStatus:'waiting', pain:null, recordedVitals:null,
+    assignedESI:null, suggestedESI:null, disposition:null, room:v==='3'?'Triage 1':'Waiting Room',
+    provider:'', resident:'', nurse:'', status:'awaiting_triage', source:src,
+    triageTimestamp:null, visitCreated:false, wristbandPrinted:false,
+    longComplaint:'', comment:'', delayReason:''
+  });
+  closeModal(); toast(nm + ' added to EDIS Active Patients.', 'success'); renV();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Restore View (EDIS UG §2.3.2 / §4) — restore patient removed in error
+// ══════════════════════════════════════════════════════════════════════
+function renRestore() {
+  var st = window._taskState;
+  var removedIds = st.removedPatients;
+  var h = '<div class="rc"><div class="rc-t">Restore Patient</div>';
+  h += '<p style="font-size:12px;color:var(--gray);margin-bottom:12px">Restore a patient who was previously removed from the board in error. Search by patient name or date of visit.</p>';
+  h += '<div class="fg"><label>Patient Name or Date of Visit</label><div style="display:flex;gap:6px"><input class="fc" placeholder="Last,First or mm/dd/yyyy"><button class="btn btn-bl btn-sm">Search</button></div></div>';
+  h += '<div style="margin-top:14px"><h5 style="font-size:12px;color:var(--blue);margin-bottom:6px">Recently Removed Patients</h5>';
+  if (!removedIds.length) {
+    h += '<div style="font-size:12px;color:var(--gray);padding:8px">No patients have been removed from the board.</div>';
+  } else {
+    h += '<table class="apt"><thead><tr><th>Patient</th><th>Disposition</th><th>Removed</th><th>Action</th></tr></thead><tbody>';
+    for (var i = 0; i < removedIds.length; i++) {
+      var pp = st.patients.filter(function(p){return p.id===removedIds[i];})[0];
+      if (!pp) continue;
+      h += '<tr><td>' + pp.name + '</td><td>' + (DL[pp.disposition]||'—') + '</td><td>' + (pp.triageTimestamp||'—') + '</td><td><button class="btn btn-bl btn-sm" onclick="restorePt(\''+pp.id+'\')">Restore</button></td></tr>';
+    }
+    h += '</tbody></table>';
+  }
+  h += '</div></div>';
+  return h;
+}
+window.restorePt = function(pid){
+  var st = window._taskState;
+  st.removedPatients = st.removedPatients.filter(function(x){return x!==pid;});
+  toast('Patient restored to active board.', 'success');
+  curV='cpe'; renV();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Edit Closed View (EDIS UG §4)
+// ══════════════════════════════════════════════════════════════════════
+function renEC() {
+  var pts = window._taskState.patients.filter(function(p){return p.triageStatus === 'completed';});
+  var h = '<div class="rc"><div class="rc-t">Edit Closed View</div>';
+  h += '<p style="font-size:12px;color:var(--gray);margin-bottom:12px">Edit records of patients no longer on the display board. All changes are logged.</p>';
+  h += '<div class="fg"><label>Patient Name or Date</label><div style="display:flex;gap:6px"><input class="fc" id="ec-s" placeholder="Last,First or mm/dd/yy or today"><button class="btn btn-bl btn-sm" onclick="ecSrch()">Search</button></div></div>';
+  h += '<div id="ec-r"></div></div>';
+  if (pts.length) {
+    h += '<div class="rc"><div class="rc-t">Recently Closed</div><table class="apt"><thead><tr><th>Patient</th><th>Complaint</th><th>ESI</th><th>Disposition</th><th>Room</th><th>Time</th></tr></thead><tbody>';
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      h += '<tr onclick="viewRec(' + p.index + ')"><td><b>' + p.name + '</b></td><td>' + p.complaintLabel + '</td><td>' + (p.assignedESI ? '<span class="esi esi-' + p.assignedESI + '">' + p.assignedESI + '</span>' : '—') + '</td><td>' + (DL[p.disposition] || '—') + '</td><td>' + p.room + '</td><td>' + (p.triageTimestamp || '—') + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+  return h;
+}
+
+window.ecSrch = function() {
+  var q = (document.getElementById('ec-s').value || '').trim().toLowerCase();
+  var r = window._taskState.patients.filter(function(p){return p.triageStatus === 'completed' && (p.name.toLowerCase().indexOf(q) >= 0 || q === 'today');});
+  var d = document.getElementById('ec-r');
+  if (!r.length) d.innerHTML = '<div style="color:var(--gray);font-size:12px;padding:8px">No matches.</div>';
+  else {
+    var h = '<table class="apt" style="margin-top:8px"><thead><tr><th>Patient</th><th>ESI</th><th>Disposition</th></tr></thead><tbody>';
+    for (var i = 0; i < r.length; i++) h += '<tr onclick="viewRec(' + r[i].index + ')"><td>' + r[i].name + '</td><td>ESI ' + (r[i].assignedESI || '—') + '</td><td>' + (DL[r[i].disposition] || '—') + '</td></tr>';
+    h += '</tbody></table>'; d.innerHTML = h;
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Display Board (EDIS UG §5 / §8.2.2 columns)
+// ══════════════════════════════════════════════════════════════════════
+function renDB() {
+  var pts = window._taskState.patients;
+  var h = '<div class="db"><div class="db-h"><h3>&#x1F5A5; Emergency Department Display Board</h3><span style="font-size:11px;color:#aaa">' + new Date().toLocaleString() + '</span></div>';
+  // EDIS columns per UG §8.2.2: Room/Bed, Complaint, Provider Initials, Resident Initials, Nurse Initials,
+  // Total Minutes, Lab Active/Complete, Comments, Patient Name, Acuity, New (Unverified) Orders,
+  // Imaging Active/Complete, Status, Disposition, Visit Created, Minutes at Location, Admittance Delay
+  h += '<table><thead><tr><th>Room/Bed</th><th>Patient</th><th>Complaint</th><th>Acuity</th><th>Prv</th><th>Res</th><th>RN</th><th>Status</th><th>Disp</th><th>Visit</th><th>Lab</th><th>Img</th><th>Total Min</th><th>Time In</th></tr></thead><tbody>';
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i];
+    var el = tMin(p);
+    var crit = (p.assignedESI === 1 || (p.expectedESI === 1 && p.triageStatus === 'waiting')) ? ' class="db-crit"' : '';
+    h += '<tr' + crit + '><td>' + p.room + '</td><td>' + p.name + '</td><td>' + p.complaintLabel + '</td>';
+    h += '<td>' + (p.assignedESI ? '<span class="esi esi-' + p.assignedESI + '" style="width:22px;height:22px;font-size:11px">' + p.assignedESI + '</span>' : '—') + '</td>';
+    h += '<td>' + (p.provider?(PROV_INI[p.provider]||p.provider):'—') + '</td>';
+    h += '<td>' + (p.resident?(RES_INI[p.resident]||p.resident):'—') + '</td>';
+    h += '<td>' + (p.nurse?(NURSE_INI[p.nurse]||p.nurse):'—') + '</td>';
+    h += '<td>' + (SL[p.status]||p.status||'—') + '</td>';
+    h += '<td>' + (p.disposition?(DAB[p.disposition]||DL[p.disposition]):'—') + '</td>';
+    h += '<td style="text-align:center">' + (p.visitCreated?'<span style="color:#7fff7f">&#10003;</span>':'—') + '</td>';
+    h += '<td>0/0</td><td>0/0</td>';
+    h += '<td' + (el > 360 ? ' style="color:var(--red)"' : '') + '>' + el + '</td>';
+    h += '<td style="color:var(--yellow)">' + p.arrivalTime + '</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  var w = pts.filter(function(p){return p.triageStatus === 'waiting';});
+  // Waiting Room Display Board metrics (EDIS UG §9)
+  h += '<div class="rc" style="margin-top:12px"><div class="rc-t">Waiting Room Display Board Metrics (§9)</div><div style="display:flex;gap:20px;flex-wrap:wrap">';
+  h += '<div><div style="font-size:24px;font-weight:700;color:var(--blue)">' + w.length + '</div><div style="font-size:11px;color:var(--gray)">Patients in Default Waiting Room</div></div>';
+  h += '<div><div style="font-size:24px;font-weight:700;color:var(--blue)">' + pts.length + '</div><div style="font-size:11px;color:var(--gray)">Total Active Patients</div></div>';
+  h += '<div><div style="font-size:24px;font-weight:700;color:var(--green)">' + pts.filter(function(p){return p.triageStatus === 'completed';}).length + '</div><div style="font-size:11px;color:var(--gray)">Triaged</div></div>';
+  h += '<div><div style="font-size:24px;font-weight:700;color:var(--orange)">' + window._taskState.visitsCreated.length + '</div><div style="font-size:11px;color:var(--gray)">PCE Visits Created</div></div></div>';
+  h += '<div style="margin-top:10px;font-size:11px;color:var(--gray);font-style:italic">Please note that patients with more severe illness or injury may be seen ahead of more stable patients and not necessarily in order of arrival to the ED.</div></div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Assign Staff (EDIS §6)
+// ══════════════════════════════════════════════════════════════════════
+function renAS() {
+  var h = '<div class="rc"><div class="rc-t">Assign Staff</div><p style="font-size:12px;color:var(--gray);margin-bottom:12px">Provider, resident, and nurse assignments for the current shift.</p>';
+  h += '<h4 style="font-size:13px;color:var(--blue);margin-bottom:8px">Providers</h4><table class="apt"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Patients</th></tr></thead><tbody>';
+  for (var i = 0; i < PROVS.length; i++) {
+    var cnt = window._taskState.patients.filter(function(p){return p.provider === PROVS[i];}).length;
+    h += '<tr><td>' + PROVS[i] + '</td><td>Attending</td><td><span class="sb sb-t">Active</span></td><td>' + cnt + '</td></tr>';
+  }
+  h += '</tbody></table>';
+  h += '<h4 style="font-size:13px;color:var(--blue);margin:16px 0 8px">Nurses</h4><table class="apt"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Patients</th></tr></thead><tbody>';
+  for (var j = 0; j < NURSES.length; j++) {
+    var cnt2 = window._taskState.patients.filter(function(p){return p.nurse === NURSES[j];}).length;
+    h += '<tr><td>' + NURSES[j] + '</td><td>Triage RN</td><td><span class="sb sb-t">Active</span></td><td>' + cnt2 + '</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Reports (EDIS UG §7) — 11 standard + 1 non-standard report
+// ══════════════════════════════════════════════════════════════════════
+function renRpt() {
+  var h = '<div class="rc"><div class="rc-t">Reports View</div>';
+  h += '<p style="font-size:12px;color:var(--gray);margin-bottom:10px">Run, view, print, and export EDIS reports. Select a report and date range, then click Run Report. (Patient xRef requires the EDPR XREF security key.)</p>';
+  h += '<div class="vrow3" style="margin-bottom:10px"><div class="fg"><label>Start Date</label><input class="fc" type="date" id="rpt-start"></div><div class="fg"><label>Stop Date</label><input class="fc" type="date" id="rpt-stop"></div><div class="fg"><label>&nbsp;</label><div style="display:flex;gap:6px"><button class="btn btn-bl btn-sm">Run Report</button><button class="btn btn-out btn-sm">Print</button><button class="btn btn-out btn-sm">Export</button></div></div></div>';
+  h += '<div class="tb" id="rtb" style="flex-wrap:wrap">';
+  var tabs = ['Activity','Acuity','Delay','Delay Summary','Exposure','Missed Opportunities','Orders by Acuity','Patient Intake','Shift','VA Admissions','Patient xRef'];
+  for (var i = 0; i < tabs.length; i++) h += '<button class="' + (i === 0 ? 'active' : '') + '" onclick="sRpt(\'' + tabs[i] + '\',this)">' + tabs[i] + '</button>';
+  h += '</div><div id="rc-body">' + rptAct() + '</div></div>';
+  return h;
+}
+
+function rptAct() {
+  // Activity Report (EDIS UG §7.3.1) columns: IEN, Time In, Time Out, Complaint, MD, Acuity, Elapsed, Triage, Wait, Disposition (Dispo), Adm Dec, Adm Delay, Diagnosis, ICD, ICD Type
+  var pts = window._taskState.patients;
+  var h = '<h4 style="font-size:13px;margin-bottom:8px">Activity Report</h4><table class="apt"><thead><tr><th>IEN</th><th>Patient</th><th>Time In</th><th>Complaint</th><th>MD</th><th>Acuity</th><th>Elapsed</th><th>Dispo</th><th>Status</th></tr></thead><tbody>';
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i];
+    h += '<tr><td>' + p.id + '</td><td>' + p.name + '</td><td>' + p.arrivalTime + '</td><td>' + p.complaintLabel + '</td><td>' + (p.provider?(PROV_INI[p.provider]||p.provider):'—') + '</td><td>' + (p.assignedESI || '—') + '</td><td>' + tMin(p) + '</td><td>' + (DAB[p.disposition]||'—') + '</td><td>' + (SL[p.status]||p.status||'—') + '</td></tr>';
+  }
+  h += '</tbody></table>'; return h;
+}
+
+window.sRpt = function(n, btn) {
+  var btns = document.querySelectorAll('#rtb button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  var d = document.getElementById('rc-body');
+  var pts = window._taskState.patients, st = window._taskState;
+  if (n === 'Activity') { d.innerHTML = rptAct(); return; }
+  if (n === 'Acuity') {
+    var h = '<h4 style="font-size:13px;margin-bottom:8px">Acuity Report</h4><table class="apt"><thead><tr><th>Acuity</th><th>Patients</th><th>Admitted</th><th>Avg Adm Dec (min)</th></tr></thead><tbody>';
+    for (var e = 1; e <= 5; e++) {
+      var ps = pts.filter(function(p){return p.assignedESI === e;});
+      var adm = ps.filter(function(p){return p.disposition && (DISPS.filter(function(d){return d.id===p.disposition && d.flag==='VA';}).length > 0);}).length;
+      h += '<tr><td><span class="esi esi-' + e + '">' + e + '</span> ' + ELAB[e] + '</td><td>' + ps.length + '</td><td>' + adm + '</td><td>—</td></tr>';
+    }
+    h += '</tbody></table>'; d.innerHTML = h; return;
+  }
+  if (n === 'Delay') {
+    // Delay Report — visits exceeding 360 min
+    var dly = pts.filter(function(p){return tMin(p) > 360;});
+    var h2 = '<h4 style="font-size:13px;margin-bottom:8px">Delay Report (visits > 360 min)</h4><table class="apt"><thead><tr><th>IEN</th><th>Patient</th><th>Time In</th><th>Elapsed</th><th>Disposition</th><th>Delay Reason</th><th>MD</th><th>Acuity</th></tr></thead><tbody>';
+    if (!dly.length) h2 += '<tr><td colspan="8" style="text-align:center;color:var(--gray)">No visits exceeded 360 min in this date range.</td></tr>';
+    else dly.forEach(function(p){h2 += '<tr><td>'+p.id+'</td><td>'+p.name+'</td><td>'+p.arrivalTime+'</td><td>'+tMin(p)+'</td><td>'+(DAB[p.disposition]||'—')+'</td><td>'+(p.delayReason||'—')+'</td><td>'+(p.provider?(PROV_INI[p.provider]||p.provider):'—')+'</td><td>'+(p.assignedESI||'—')+'</td></tr>';});
+    h2 += '</tbody></table>'; d.innerHTML = h2; return;
+  }
+  if (n === 'Delay Summary') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Delay Summary Report</h4><table class="apt"><thead><tr><th>Category</th><th>Visits</th><th>Avg Visit (min)</th><th>Avg Adm Decision (min)</th></tr></thead><tbody><tr><td>All ED visits</td><td>'+pts.length+'</td><td>—</td><td>—</td></tr><tr><td>VA-facility admissions</td><td>'+pts.filter(function(p){return ['admitted_va_ward','admitted_icu','admitted_telemetry','admitted_psych'].indexOf(p.disposition)>=0;}).length+'</td><td>—</td><td>—</td></tr><tr><td>Non-admitted</td><td>'+pts.filter(function(p){return p.disposition && ['admitted_va_ward','admitted_icu','admitted_telemetry','admitted_psych'].indexOf(p.disposition)<0;}).length+'</td><td>—</td><td>—</td></tr></tbody></table>';
+    return;
+  }
+  if (n === 'Exposure') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Exposure Report</h4><div class="fg"><label>Visit IEN of contagious patient</label><input class="fc" placeholder="Enter IEN" style="max-width:200px"></div><p style="font-size:12px;color:var(--gray);margin-top:8px">Identifies patients and staff who may have been in the ED when the contagious patient was present for treatment. Date range is not required.</p>';
+    return;
+  }
+  if (n === 'Missed Opportunities') {
+    var mo = pts.filter(function(p){return ['ama','lwbs','eloped'].indexOf(p.disposition) >= 0;});
+    var h3 = '<h4 style="font-size:13px;margin-bottom:8px">Missed Opportunities Report (AMA / LWBS / Eloped)</h4><table class="apt"><thead><tr><th>IEN</th><th>Time In</th><th>Patient</th><th>Complaint</th><th>MD</th><th>Acuity</th><th>Elapsed</th><th>Disposition</th></tr></thead><tbody>';
+    if (!mo.length) h3 += '<tr><td colspan="8" style="text-align:center;color:var(--gray)">No missed opportunities in this date range.</td></tr>';
+    else mo.forEach(function(p){h3 += '<tr><td>'+p.id+'</td><td>'+p.arrivalTime+'</td><td>'+p.name+'</td><td>'+p.complaintLabel+'</td><td>'+(p.provider?(PROV_INI[p.provider]||p.provider):'—')+'</td><td>'+(p.assignedESI||'—')+'</td><td>'+tMin(p)+'</td><td>'+(DAB[p.disposition]||'—')+'</td></tr>';});
+    h3 += '</tbody></table>'; d.innerHTML = h3; return;
+  }
+  if (n === 'Orders by Acuity') {
+    var h4 = '<h4 style="font-size:13px;margin-bottom:8px">Orders by Acuity Report</h4><table class="apt"><thead><tr><th>Acuity</th><th>Medication</th><th>Lab</th><th>Imaging</th><th>Consult</th><th>Other</th></tr></thead><tbody>';
+    for (var ee=1; ee<=5; ee++) h4 += '<tr><td><span class="esi esi-'+ee+'">'+ee+'</span> '+ELAB[ee]+'</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>';
+    h4 += '</tbody></table>'; d.innerHTML = h4; return;
+  }
+  if (n === 'Patient Intake') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Patient Intake Report</h4><p style="font-size:12px;color:var(--gray)">Time-of-day and day-of-week statistics about the number of patients who visited the ED during the date range selected.</p><table class="apt" style="margin-top:8px"><thead><tr><th>Hour</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Total</th></tr></thead><tbody><tr><td>0700-0800</td><td>0</td><td>0</td><td>'+pts.length+'</td><td>0</td><td>0</td><td>0</td><td>0</td><td>'+pts.length+'</td></tr></tbody></table>';
+    return;
+  }
+  if (n === 'Shift') {
+    var ws = pts.filter(function(p){return p.triageStatus === 'waiting';}).length;
+    var dis = pts.filter(function(p){return p.disposition === 'home';}).length;
+    var admVa = pts.filter(function(p){return ['admitted_va_ward','admitted_icu','admitted_telemetry','admitted_psych'].indexOf(p.disposition)>=0;}).length;
+    var admOther = pts.filter(function(p){return ['transferred_non_va','transferred_va','urgent_care_clinic'].indexOf(p.disposition)>=0;}).length;
+    var dec = pts.filter(function(p){return p.disposition === 'deceased';}).length;
+    var over = pts.filter(function(p){return tMin(p) > 360;}).length;
+    var h5 = '<h4 style="font-size:13px;margin-bottom:8px">Shift Report</h4><table class="apt"><tbody>';
+    h5 += '<tr><td>Carried over at Report Start</td><td>0</td></tr>';
+    h5 += '<tr><td>Number of New Patients</td><td>'+pts.length+'</td></tr>';
+    h5 += '<tr><td>Number of Patients Discharged</td><td>'+dis+'</td></tr>';
+    h5 += '<tr><td>Number Dec to Admit to VA</td><td>'+admVa+'</td></tr>';
+    h5 += '<tr><td>Number Dec to Admit to Other</td><td>'+admOther+'</td></tr>';
+    h5 += '<tr><td>Number over Six Hours</td><td>'+over+'</td></tr>';
+    h5 += '<tr><td>Number Waiting for Triage</td><td>'+ws+'</td></tr>';
+    h5 += '<tr><td>Number of Occupied Beds</td><td>'+pts.filter(function(p){return p.room && p.room!=='Waiting Room';}).length+'</td></tr>';
+    h5 += '<tr><td>Number of Missed Opportunities</td><td>'+pts.filter(function(p){return ['ama','lwbs','eloped'].indexOf(p.disposition)>=0;}).length+'</td></tr>';
+    h5 += '<tr><td>Number Deceased</td><td>'+dec+'</td></tr>';
+    h5 += '<tr><td>Number With No Disposition</td><td>'+pts.filter(function(p){return !p.disposition;}).length+'</td></tr>';
+    h5 += '<tr><td>Carry over to Next Shift</td><td>'+(pts.length-dis-admVa-admOther)+'</td></tr>';
+    h5 += '</tbody></table>'; d.innerHTML = h5; return;
+  }
+  if (n === 'VA Admissions') {
+    var va = pts.filter(function(p){return ['admitted_va_ward','admitted_icu','admitted_telemetry','admitted_psych'].indexOf(p.disposition)>=0;});
+    var h6 = '<h4 style="font-size:13px;margin-bottom:8px">VA Admissions Report</h4><table class="apt"><thead><tr><th>IEN</th><th>Time Out</th><th>Complaint</th><th>MD</th><th>Acuity</th><th>Disposition</th></tr></thead><tbody>';
+    if (!va.length) h6 += '<tr><td colspan="6" style="text-align:center;color:var(--gray)">No VA admissions in this date range.</td></tr>';
+    else va.forEach(function(p){h6 += '<tr><td>'+p.id+'</td><td>'+(p.triageTimestamp||'—')+'</td><td>'+p.complaintLabel+'</td><td>'+(p.provider?(PROV_INI[p.provider]||p.provider):'—')+'</td><td>'+(p.assignedESI||'—')+'</td><td>'+(DAB[p.disposition]||'—')+'</td></tr>';});
+    h6 += '</tbody></table>'; d.innerHTML = h6; return;
+  }
+  if (n === 'Patient xRef') {
+    var h7 = '<h4 style="font-size:13px;margin-bottom:8px">Patient xRef Report <span style="font-size:10px;color:var(--gray)">(Requires EDPR XREF key)</span></h4><table class="apt"><thead><tr><th>IEN</th><th>Patient (DFN)</th><th>Surname/SSN4</th><th>Age/Sex</th><th>Allergy</th><th>Source</th></tr></thead><tbody>';
+    pts.forEach(function(p){var sn=p.name.split(',')[0]; h7 += '<tr><td>'+p.id+'</td><td>'+p.name+'</td><td>'+sn.substring(0,2)+p.ssn+'</td><td>'+p.age+'/'+p.sex+'</td><td>'+p.allergy+'</td><td>'+(p.source||'—')+'</td></tr>';});
+    h7 += '</tbody></table>'; d.innerHTML = h7; return;
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Configure (EDIS §8 — Rooms, Display Board, Colors, Parameters, Selections)
+// ══════════════════════════════════════════════════════════════════════
+function renCfg() {
+  var h = '<div class="rc"><div class="rc-t">Configure</div><p style="font-size:12px;color:var(--gray);margin-bottom:14px">EDIS configuration. Changes require IRM/CAC authorization.</p>';
+  h += '<div class="tb" id="cfg-tb"><button class="active" onclick="sCfg(\'rooms\',this)">Rooms/Areas</button><button onclick="sCfg(\'board\',this)">Display Board</button><button onclick="sCfg(\'colors\',this)">Colors</button><button onclick="sCfg(\'params\',this)">Parameters</button><button onclick="sCfg(\'sels\',this)">Selections</button></div>';
+  h += '<div id="cfg-body">' + cfgRooms() + '</div></div>';
+  return h;
+}
+
+function cfgRooms() {
+  var h = '<h4 style="font-size:13px;margin-bottom:8px">Rooms / Areas Configuration</h4>';
+  h += '<table class="apt"><thead><tr><th>Room/Area</th><th>Type</th><th>Active</th></tr></thead><tbody>';
+  for (var i = 0; i < ROOMS.length; i++) {
+    var r = ROOMS[i];
+    var t = r.indexOf('Trauma') >= 0 ? 'Trauma Bay' : r.indexOf('Acute') >= 0 ? 'Treatment' : r.indexOf('Fast') >= 0 ? 'Fast Track' : r.indexOf('Obs') >= 0 ? 'Observation' : 'General';
+    h += '<tr><td>' + r + '</td><td>' + t + '</td><td>&#10003;</td></tr>';
+  }
+  h += '</tbody></table>'; return h;
+}
+
+window.sCfg = function(tab, btn) {
+  var btns = document.querySelectorAll('#cfg-tb button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  var d = document.getElementById('cfg-body');
+  if (tab === 'rooms') d.innerHTML = cfgRooms();
+  else if (tab === 'board') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Display Board Configuration</h4><p style="font-size:12px;color:var(--gray)">Configure columns displayed on the ED Display Board. Default columns: Room, Patient, Complaint, Acuity, Provider, RN, Status, Time In, Elapsed.</p><div style="margin-top:12px"><label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px"><input type="checkbox" checked> Show Patient Name</label><label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px"><input type="checkbox" checked> Show Acuity (ESI)</label><label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px"><input type="checkbox" checked> Show Provider</label><label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px"><input type="checkbox" checked> Show RN</label><label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px"><input type="checkbox" checked> Show Elapsed Time</label></div>';
+  } else if (tab === 'colors') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Color Configuration</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px"><div style="display:flex;align-items:center;gap:8px"><span class="esi esi-1" style="width:20px;height:20px;font-size:10px">1</span> ESI 1 — Resuscitation</div><div style="display:flex;align-items:center;gap:8px"><span class="esi esi-2" style="width:20px;height:20px;font-size:10px">2</span> ESI 2 — Emergent</div><div style="display:flex;align-items:center;gap:8px"><span class="esi esi-3" style="width:20px;height:20px;font-size:10px">3</span> ESI 3 — Urgent</div><div style="display:flex;align-items:center;gap:8px"><span class="esi esi-4" style="width:20px;height:20px;font-size:10px">4</span> ESI 4 — Less Urgent</div><div style="display:flex;align-items:center;gap:8px"><span class="esi esi-5" style="width:20px;height:20px;font-size:10px">5</span> ESI 5 — Non-urgent</div></div>';
+  } else if (tab === 'params') {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Parameters</h4><table class="apt"><thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td>Auto-Log Off</td><td>30 min</td><td>Session timeout for idle users</td></tr><tr><td>Refresh Interval</td><td>60 sec</td><td>Display board refresh rate</td></tr><tr><td>Alert Sound</td><td>Enabled</td><td>Audio alert for ESI 1 arrivals</td></tr><tr><td>Wristband Auto-Print</td><td>Disabled</td><td>Auto-print wristband on triage complete</td></tr><tr><td>Max Wait Alert</td><td>120 min</td><td>Highlight patients waiting > threshold</td></tr></tbody></table>';
+  } else {
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:8px">Selections (EDIS UG §8.5)</h4><p style="font-size:12px;color:var(--gray);margin-bottom:8px">Add locally meaningful selections to the preset lists. National default selections are vetted by the EDIS Technical Working Group (TWG).</p>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
+      '<div><h5 style="font-size:12px;color:var(--blue);margin-bottom:6px">Statuses</h5><div style="display:flex;flex-direction:column;gap:4px">'+STATUSES.map(function(s){return '<span style="background:var(--blue-pale);padding:2px 8px;border-radius:10px;font-size:11px">'+s.l+(s.flag?' <i style="color:var(--gray)">['+s.flag+']</i>':'')+'</span>';}).join('')+'</div></div>'+
+      '<div><h5 style="font-size:12px;color:var(--blue);margin-bottom:6px">Dispositions</h5><div style="display:flex;flex-direction:column;gap:4px">'+DISPS.map(function(s){return '<span style="background:var(--blue-pale);padding:2px 8px;border-radius:10px;font-size:11px">'+s.l+' <b>('+s.ab+')</b>'+(s.flag?' <i style="color:var(--gray)">['+s.flag+']</i>':'')+'</span>';}).join('')+'</div></div>'+
+      '<div><h5 style="font-size:12px;color:var(--blue);margin-bottom:6px">Sources</h5><div style="display:flex;flex-direction:column;gap:4px">'+SOURCES.map(function(s){return '<span style="background:var(--blue-pale);padding:2px 8px;border-radius:10px;font-size:11px">'+s+'</span>';}).join('')+'</div></div>'+
+      '<div><h5 style="font-size:12px;color:var(--blue);margin-bottom:6px">Delay Reasons</h5><div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto">'+DELAY_REASONS.map(function(s){return '<span style="background:var(--blue-pale);padding:2px 8px;border-radius:10px;font-size:11px">'+s+'</span>';}).join('')+'</div></div>'+
+      '</div>';
+  }
+};
+
+// ── Keyboard ──
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+// ── Default init ──
+if (!window._medgym_init_called) { window._medgym_init(42); window._medgym_init_called = true; }
+})();
+</script>
+</body>
+</html>

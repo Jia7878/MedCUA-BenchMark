@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Smart Infusion Pump Hub
+
+  REAL-WORLD REFERENCES:
+  1. BD neXus Infusion Solutions brochure
+     - Touchscreen workflow with chevron-based entry and Fast Track mode
+     - Guardrails dose error reduction workflow with visual compliance cues
+     - Pump-to-pump handover and EMR/PDMS connectivity concepts
+  2. Common large-volume and syringe pump workflows in ICU/step-down units
+
+  STATE COMPATIBILITY:
+  window._taskState preserves the fields consumed by
+  browsergym/medgym/src/browsergym/medgym/scenarios/infusion_pump.py
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BD neXus Smart Infusion Hub</title>
+<style>
+:root{
+  --bg:#eef3f8;
+  --panel:#ffffff;
+  --panel-alt:#f7fafc;
+  --ink:#1e2c3a;
+  --muted:#617184;
+  --line:#d7e1ea;
+  --line-strong:#b6c7d6;
+  --nav:#103452;
+  --nav-2:#174b73;
+  --blue:#1f6fb2;
+  --blue-soft:#e8f3fc;
+  --green:#218a63;
+  --green-soft:#e8f7f0;
+  --orange:#db7c1d;
+  --orange-soft:#fff4e8;
+  --red:#c84a4a;
+  --red-soft:#fdeeee;
+  --gold:#f2b13d;
+  --shadow:0 10px 28px rgba(16,52,82,.12);
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:Segoe UI,system-ui,-apple-system,sans-serif;background:linear-gradient(180deg,#eaf1f7 0%,#f5f8fb 100%);color:var(--ink);min-height:100vh}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+.login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:radial-gradient(circle at top right,#3f82b8 0,#173a5a 34%,#0e2438 100%)}
+.login-card{width:880px;max-width:100%;display:grid;grid-template-columns:1.2fr .95fr;background:rgba(255,255,255,.98);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.28)}
+.login-brand{padding:42px;background:linear-gradient(135deg,#103452 0%,#174b73 55%,#2c7bbd 100%);color:#fff;display:flex;flex-direction:column;justify-content:space-between}
+.login-brand h1{font-size:2rem;line-height:1.1;letter-spacing:.02em;margin-bottom:12px}
+.login-brand p{color:rgba(255,255,255,.82);max-width:42ch}
+.brand-points{display:grid;gap:12px;margin-top:28px}
+.brand-point{padding:14px 16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:12px}
+.brand-point b{display:block;margin-bottom:4px}
+.login-form{padding:42px 38px;display:flex;flex-direction:column;justify-content:center}
+.eyebrow{font-size:.85rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.login-form h2{font-size:1.8rem;margin-bottom:10px}
+.login-form p{color:var(--muted);margin-bottom:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.9rem;font-weight:700;margin-bottom:6px;color:#35516b}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line-strong);border-radius:10px;background:#fbfdff;color:var(--ink)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,111,178,.12)}
+.login-note{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.88rem;margin-bottom:20px}
+.pill-row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}
+.pill{padding:6px 10px;border-radius:999px;background:var(--panel-alt);border:1px solid var(--line);font-size:.82rem;color:#35516b}
+.btn{border:none;border-radius:10px;padding:10px 14px;font-weight:700}
+.btn-primary{background:linear-gradient(135deg,#1f6fb2,#2c88cf);color:#fff}
+.btn-secondary{background:#edf4fa;color:#194c76;border:1px solid #cfe0ee}
+.btn-green{background:var(--green);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:#fff;border:1px solid var(--line-strong);color:#38516b}
+.btn-sm{padding:7px 10px;font-size:.86rem}
+.login-error{min-height:20px;color:var(--red);font-size:.88rem;margin-top:10px}
+
+.app{display:none;min-height:100vh;flex-direction:column}
+.topbar{height:66px;background:linear-gradient(90deg,#0f314f,#174b73);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;box-shadow:0 3px 14px rgba(16,52,82,.16)}
+.topbar-left,.topbar-right{display:flex;align-items:center;gap:12px}
+.wordmark{display:flex;flex-direction:column}
+.wordmark b{font-size:1rem;letter-spacing:.02em}
+.wordmark span{font-size:.8rem;color:rgba(255,255,255,.72)}
+.status-chip{padding:6px 10px;border-radius:999px;font-size:.82rem;font-weight:700;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08)}
+.status-chip.orange{background:rgba(219,124,29,.22);color:#ffe4c0}
+.status-chip.green{background:rgba(33,138,99,.18);color:#dff6ec}
+.status-chip.blue{background:rgba(116,192,252,.18);color:#dff0ff}
+
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 66px)}
+.sidebar{background:linear-gradient(180deg,#123550 0%,#173d5d 100%);color:#dceaf6;padding:18px 14px 14px;border-right:1px solid rgba(255,255,255,.08)}
+.side-section{margin-bottom:18px}
+.side-heading{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:#8fb4d4;margin-bottom:8px;padding:0 8px}
+.nav-btn{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border:none;border-radius:12px;background:transparent;color:#dceaf6}
+.nav-btn:hover{background:rgba(255,255,255,.08)}
+.nav-btn.active{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.14)}
+.nav-count{padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.12);font-size:.78rem}
+.side-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px;margin-top:10px}
+.side-card h4{font-size:.92rem;margin-bottom:6px}
+.side-card p{font-size:.83rem;line-height:1.45;color:#d3e3f1}
+
+.main{padding:18px;overflow:auto}
+.view{display:none}
+.view.active{display:block}
+.hero{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin-bottom:14px}
+.hero-panel,.metric-grid,.board,.program-shell,.library-shell,.alarm-shell,.history-shell{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.hero-panel{padding:18px;background:linear-gradient(135deg,#ffffff 0%,#f6fbff 100%)}
+.hero-panel h2{font-size:1.5rem;margin-bottom:8px}
+.hero-panel p{color:var(--muted);max-width:62ch;line-height:1.55}
+.hero-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.rail-card{padding:12px;border-radius:12px;background:var(--panel-alt);border:1px solid var(--line)}
+.rail-card b{display:block;font-size:.9rem;margin-bottom:4px}
+.rail-card span{font-size:.82rem;color:var(--muted)}
+.metric-grid{padding:14px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.metric{padding:14px;border-radius:12px;background:var(--panel-alt);border:1px solid var(--line)}
+.metric .label{font-size:.82rem;color:var(--muted);margin-bottom:4px}
+.metric .value{font-size:1.5rem;font-weight:800;color:#163d5d}
+.metric .sub{font-size:.82rem;color:#557188;margin-top:4px}
+
+.board{padding:14px}
+.board-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.board-head h3{font-size:1.1rem}
+.board-head p{color:var(--muted);font-size:.9rem}
+.pump-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.pump-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.pump-card.warn{border-color:#efc28a}
+.pump-card.alert{border-color:#e3a0a0}
+.pump-card-head{padding:12px 14px;background:linear-gradient(135deg,#f9fcff,#eff7fd);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.patient-meta b{display:block;font-size:1rem;margin-bottom:3px}
+.patient-meta span{font-size:.84rem;color:var(--muted)}
+.care-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.tag{padding:4px 8px;border-radius:999px;font-size:.76rem;font-weight:700}
+.tag.blue{background:var(--blue-soft);color:var(--blue)}
+.tag.orange{background:var(--orange-soft);color:#b46211}
+.tag.red{background:var(--red-soft);color:var(--red)}
+.tag.green{background:var(--green-soft);color:var(--green)}
+.pump-card-body{padding:14px}
+.clinical-line{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.clinical-cell{padding:10px;border-radius:10px;background:var(--panel-alt);border:1px solid var(--line)}
+.clinical-cell .label{font-size:.76rem;color:var(--muted);margin-bottom:4px}
+.clinical-cell .value{font-weight:800;color:#173d5d}
+.channel-list{display:grid;gap:8px}
+.channel-card{padding:10px;border-radius:12px;border:1px solid var(--line);background:#fbfdff}
+.channel-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+.channel-top b{font-size:.95rem}
+.channel-top span{font-size:.8rem;font-weight:700}
+.state-infusing{color:var(--green)}
+.state-paused{color:var(--orange)}
+.state-stopped{color:var(--red)}
+.channel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:.84rem}
+.channel-grid div{padding:7px 8px;background:var(--panel-alt);border-radius:9px;border:1px solid var(--line)}
+.channel-grid label{display:block;color:var(--muted);font-size:.72rem;margin-bottom:2px}
+.progress{height:8px;border-radius:999px;background:#dfe8ef;overflow:hidden;margin-top:8px}
+.fill{height:100%;background:linear-gradient(90deg,#49b57b,#1f8f68)}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+.program-shell{display:grid;grid-template-columns:1.4fr .85fr;gap:0;overflow:hidden}
+.program-main{padding:18px;border-right:1px solid var(--line)}
+.program-side{padding:18px;background:#f7fafc}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.section-title h3{font-size:1.12rem}
+.section-title span{font-size:.84rem;color:var(--muted)}
+.patient-banner{padding:14px;border-radius:14px;background:linear-gradient(135deg,#f2f8fd,#fbfdff);border:1px solid var(--line);margin-bottom:14px}
+.patient-banner-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.patient-banner h4{font-size:1.15rem;margin-bottom:4px}
+.patient-banner p{color:var(--muted);line-height:1.5}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.summary-grid .box{padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.summary-grid .box label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:3px}
+.summary-grid .box b{font-size:.95rem}
+.program-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.form-panel{padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.form-panel h4{font-size:.98rem;margin-bottom:10px;color:#173d5d}
+.form-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.form-row label{font-weight:700;color:#4f667c;font-size:.86rem}
+.split{display:grid;grid-template-columns:1fr 110px;gap:8px}
+.inline-actions{display:flex;gap:6px;flex-wrap:wrap}
+.warning{display:none;padding:11px 12px;border-radius:12px;font-size:.88rem;font-weight:700;margin-top:10px}
+.warning.soft{display:block;background:var(--orange-soft);color:#a25810;border:1px solid #efca99}
+.warning.hard{display:block;background:var(--red-soft);color:#a13535;border:1px solid #e7b1b1}
+.guardrails-banner{padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#fff2df,#fff9f1);border:1px solid #efcb99;margin-bottom:14px}
+.guardrails-banner b{display:block;color:#a35d13;margin-bottom:4px}
+.guardrails-banner span{font-size:.86rem;color:#7d5c36;line-height:1.45}
+.chevron-bank{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.chevron-panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px}
+.chevron-panel h5{margin-bottom:8px;font-size:.9rem;color:#173d5d}
+.chevron-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chev{padding:10px 0;border-radius:10px;border:1px solid var(--line-strong);background:#f8fbfe;font-weight:800;color:#1b4d79}
+.chev:active{transform:translateY(1px)}
+.program-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.side-stack{display:grid;gap:12px}
+.side-panel{padding:14px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+.side-panel h4{font-size:.96rem;margin-bottom:10px;color:#173d5d}
+.infusion-item,.alarm-item,.log-row,.library-item,.handover-item{padding:10px;border-radius:12px;border:1px solid var(--line);background:#fbfdff}
+.stack{display:grid;gap:8px}
+.small{font-size:.82rem;color:var(--muted)}
+.library-shell{padding:16px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input,.toolbar select{padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;background:#fff}
+.library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.library-item h4{font-size:1rem;margin-bottom:5px}
+.library-item .meta{font-size:.84rem;color:var(--muted);margin-bottom:8px;line-height:1.45}
+.limits{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.limit-pill{padding:4px 8px;border-radius:999px;font-size:.76rem;font-weight:700}
+.limit-pill.soft{background:var(--orange-soft);color:#a45b15}
+.limit-pill.hard{background:var(--red-soft);color:#a63c3c}
+.limit-pill.mode{background:var(--blue-soft);color:#205f97}
+.alarm-shell,.history-shell{padding:16px}
+.alarm-head,.history-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px}
+.alarm-list,.history-list{display:grid;gap:10px}
+.alarm-item-top,.log-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.sev-high{border-left:5px solid var(--red)}
+.sev-medium{border-left:5px solid var(--orange)}
+.sev-low{border-left:5px solid var(--blue)}
+.table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.table th{background:#f3f7fa;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:#597086}
+.table td{font-size:.9rem}
+.footer-bar{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem}
+@media (max-width:1200px){
+  .hero,.program-shell{grid-template-columns:1fr}
+  .program-main{border-right:none;border-bottom:1px solid var(--line)}
+  .summary-grid,.clinical-line,.channel-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:900px){
+  .login-card,.shell{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .hero-rail,.program-grid,.summary-grid,.metric-grid,.clinical-line,.channel-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="loginPage" class="login-shell">
+  <div class="login-card">
+    <div class="login-brand">
+      <div>
+        <div class="eyebrow" style="color:#d5ebff">BD neXus Smart Infusion Hub</div>
+        <h1>Connected infusion safety for critical care workflow.</h1>
+        <p>This training environment models Guardrails dose checking, touchscreen fast-track entry, handover support, and basic PDMS documentation behavior for ICU infusion management.</p>
+        <div class="brand-points">
+          <div class="brand-point"><b>Smart programming</b><span>Chevron-based adjustment, profile-aware defaults, and visible hard and soft dose boundaries.</span></div>
+          <div class="brand-point"><b>Connected workflow</b><span>Pump status, handover queue, active alarms, and documentation trace in one workspace.</span></div>
+          <div class="brand-point"><b>Clinical realism</b><span>Multiple patients, mixed infusion modes, nurse notes, and device readiness indicators.</span></div>
+        </div>
+      </div>
+      <div class="small" style="color:rgba(255,255,255,.78)">Training reference credentials: admin / pump123</div>
+    </div>
+    <div class="login-form">
+      <div class="eyebrow">Clinical Login</div>
+      <h2>Authenticate to infusion operations</h2>
+      <p>Use the nurse account assigned to the training shift. Successful login unlocks dashboard, library, programming, alarms, and history review.</p>
+      <div class="pill-row">
+        <span class="pill">Guardrails profile: Adult ICU</span>
+        <span class="pill">PDMS link: online</span>
+        <span class="pill">Handover mode: enabled</span>
+      </div>
+      <div class="field">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" placeholder="Enter username">
+      </div>
+      <div class="field">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" placeholder="Enter password">
+      </div>
+      <div class="login-note">
+        <span>Unit: ICU Central Pump Cluster</span>
+        <span>Date: 2026-04-19</span>
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Login</button>
+      <div id="loginError" class="login-error"></div>
+    </div>
+  </div>
+</div>
+
+<div id="mainApp" class="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="wordmark">
+        <b>BD neXus Smart Infusion Hub</b>
+        <span>Adult ICU profile | Large Volume + Syringe Pump Fleet</span>
+      </div>
+      <span class="status-chip orange" id="guardrailsHeader">Guardrails profile active</span>
+      <span class="status-chip green" id="connectivityHeader">PDMS sync online</span>
+    </div>
+    <div class="topbar-right">
+      <span class="status-chip blue" id="dateLabel">2026-04-19 07:25</span>
+      <span class="status-chip" id="userInfo">RN --</span>
+    </div>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="side-section">
+        <div class="side-heading">Operations</div>
+        <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')"><span>Dashboard</span><span class="nav-count" id="navPatients">6</span></button>
+        <button class="nav-btn" data-tab="program" onclick="switchTab('program')"><span>Program</span><span class="nav-count" id="navPrograms">0</span></button>
+        <button class="nav-btn" data-tab="library" onclick="switchTab('library')"><span>Drug Library</span><span class="nav-count">16</span></button>
+        <button class="nav-btn" data-tab="alarms" onclick="switchTab('alarms')"><span>Alarms</span><span class="nav-count" id="navAlarms">3</span></button>
+        <button class="nav-btn" data-tab="log" onclick="switchTab('log')"><span>History</span><span class="nav-count" id="navHistory">0</span></button>
+      </div>
+      <div class="side-section">
+        <div class="side-heading">Device State</div>
+        <div class="side-card">
+          <h4>Fleet readiness</h4>
+          <p id="fleetSummary">6 patients mapped, 14 active channels, 1 handover queue, 3 alarms needing review.</p>
+        </div>
+        <div class="side-card">
+          <h4>Programming profile</h4>
+          <p>Adult ICU Guardrails library revision 24.4. Orange visual cues indicate dose-error reduction compliance when smart limits are available.</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main" id="contentArea">
+      <section id="tab-dashboard" class="view active">
+        <div class="hero">
+          <div class="hero-panel">
+            <h2>Infusion fleet command view</h2>
+            <p>Monitor active channels, prioritize alarms, and open programming for patient-specific adjustments. The layout emphasizes guardrails compliance, pump readiness, near-empty VTBI, and current therapy context.</p>
+            <div class="hero-rail">
+              <div class="rail-card"><b>Fast Track entry</b><span>Chevron-based numeric input for rate and VTBI changes.</span></div>
+              <div class="rail-card"><b>Guardrails DERS</b><span>Soft and hard boundaries visible before starting an infusion.</span></div>
+              <div class="rail-card"><b>Handover mode</b><span>Supports continuity when one infusion nears completion.</span></div>
+            </div>
+          </div>
+          <div class="metric-grid" id="dashboardMetrics"></div>
+        </div>
+        <div class="board">
+          <div class="board-head">
+            <div>
+              <h3>Patient infusion dashboard</h3>
+              <p>Each card consolidates care area, patient context, and channel-level infusion information.</p>
+            </div>
+            <div class="inline-actions">
+              <button class="btn btn-secondary btn-sm" onclick="renderDashboard()">Refresh status</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchTab('alarms')">Review alarms</button>
+            </div>
+          </div>
+          <div id="dashboardGrid" class="pump-grid"></div>
+        </div>
+      </section>
+
+      <section id="tab-program" class="view">
+        <div class="program-shell">
+          <div class="program-main">
+            <div class="section-title">
+              <h3>Program infusion</h3>
+              <span>Adult ICU profile with large-volume, secondary, and syringe modes</span>
+            </div>
+
+            <div id="progPatientBar" class="patient-banner"></div>
+
+            <div class="guardrails-banner">
+              <b>Guardrails compliance</b>
+              <span id="guardrailsHint">Select a drug and rate to review soft and hard dose limits before starting therapy.</span>
+            </div>
+
+            <div class="program-grid">
+              <div class="form-panel">
+                <h4>Programming setup</h4>
+                <div class="form-row"><label for="progPatient">Patient</label><select id="progPatient" onchange="loadPatientPumps()"></select></div>
+                <div class="form-row"><label for="progChannel">Channel</label><select id="progChannel" onchange="syncProgramFromSelectedChannel()"><option>A (Primary)</option><option>B (Secondary)</option><option>C (Syringe)</option></select></div>
+                <div class="form-row"><label for="progDrug">Drug</label><select id="progDrug" onchange="applyDrugDefaults()"></select></div>
+                <div class="form-row"><label for="progMode">Infusion mode</label><select id="progMode"><option>Continuous</option><option>Intermittent</option><option>Secondary / Piggyback</option><option>Titration</option><option>Rapid Fluid Challenge</option></select></div>
+                <div class="form-row"><label for="progProfile">Care profile</label><select id="progProfile"><option>Adult ICU</option><option>Cardiac ICU</option><option>Sepsis Resuscitation</option><option>Post-op Recovery</option></select></div>
+                <div class="form-row"><label for="progLoadMode">Syringe/load mode</label><select id="progLoadMode"><option>Automatic</option><option>Semi-automatic</option><option>Manual</option></select></div>
+                <div class="form-row"><label for="progConc">Concentration</label><div class="split"><input id="progConc" type="number" step="0.1" value="1"><select id="progConcUnit"><option>mg/mL</option><option>mcg/mL</option><option>units/mL</option><option>mEq/mL</option></select></div></div>
+                <div class="form-row"><label for="progRate">Rate</label><div class="split"><input id="progRate" type="number" step="0.1" value="100" onchange="checkDrugLimits()"><select id="progRateUnit"><option>mL/h</option><option>mg/h</option><option>mcg/kg/min</option><option>units/h</option><option>mEq/h</option><option>mcg/h</option><option>mg/min</option></select></div></div>
+                <div class="form-row"><label for="progVTBI">VTBI</label><input id="progVTBI" type="number" step="1" value="500"></div>
+                <div class="form-row"><label for="progTime">Time limit</label><input id="progTime" type="number" step="0.1" value="0" placeholder="0 = no limit"></div>
+                <div class="form-row"><label for="progHandover">Handover</label><select id="progHandover"><option>Disabled</option><option>Prepare standby pump</option><option>Auto continue to paired pump</option></select></div>
+                <div class="form-row"><label for="progNotes">Nurse note</label><textarea id="progNotes" placeholder="Document rationale, line access, compatibility, or bedside instruction"></textarea></div>
+                <div id="drugLimitWarning" class="warning"></div>
+              </div>
+
+              <div class="form-panel">
+                <h4>Fast Track chevron entry</h4>
+                <p class="small">Use chevrons for quick numeric changes. This mirrors the reference workflow more closely than plain free typing alone.</p>
+                <div class="chevron-bank">
+                  <div class="chevron-panel">
+                    <h5>Adjust rate</h5>
+                    <div class="chevron-grid">
+                      <button class="chev" onclick="adjustField('progRate',-50)">-50</button>
+                      <button class="chev" onclick="adjustField('progRate',-10)">-10</button>
+                      <button class="chev" onclick="adjustField('progRate',-1)">-1</button>
+                      <button class="chev" onclick="adjustField('progRate',1)">+1</button>
+                      <button class="chev" onclick="adjustField('progRate',10)">+10</button>
+                      <button class="chev" onclick="adjustField('progRate',50)">+50</button>
+                    </div>
+                  </div>
+                  <div class="chevron-panel">
+                    <h5>Adjust VTBI</h5>
+                    <div class="chevron-grid">
+                      <button class="chev" onclick="adjustField('progVTBI',-250)">-250</button>
+                      <button class="chev" onclick="adjustField('progVTBI',-100)">-100</button>
+                      <button class="chev" onclick="adjustField('progVTBI',-10)">-10</button>
+                      <button class="chev" onclick="adjustField('progVTBI',10)">+10</button>
+                      <button class="chev" onclick="adjustField('progVTBI',100)">+100</button>
+                      <button class="chev" onclick="adjustField('progVTBI',250)">+250</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="program-actions">
+                  <button class="btn btn-primary" onclick="startInfusion()">Start infusion</button>
+                  <button class="btn btn-orange" onclick="pauseInfusion()">Pause</button>
+                  <button class="btn btn-red" onclick="stopInfusion()">Stop</button>
+                  <button class="btn btn-secondary" onclick="copyActiveIntoProgram()">Load channel settings</button>
+                </div>
+
+                <div class="section-title" style="margin-top:18px">
+                  <h3>Titration controls</h3>
+                  <span>Applies to selected patient and channel</span>
+                </div>
+                <div class="inline-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(-50)">-50</button>
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(-10)">-10</button>
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(-1)">-1</button>
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(1)">+1</button>
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(10)">+10</button>
+                  <button class="btn btn-secondary btn-sm" onclick="titrate(50)">+50</button>
+                </div>
+                <div id="titrationLog" class="stack" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="program-side">
+            <div class="side-stack">
+              <div class="side-panel">
+                <h4>Active infusions</h4>
+                <div id="activeInfList" class="stack"></div>
+              </div>
+              <div class="side-panel">
+                <h4>Dose limits</h4>
+                <div id="doseLimitInfo" class="small">Select a drug to view default rate, soft limit, hard limit, and recommended operating mode.</div>
+              </div>
+              <div class="side-panel">
+                <h4>Standby handover queue</h4>
+                <div id="handoverQueue" class="stack"></div>
+              </div>
+              <div class="side-panel">
+                <h4>Connectivity</h4>
+                <div id="connectivityPanel" class="stack"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-library" class="view library-shell">
+        <div class="section-title">
+          <h3>Guardrails drug library</h3>
+          <span>Revision 24.4 with profile-specific dose guardrails</span>
+        </div>
+        <div class="toolbar">
+          <input id="drugSearch" placeholder="Search by drug or category" oninput="searchDrugs()">
+          <select id="drugCategory" onchange="searchDrugs()">
+            <option value="all">All categories</option>
+            <option value="Fluid">Fluid</option>
+            <option value="Vasopressor">Vasopressor</option>
+            <option value="Sedative">Sedative</option>
+            <option value="Analgesic">Analgesic</option>
+            <option value="Anticoagulant">Anticoagulant</option>
+            <option value="Endocrine">Endocrine</option>
+            <option value="Antiarrhythmic">Antiarrhythmic</option>
+            <option value="Antibiotic">Antibiotic</option>
+            <option value="Electrolyte">Electrolyte</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="renderLibrary()">Reset view</button>
+        </div>
+        <div id="drugList" class="library-grid"></div>
+      </section>
+
+      <section id="tab-alarms" class="view alarm-shell">
+        <div class="alarm-head">
+          <div>
+            <h3>Alarm management</h3>
+            <p class="small">Review current alarms, silence the fleet when clinically appropriate, and clear resolved events.</p>
+          </div>
+          <div class="inline-actions">
+            <button class="btn btn-secondary btn-sm" onclick="silenceAlarms()">Silence alarms</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearAlarms()">Clear resolved</button>
+          </div>
+        </div>
+        <div id="alarmList" class="alarm-list"></div>
+      </section>
+
+      <section id="tab-log" class="view history-shell">
+        <div class="history-head">
+          <div>
+            <h3>Infusion history</h3>
+            <p class="small">Programming, titration, alarm, and documentation events appear here for shift review and PDMS traceability.</p>
+          </div>
+          <div class="inline-actions">
+            <button class="btn btn-secondary btn-sm" onclick="renderLog()">Refresh history</button>
+          </div>
+        </div>
+        <table class="table">
+          <thead>
+            <tr><th>Time</th><th>Patient</th><th>Drug</th><th>Action</th><th>Rate</th><th>Volume</th><th>Nurse</th></tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <div class="footer-bar">
+    <span id="statusFooter">Adult ICU library loaded. Smart programming ready.</span>
+    <span id="footerCounts">0 history events | 0 overrides | 0 hard-limit blocks</span>
+  </div>
+</div>
+
+<script>
+window._taskState={
+  initialized:false,loggedIn:false,currentUser:null,currentTab:'dashboard',
+  patients:[],pumps:[],selectedPatient:null,selectedPump:null,
+  infusions:[],alarms:[],history:[],drugLibrary:[],titrationLog:[],
+  programmedInfusions:{},safetyOverrides:[],doseLimitViolations:[]
+};
+
+const DRUG_DB=[
+  {id:'NS',name:'Normal Saline 0.9%',category:'Fluid',unit:'mL/h',hardMax:999,softMax:500,defaultRate:100,concentration:'0.9%',modes:'Continuous, Rapid Fluid Challenge',guardrails:true},
+  {id:'D5W',name:'Dextrose 5% in Water',category:'Fluid',unit:'mL/h',hardMax:999,softMax:300,defaultRate:80,concentration:'5%',modes:'Continuous',guardrails:true},
+  {id:'LR',name:'Lactated Ringer',category:'Fluid',unit:'mL/h',hardMax:999,softMax:500,defaultRate:100,concentration:'Standard bag',modes:'Continuous, Rapid Fluid Challenge',guardrails:true},
+  {id:'NE',name:'Norepinephrine',category:'Vasopressor',unit:'mcg/kg/min',hardMax:30,softMax:20,defaultRate:5,concentration:'4 mg / 250 mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'DOPA',name:'Dopamine',category:'Vasopressor',unit:'mcg/kg/min',hardMax:20,softMax:15,defaultRate:5,concentration:'400 mg / 250 mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'VASO',name:'Vasopressin',category:'Vasopressor',unit:'units/h',hardMax:0.04,softMax:0.03,defaultRate:0.02,concentration:'20 units / 100 mL',modes:'Continuous',guardrails:true},
+  {id:'PROP',name:'Propofol',category:'Sedative',unit:'mcg/kg/min',hardMax:80,softMax:50,defaultRate:25,concentration:'10 mg / mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'MIDAZ',name:'Midazolam',category:'Sedative',unit:'mg/h',hardMax:20,softMax:10,defaultRate:2,concentration:'50 mg / 50 mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'FENT',name:'Fentanyl',category:'Analgesic',unit:'mcg/h',hardMax:200,softMax:100,defaultRate:50,concentration:'500 mcg / 50 mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'MORPH',name:'Morphine',category:'Analgesic',unit:'mg/h',hardMax:10,softMax:5,defaultRate:2,concentration:'50 mg / 50 mL',modes:'Continuous',guardrails:true},
+  {id:'HEP',name:'Heparin',category:'Anticoagulant',unit:'units/h',hardMax:2500,softMax:1500,defaultRate:1000,concentration:'25000 units / 250 mL',modes:'Continuous',guardrails:true},
+  {id:'INS',name:'Insulin Regular',category:'Endocrine',unit:'units/h',hardMax:20,softMax:10,defaultRate:2,concentration:'100 units / 100 mL',modes:'Continuous, Titration',guardrails:true},
+  {id:'AMI',name:'Amiodarone',category:'Antiarrhythmic',unit:'mg/min',hardMax:1.5,softMax:1,defaultRate:0.5,concentration:'900 mg / 500 mL',modes:'Continuous',guardrails:true},
+  {id:'VANCO',name:'Vancomycin',category:'Antibiotic',unit:'mL/h',hardMax:200,softMax:100,defaultRate:60,concentration:'1 g / 250 mL',modes:'Intermittent',guardrails:true},
+  {id:'PIPER',name:'Piperacillin/Tazobactam',category:'Antibiotic',unit:'mL/h',hardMax:250,softMax:150,defaultRate:100,concentration:'4.5 g / 100 mL',modes:'Intermittent, Secondary / Piggyback',guardrails:true},
+  {id:'KCL',name:'Potassium Chloride',category:'Electrolyte',unit:'mEq/h',hardMax:20,softMax:10,defaultRate:5,concentration:'40 mEq / 100 mL',modes:'Continuous',guardrails:true}
+];
+
+const BASE_PATIENTS=[
+  {id:'INF001',pid:'PT001',name:'John Mercer',sex:'M',age:68,weight:72,bed:'ICU-1',diagnosis:'Septic shock',allergies:['Penicillin'],acuity:'High',careArea:'Adult ICU',line:'Central line',notes:'MAP target above 65 mmHg.',pumps:[
+    {ch:'A',drug:'NE',rate:8,vtbi:250,infused:120,state:'infusing',startTime:'2026-04-19T05:50:00',mode:'Continuous',guardrails:true,standby:'Pump 1B',pdms:'Synced'},
+    {ch:'B',drug:'NS',rate:80,vtbi:500,infused:340,state:'infusing',startTime:'2026-04-19T03:00:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'},
+    {ch:'C',drug:'FENT',rate:50,vtbi:50,infused:25,state:'infusing',startTime:'2026-04-19T05:00:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'}
+  ]},
+  {id:'INF002',pid:'PT002',name:'Sarah Oconnell',sex:'F',age:55,weight:58,bed:'ICU-2',diagnosis:'Post-CABG recovery',allergies:[],acuity:'Moderate',careArea:'Cardiac ICU',line:'Central line',notes:'Sedation wean planned after rounds.',pumps:[
+    {ch:'A',drug:'PROP',rate:30,vtbi:50,infused:20,state:'infusing',startTime:'2026-04-19T02:15:00',mode:'Continuous',guardrails:true,standby:'Pump 2A',pdms:'Synced'},
+    {ch:'B',drug:'NS',rate:60,vtbi:500,infused:200,state:'infusing',startTime:'2026-04-19T01:40:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'}
+  ]},
+  {id:'INF003',pid:'PT003',name:'Marcus Flynn',sex:'M',age:72,weight:80,bed:'ICU-3',diagnosis:'Diabetic ketoacidosis',allergies:[],acuity:'High',careArea:'Adult ICU',line:'Peripheral x2',notes:'Hourly glucose protocol active.',pumps:[
+    {ch:'A',drug:'INS',rate:6,vtbi:100,infused:30,state:'infusing',startTime:'2026-04-19T03:30:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'},
+    {ch:'B',drug:'NS',rate:250,vtbi:1000,infused:600,state:'infusing',startTime:'2026-04-19T00:30:00',mode:'Rapid Fluid Challenge',guardrails:true,standby:'Pump 3B',pdms:'Pending'},
+    {ch:'C',drug:'KCL',rate:10,vtbi:100,infused:40,state:'infusing',startTime:'2026-04-19T03:45:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'}
+  ]},
+  {id:'INF004',pid:'PT004',name:'Emily Grant',sex:'F',age:45,weight:55,bed:'ICU-4',diagnosis:'Status epilepticus',allergies:['Sulfa'],acuity:'High',careArea:'Neuro ICU',line:'Central line',notes:'Continuous sedation and EEG monitoring.',pumps:[
+    {ch:'A',drug:'MIDAZ',rate:5,vtbi:50,infused:15,state:'infusing',startTime:'2026-04-19T04:20:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'},
+    {ch:'B',drug:'LR',rate:100,vtbi:500,infused:250,state:'infusing',startTime:'2026-04-19T02:00:00',mode:'Continuous',guardrails:true,standby:'Pump 4B',pdms:'Synced'}
+  ]},
+  {id:'INF005',pid:'PT005',name:'Daniel Reeves',sex:'M',age:60,weight:75,bed:'ICU-5',diagnosis:'Pulmonary embolism with atrial fibrillation',allergies:[],acuity:'Moderate',careArea:'Cardiac ICU',line:'Central line',notes:'Anticoagulation and rhythm control under review.',pumps:[
+    {ch:'A',drug:'HEP',rate:1200,vtbi:250,infused:100,state:'infusing',startTime:'2026-04-19T05:10:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'},
+    {ch:'B',drug:'AMI',rate:0.5,vtbi:500,infused:200,state:'infusing',startTime:'2026-04-19T01:00:00',mode:'Continuous',guardrails:true,standby:'Pump 5B',pdms:'Synced'}
+  ]},
+  {id:'INF006',pid:'PT006',name:'Olivia Chen',sex:'F',age:38,weight:62,bed:'ICU-6',diagnosis:'Severe pneumonia',allergies:['Penicillin'],acuity:'Moderate',careArea:'Adult ICU',line:'Peripheral + PICC',notes:'Antibiotic infusion due this hour.',pumps:[
+    {ch:'A',drug:'VANCO',rate:60,vtbi:250,infused:100,state:'infusing',startTime:'2026-04-19T06:00:00',mode:'Intermittent',guardrails:true,standby:'None',pdms:'Pending'},
+    {ch:'B',drug:'NS',rate:80,vtbi:500,infused:300,state:'infusing',startTime:'2026-04-19T03:10:00',mode:'Continuous',guardrails:true,standby:'None',pdms:'Synced'}
+  ]}
+];
+
+const BASE_ALARMS=[
+  {id:'ALM001',severity:'medium',bed:'ICU-1',channel:'B',message:'VTBI near end for Normal Saline on channel B.',type:'VTBI near end',resolved:false,silenced:false,ts:'2026-04-19T07:03:00'},
+  {id:'ALM002',severity:'high',bed:'ICU-2',channel:'A',message:'Propofol downstream occlusion risk detected. Check line patency.',type:'Occlusion risk',resolved:false,silenced:false,ts:'2026-04-19T07:05:00'},
+  {id:'ALM003',severity:'low',bed:'ICU-3',channel:'B',message:'PDMS documentation retry pending for fluid challenge channel.',type:'Connectivity retry',resolved:false,silenced:false,ts:'2026-04-19T07:08:00'}
+];
+
+let _rng;
+function _seededRandom(seed){return function(){seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};}
+function clone(value){return JSON.parse(JSON.stringify(value));}
+function getDrug(drugId){return DRUG_DB.find(d=>d.id===drugId);}
+function formatState(state){return String(state||'').toUpperCase();}
+function friendlyDrugName(drugId){const drug=getDrug(drugId);return drug?drug.name:drugId;}
+function computePercent(pump){return pump.vtbi?Math.max(0,Math.min(100,Math.round((pump.infused/pump.vtbi)*100))):0;}
+function getPatient(patientId){return window._taskState.patients.find(p=>p.id===patientId);}
+function getSelectedPatient(){return getPatient(window._taskState.selectedPatient)||window._taskState.patients[0]||null;}
+function getSelectedChannel(){return document.getElementById('progChannel').value.charAt(0);}
+function getSelectedPump(){const patient=getSelectedPatient();if(!patient)return null;return patient.pumps.find(p=>p.ch===getSelectedChannel())||null;}
+function activePatientCount(){return window._taskState.patients.filter(p=>p.pumps.some(pm=>pm.state!=='stopped')).length;}
+function activeChannelCount(){return window._taskState.patients.reduce((sum,p)=>sum+p.pumps.filter(pm=>pm.state!=='stopped').length,0);}
+
+function _medgym_init(seed=42){
+  _rng=_seededRandom(seed);
+  const state=window._taskState;
+  state.initialized=true;
+  state.loggedIn=false;
+  state.currentUser=null;
+  state.currentTab='dashboard';
+  state.patients=clone(BASE_PATIENTS);
+  state.pumps=[];
+  state.patients.forEach(patient=>patient.pumps.forEach(pump=>state.pumps.push({...pump,patientId:patient.id,patientName:patient.name,bed:patient.bed})));
+  state.selectedPatient='INF001';
+  state.selectedPump='A';
+  state.infusions=[];
+  state.alarms=clone(BASE_ALARMS);
+  state.history=[];
+  state.drugLibrary=clone(DRUG_DB);
+  state.titrationLog=[];
+  state.programmedInfusions={};
+  state.safetyOverrides=[];
+  state.doseLimitViolations=[];
+}
+window._medgym_init=_medgym_init;
+window._medgym_navigate=function(hash){if(hash)switchTab(hash);};
+
+function doLogin(){
+  const user=document.getElementById('loginUser').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const error=document.getElementById('loginError');
+  if(user!=='admin'||pass!=='pump123'){
+    error.textContent='Invalid credentials. Use the assigned training account.';
+    return;
+  }
+  error.textContent='';
+  if(!window._taskState.initialized)_medgym_init(42);
+  window._taskState.loggedIn=true;
+  window._taskState.currentUser=user;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('userInfo').textContent='RN '+user;
+  switchTab('dashboard');
+}
+
+function switchTab(tab){
+  window._taskState.currentTab=tab;
+  document.querySelectorAll('.view').forEach(view=>view.classList.remove('active'));
+  const target=document.getElementById('tab-'+tab);
+  if(target)target.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.tab===tab));
+  if(tab==='dashboard')renderDashboard();
+  if(tab==='program')renderProgram();
+  if(tab==='library')renderLibrary();
+  if(tab==='alarms')renderAlarms();
+  if(tab==='log')renderLog();
+  refreshShellCounts();
+}
+
+function refreshShellCounts(){
+  document.getElementById('navPatients').textContent=String(activePatientCount());
+  document.getElementById('navPrograms').textContent=String(Object.keys(window._taskState.programmedInfusions).length);
+  document.getElementById('navAlarms').textContent=String(window._taskState.alarms.filter(a=>!a.resolved).length);
+  document.getElementById('navHistory').textContent=String(window._taskState.history.length);
+  document.getElementById('fleetSummary').textContent=activePatientCount()+' patients mapped, '+activeChannelCount()+' active channels, '+renderHandoverItems().length+' handover queue, '+window._taskState.alarms.filter(a=>!a.resolved).length+' alarms needing review.';
+  document.getElementById('footerCounts').textContent=window._taskState.history.length+' history events | '+window._taskState.safetyOverrides.length+' overrides | '+window._taskState.doseLimitViolations.length+' hard-limit blocks';
+}
+
+function renderDashboard(){
+  const state=window._taskState;
+  const metrics=[
+    {label:'Patients with active infusions',value:String(activePatientCount()),sub:'All monitored beds currently have active therapy'},
+    {label:'Active channels',value:String(activeChannelCount()),sub:'Primary, secondary, and syringe channels combined'},
+    {label:'Active alarms',value:String(state.alarms.filter(a=>!a.resolved).length),sub:'High + medium + low priority events'},
+    {label:'Guardrails overrides',value:String(state.safetyOverrides.length),sub:'Soft limit overrides documented this shift'}
+  ];
+  document.getElementById('dashboardMetrics').innerHTML=metrics.map(metric=>'<div class="metric"><div class="label">'+metric.label+'</div><div class="value">'+metric.value+'</div><div class="sub">'+metric.sub+'</div></div>').join('');
+
+  document.getElementById('dashboardGrid').innerHTML=state.patients.map(patient=>{
+    const activeAlarms=state.alarms.filter(alarm=>alarm.bed===patient.bed&&!alarm.resolved);
+    const cardClass=activeAlarms.some(a=>a.severity==='high')?'alert':activeAlarms.length?'warn':'';
+    return '<div class="pump-card '+cardClass+'">'+
+      '<div class="pump-card-head">'+
+        '<div class="patient-meta"><b>'+patient.bed+' | '+patient.name+'</b><span>'+patient.pid+' | '+patient.sex+' / '+patient.age+' | '+patient.weight+' kg | '+patient.diagnosis+'</span></div>'+
+        '<div class="care-tags">'+
+          '<span class="tag blue">'+patient.careArea+'</span>'+
+          '<span class="tag orange">'+patient.acuity+' acuity</span>'+
+          (patient.allergies.length?'<span class="tag red">Allergy: '+patient.allergies.join(', ')+'</span>':'<span class="tag green">No listed allergy</span>')+
+        '</div>'+
+      '</div>'+
+      '<div class="pump-card-body">'+
+        '<div class="clinical-line">'+
+          '<div class="clinical-cell"><div class="label">Access</div><div class="value">'+patient.line+'</div></div>'+
+          '<div class="clinical-cell"><div class="label">Notes</div><div class="value">'+patient.notes+'</div></div>'+
+          '<div class="clinical-cell"><div class="label">Alarm count</div><div class="value">'+activeAlarms.length+'</div></div>'+
+          '<div class="clinical-cell"><div class="label">PDMS state</div><div class="value">'+(patient.pumps.some(p=>p.pdms==='Pending')?'Partial retry':'Synced')+'</div></div>'+
+        '</div>'+
+        '<div class="channel-list">'+patient.pumps.map(pump=>{
+          const drug=getDrug(pump.drug);
+          const pct=computePercent(pump);
+          const stateClass=pump.state==='infusing'?'state-infusing':pump.state==='paused'?'state-paused':'state-stopped';
+          return '<div class="channel-card">'+
+            '<div class="channel-top"><b>Channel '+pump.ch+' | '+friendlyDrugName(pump.drug)+'</b><span class="'+stateClass+'">'+formatState(pump.state)+'</span></div>'+
+            '<div class="channel-grid">'+
+              '<div><label>Rate</label><b>'+pump.rate+' '+(drug?drug.unit:'')+'</b></div>'+
+              '<div><label>VTBI</label><b>'+pump.vtbi+' mL</b></div>'+
+              '<div><label>Infused</label><b>'+pump.infused+' mL</b></div>'+
+              '<div><label>Mode</label><b>'+pump.mode+'</b></div>'+
+            '</div>'+
+            '<div class="progress"><div class="fill" style="width:'+pct+'%"></div></div>'+
+          '</div>';
+        }).join('')+'</div>'+
+        '<div class="card-actions">'+
+          '<button class="btn btn-primary btn-sm" onclick="openProgram(\''+patient.id+'\')">Open program</button>'+
+          '<button class="btn btn-secondary btn-sm" onclick="viewHistory(\''+patient.id+'\')">View history</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  refreshShellCounts();
+}
+
+function openProgram(patientId){
+  window._taskState.selectedPatient=patientId;
+  switchTab('program');
+}
+
+function renderProgram(){
+  const state=window._taskState;
+  const patient=state.selectedPatient?getPatient(state.selectedPatient):state.patients[0];
+  if(patient)state.selectedPatient=patient.id;
+  document.getElementById('progPatient').innerHTML=state.patients.map(p=>'<option value="'+p.id+'" '+(state.selectedPatient===p.id?'selected':'')+'>'+p.name+' ('+p.bed+')</option>').join('');
+  document.getElementById('progDrug').innerHTML=DRUG_DB.map(drug=>'<option value="'+drug.id+'">'+drug.name+'</option>').join('');
+  renderProgramBanner();
+  renderActiveInfusions();
+  renderHandoverQueue();
+  renderConnectivity();
+  syncProgramFromSelectedChannel();
+  renderTitrationLog();
+  refreshShellCounts();
+}
+
+function renderProgramBanner(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  document.getElementById('progPatientBar').innerHTML=''+
+    '<div class="patient-banner-top">'+
+      '<div><h4>'+patient.name+' | '+patient.bed+'</h4><p>'+patient.pid+' | '+patient.sex+' / '+patient.age+' | '+patient.weight+' kg | '+patient.diagnosis+'</p></div>'+
+      '<div class="inline-actions">'+
+        '<span class="tag blue">'+patient.careArea+'</span>'+
+        '<span class="tag orange">'+patient.line+'</span>'+
+        (patient.allergies.length?'<span class="tag red">Allergies: '+patient.allergies.join(', ')+'</span>':'<span class="tag green">No listed allergies</span>')+
+      '</div>'+
+    '</div>'+
+    '<div class="summary-grid">'+
+      '<div class="box"><label>Current note</label><b>'+patient.notes+'</b></div>'+
+      '<div class="box"><label>Active channels</label><b>'+patient.pumps.filter(p=>p.state!=='stopped').length+'</b></div>'+
+      '<div class="box"><label>Pending alarms</label><b>'+window._taskState.alarms.filter(a=>a.bed===patient.bed&&!a.resolved).length+'</b></div>'+
+      '<div class="box"><label>Handover readiness</label><b>'+(patient.pumps.some(p=>p.standby&&p.standby!=='None')?'Available':'Not configured')+'</b></div>'+
+    '</div>';
+}
+
+function renderActiveInfusions(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  document.getElementById('activeInfList').innerHTML=patient.pumps.map(pump=>{
+    const drug=getDrug(pump.drug);
+    const pct=computePercent(pump);
+    return '<div class="infusion-item">'+
+      '<b>Channel '+pump.ch+' | '+friendlyDrugName(pump.drug)+'</b>'+
+      '<div class="small" style="margin-top:4px">Rate '+pump.rate+' '+(drug?drug.unit:'')+' | VTBI '+pump.vtbi+' mL | Infused '+pump.infused+' mL</div>'+
+      '<div class="small">State '+pump.state+' | Mode '+pump.mode+' | PDMS '+pump.pdms+'</div>'+
+      '<div class="small">Guardrails '+(pump.guardrails?'enabled':'manual')+' | Standby '+pump.standby+'</div>'+
+      '<div class="progress"><div class="fill" style="width:'+pct+'%"></div></div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderHandoverItems(){
+  const items=[];
+  window._taskState.patients.forEach(patient=>patient.pumps.forEach(pump=>{
+    if(pump.standby&&pump.standby!=='None'&&pump.vtbi-pump.infused<=200){
+      items.push({patientName:patient.name,bed:patient.bed,ch:pump.ch,drug:friendlyDrugName(pump.drug),standby:pump.standby});
+    }
+  }));
+  return items;
+}
+
+function renderHandoverQueue(){
+  const items=renderHandoverItems();
+  document.getElementById('handoverQueue').innerHTML=items.length?items.map(item=>'<div class="handover-item"><b>'+item.bed+' | '+item.patientName+'</b><div class="small">Channel '+item.ch+' '+item.drug+' nearing completion.</div><div class="small">Standby target: '+item.standby+'</div></div>').join(''):'<div class="small">No channels currently queued for handover.</div>';
+}
+
+function renderConnectivity(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const items=patient.pumps.map(pump=>'<div class="handover-item"><b>Channel '+pump.ch+'</b><div class="small">PDMS '+pump.pdms+'</div><div class="small">Device telemetry '+(pump.state==='infusing'?'stable':'idle')+'</div></div>').join('');
+  document.getElementById('connectivityPanel').innerHTML=items;
+}
+
+function applyDrugDefaults(){
+  const drug=getDrug(document.getElementById('progDrug').value);
+  if(!drug)return;
+  document.getElementById('progRate').value=drug.defaultRate;
+  document.getElementById('progRateUnit').value=drug.unit;
+  const defaultConc=(drug.concentration.match(/\d+(?:\.\d+)?/)||['1'])[0];
+  document.getElementById('progConc').value=defaultConc;
+  if(drug.unit==='mcg/kg/min'||drug.unit==='mcg/h')document.getElementById('progConcUnit').value='mcg/mL';
+  if(drug.unit==='units/h')document.getElementById('progConcUnit').value='units/mL';
+  if(drug.unit==='mEq/h')document.getElementById('progConcUnit').value='mEq/mL';
+  if(drug.unit==='mg/min'||drug.unit==='mg/h')document.getElementById('progConcUnit').value='mg/mL';
+  document.getElementById('progMode').value=drug.modes.split(',')[0].trim();
+  checkDrugLimits();
+}
+
+function syncProgramFromSelectedChannel(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const channel=getSelectedChannel();
+  const pump=patient.pumps.find(p=>p.ch===channel);
+  if(!pump){
+    checkDrugLimits();
+    return;
+  }
+  window._taskState.selectedPump=channel;
+  document.getElementById('progDrug').value=pump.drug;
+  document.getElementById('progRate').value=pump.rate;
+  document.getElementById('progRateUnit').value=getDrug(pump.drug).unit;
+  document.getElementById('progVTBI').value=pump.vtbi;
+  document.getElementById('progMode').value=pump.mode;
+  document.getElementById('progHandover').value=pump.standby&&pump.standby!=='None'?'Prepare standby pump':'Disabled';
+  document.getElementById('progNotes').value='Current line: '+patient.line+'. '+patient.notes;
+  applyDrugDefaults();
+  document.getElementById('progRate').value=pump.rate;
+  document.getElementById('progVTBI').value=pump.vtbi;
+  checkDrugLimits();
+}
+
+function copyActiveIntoProgram(){
+  syncProgramFromSelectedChannel();
+}
+
+function updateDoseInfo(drug,rate){
+  const unit=drug.unit;
+  document.getElementById('doseLimitInfo').innerHTML='<b>'+drug.name+'</b><div class="small" style="margin-top:6px">Default rate: '+drug.defaultRate+' '+unit+'</div><div class="small">Soft max: '+drug.softMax+' '+unit+'</div><div class="small">Hard max: '+drug.hardMax+' '+unit+'</div><div class="small">Recommended modes: '+drug.modes+'</div><div class="small">Entered rate: '+rate+' '+unit+'</div>';
+}
+
+function checkDrugLimits(){
+  const drug=getDrug(document.getElementById('progDrug').value);
+  if(!drug)return;
+  const rate=Number(document.getElementById('progRate').value||0);
+  const warning=document.getElementById('drugLimitWarning');
+  updateDoseInfo(drug,rate);
+  if(rate>drug.hardMax){
+    warning.className='warning hard';
+    warning.textContent='Hard limit exceeded. Entered rate '+rate+' is above the maximum of '+drug.hardMax+' '+drug.unit+'. Infusion start is blocked.';
+    document.getElementById('guardrailsHint').textContent='Guardrails hard stop active. Adjust rate before attempting to start.';
+  }else if(rate>drug.softMax){
+    warning.className='warning soft';
+    warning.textContent='Soft limit warning. Entered rate '+rate+' exceeds the soft maximum of '+drug.softMax+' '+drug.unit+'. Override documentation is required.';
+    document.getElementById('guardrailsHint').textContent='Guardrails soft limit triggered. Clinical justification would be required on a live system.';
+  }else{
+    warning.className='warning';
+    warning.textContent='';
+    document.getElementById('guardrailsHint').textContent='Rate is within configured Guardrails limits for the selected drug profile.';
+  }
+}
+
+function adjustField(fieldId,delta){
+  const input=document.getElementById(fieldId);
+  const current=Number(input.value||0);
+  input.value=Math.max(0,current+delta);
+  if(fieldId==='progRate')checkDrugLimits();
+}
+
+function recordHistory(entry){
+  window._taskState.history.push(entry);
+  renderLog();
+  refreshShellCounts();
+}
+
+function updatePumpIndex(){
+  window._taskState.pumps=[];
+  window._taskState.patients.forEach(patient=>patient.pumps.forEach(pump=>window._taskState.pumps.push({...pump,patientId:patient.id,patientName:patient.name,bed:patient.bed})));
+}
+
+function startInfusion(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const channel=getSelectedChannel();
+  const drugId=document.getElementById('progDrug').value;
+  const rate=Number(document.getElementById('progRate').value||0);
+  const vtbi=Number(document.getElementById('progVTBI').value||0);
+  const drug=getDrug(drugId);
+  if(!drug)return;
+  if(rate>drug.hardMax){
+    const violation={drugId:drugId,rate:rate,limit:drug.hardMax,type:'hard',ts:new Date().toISOString(),patientId:patient.id,channel:channel};
+    window._taskState.doseLimitViolations.push(violation);
+    window._taskState.alarms.unshift({id:'ALM'+String(Date.now()),severity:'high',bed:patient.bed,channel:channel,message:'Hard limit blocked for '+drug.name+' on channel '+channel+'.',type:'Hard limit block',resolved:false,silenced:false,ts:new Date().toISOString()});
+    checkDrugLimits();
+    renderAlarms();
+    refreshShellCounts();
+    return;
+  }
+  if(rate>drug.softMax){
+    window._taskState.safetyOverrides.push({drugId:drugId,rate:rate,limit:drug.softMax,type:'soft',by:window._taskState.currentUser,ts:new Date().toISOString(),patientId:patient.id,channel:channel});
+    window._taskState.alarms.unshift({id:'ALM'+String(Date.now()+1),severity:'medium',bed:patient.bed,channel:channel,message:'Soft limit override documented for '+drug.name+' on channel '+channel+'.',type:'Soft limit override',resolved:false,silenced:false,ts:new Date().toISOString()});
+  }
+  let pump=patient.pumps.find(item=>item.ch===channel);
+  if(!pump){
+    pump={ch:channel,drug:drugId,rate:rate,vtbi:vtbi,infused:0,state:'infusing',startTime:new Date().toISOString(),mode:document.getElementById('progMode').value,guardrails:true,standby:'None',pdms:'Synced'};
+    patient.pumps.push(pump);
+  }else{
+    pump.drug=drugId;
+    pump.rate=rate;
+    pump.vtbi=vtbi;
+    pump.infused=0;
+    pump.state='infusing';
+    pump.startTime=new Date().toISOString();
+    pump.mode=document.getElementById('progMode').value;
+    pump.guardrails=true;
+    pump.standby=document.getElementById('progHandover').value==='Disabled'?'None':'Pump '+patient.bed.replace('ICU-','')+channel;
+    pump.pdms='Synced';
+  }
+  window._taskState.programmedInfusions[patient.id+'_'+channel]={drugId:drugId,rate:rate,vtbi:vtbi,startedAt:new Date().toISOString(),mode:pump.mode};
+  updatePumpIndex();
+  recordHistory({ts:new Date().toISOString(),patientId:patient.id,drug:drug.name,action:'START',rate:rate,vtbi:vtbi,volume:0,nurse:window._taskState.currentUser});
+  renderDashboard();
+  renderProgram();
+}
+
+function pauseInfusion(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const pump=getSelectedPump();
+  if(!pump)return;
+  pump.state='paused';
+  updatePumpIndex();
+  recordHistory({ts:new Date().toISOString(),patientId:patient.id,drug:friendlyDrugName(pump.drug),action:'PAUSE',rate:pump.rate,volume:pump.infused,nurse:window._taskState.currentUser});
+  renderDashboard();
+  renderProgram();
+}
+
+function stopInfusion(){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const pump=getSelectedPump();
+  if(!pump)return;
+  pump.state='stopped';
+  updatePumpIndex();
+  recordHistory({ts:new Date().toISOString(),patientId:patient.id,drug:friendlyDrugName(pump.drug),action:'STOP',rate:pump.rate,volume:pump.infused,nurse:window._taskState.currentUser});
+  renderDashboard();
+  renderProgram();
+}
+
+function titrate(delta){
+  const patient=getSelectedPatient();
+  if(!patient)return;
+  const pump=getSelectedPump();
+  if(!pump)return;
+  const oldRate=Number(pump.rate);
+  pump.rate=Math.max(0,Number((pump.rate+delta).toFixed(2)));
+  const drug=getDrug(pump.drug);
+  window._taskState.titrationLog.push({ts:new Date().toISOString(),patientId:patient.id,ch:pump.ch,drug:pump.drug,from:oldRate,to:pump.rate,by:window._taskState.currentUser});
+  recordHistory({ts:new Date().toISOString(),patientId:patient.id,drug:drug?drug.name:pump.drug,action:'TITRATE',rate:oldRate+'->'+pump.rate,volume:pump.infused,nurse:window._taskState.currentUser});
+  document.getElementById('progRate').value=pump.rate;
+  checkDrugLimits();
+  renderTitrationLog();
+  renderDashboard();
+  renderProgramBanner();
+  renderActiveInfusions();
+}
+
+function renderTitrationLog(){
+  const items=window._taskState.titrationLog.slice(-8).reverse();
+  document.getElementById('titrationLog').innerHTML=items.length?items.map(item=>'<div class="log-row"><div class="log-top"><b>'+item.ts.slice(11,19)+' | Channel '+item.ch+'</b><span class="small">'+item.by+'</span></div><div class="small">'+friendlyDrugName(item.drug)+' adjusted from '+item.from+' to '+item.to+'</div></div>').join(''):'<div class="small">No titration changes recorded in this session.</div>';
+}
+
+function renderLibrary(){
+  const category=document.getElementById('drugCategory').value;
+  const query=document.getElementById('drugSearch').value.trim().toLowerCase();
+  const filtered=DRUG_DB.filter(drug=>{
+    const matchesCategory=category==='all'||drug.category===category;
+    const haystack=(drug.name+' '+drug.category+' '+drug.modes).toLowerCase();
+    return matchesCategory&&(!query||haystack.includes(query));
+  });
+  document.getElementById('drugList').innerHTML=filtered.map(drug=>'<div class="library-item"><h4>'+drug.name+'</h4><div class="meta">'+drug.category+' | Default '+drug.defaultRate+' '+drug.unit+' | Concentration '+drug.concentration+'</div><div class="limits"><span class="limit-pill soft">Soft max '+drug.softMax+' '+drug.unit+'</span><span class="limit-pill hard">Hard max '+drug.hardMax+' '+drug.unit+'</span><span class="limit-pill mode">'+drug.modes+'</span></div><div class="small">Guardrails '+(drug.guardrails?'enabled':'manual')+' | Library revision 24.4</div></div>').join('');
+}
+
+function searchDrugs(){
+  renderLibrary();
+}
+
+function renderAlarms(){
+  const alarms=window._taskState.alarms.filter(alarm=>!alarm.resolved);
+  document.getElementById('alarmList').innerHTML=alarms.length?alarms.map(alarm=>'<div class="alarm-item sev-'+alarm.severity+'"><div class="alarm-item-top"><b>'+alarm.type+'</b><span class="small">'+alarm.ts.slice(11,19)+(alarm.silenced?' | silenced':'')+'</span></div><div class="small" style="margin-top:4px">'+alarm.bed+' channel '+alarm.channel+' | '+alarm.message+'</div></div>').join(''):'<div class="small">No active alarms.</div>';
+  refreshShellCounts();
+}
+
+function silenceAlarms(){
+  window._taskState.alarms.forEach(alarm=>{if(!alarm.resolved)alarm.silenced=true;});
+  recordHistory({ts:new Date().toISOString(),patientId:'SYSTEM',drug:'--',action:'SILENCE_ALARMS',rate:'-',volume:'-',nurse:window._taskState.currentUser});
+  renderAlarms();
+}
+
+function clearAlarms(){
+  window._taskState.alarms=window._taskState.alarms.filter(alarm=>!alarm.resolved);
+  renderAlarms();
+}
+
+function renderLog(){
+  document.getElementById('histBody').innerHTML=window._taskState.history.slice(-50).reverse().map(item=>{
+    const patient=getPatient(item.patientId);
+    return '<tr><td>'+item.ts.slice(11,19)+'</td><td>'+(patient?patient.name:item.patientId)+'</td><td>'+item.drug+'</td><td>'+item.action+'</td><td>'+(item.rate??'-')+'</td><td>'+(item.volume??item.vtbi??'-')+'</td><td>'+(item.nurse||'-')+'</td></tr>';
+  }).join('');
+}
+
+function viewHistory(patientId){
+  window._taskState.selectedPatient=patientId;
+  switchTab('log');
+}
+
+function loadPatientPumps(){
+  window._taskState.selectedPatient=document.getElementById('progPatient').value;
+  renderProgram();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  _medgym_init(42);
+  renderDashboard();
+});
+</script>
+</body>
+</html>

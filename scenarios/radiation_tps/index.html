@@ -1,0 +1,2733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accuray Precision™ Treatment Planning System</title>
+<style>
+:root {
+  --bg-primary: #1a1d23;
+  --bg-secondary: #22262e;
+  --bg-tertiary: #2a2f38;
+  --bg-panel: #1e2128;
+  --bg-input: #2c313a;
+  --border-color: #3a3f4a;
+  --border-active: #4a90d9;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a8b4;
+  --text-dim: #6a7280;
+  --accent-blue: #4a90d9;
+  --accent-green: #4caf50;
+  --accent-orange: #ff9800;
+  --accent-red: #ef5350;
+  --accent-purple: #9c27b0;
+  --accent-cyan: #00bcd4;
+  --status-pass: #4caf50;
+  --status-fail: #ef5350;
+  --status-warn: #ff9800;
+  --header-height: 42px;
+  --toolbar-height: 36px;
+  --statusbar-height: 28px;
+  --sidebar-width: 260px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 13px;
+}
+/* Login */
+#loginScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #0d1117 0%, #1a2332 50%, #0d1117 100%);
+}
+.login-container {
+  width: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.login-logo h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  letter-spacing: 1px;
+}
+.login-logo .subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.login-logo .system-version {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+.login-field {
+  margin-bottom: 16px;
+}
+.login-field label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.login-field input {
+  width: 100%;
+  height: 38px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+.login-field input:focus { border-color: var(--accent-blue); }
+.login-field .field-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.login-btn {
+  width: 100%;
+  height: 40px;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 1px;
+  margin-top: 8px;
+}
+.login-btn:hover { background: #5a9de6; }
+.login-error {
+  color: var(--accent-red);
+  font-size: 12px;
+  margin-top: 8px;
+  display: none;
+}
+.login-info {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.6;
+}
+#mainApp { display: none; height: 100vh; flex-direction: column; }
+/* Header */
+.header {
+  height: var(--header-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+.header-brand {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-right: 24px;
+}
+.header-patient {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+}
+.header-patient .patient-name {
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+.header-patient .patient-detail {
+  color: var(--text-secondary);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.header-right .user-badge {
+  background: var(--bg-tertiary);
+  padding: 2px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+}
+/* Toolbar */
+.toolbar {
+  height: var(--toolbar-height);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 2px;
+}
+.toolbar-btn {
+  height: 28px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.toolbar-btn:hover { background: var(--bg-input); border-color: var(--border-color); }
+.toolbar-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 6px;
+}
+/* Tabs row */
+.tab-bar {
+  height: 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: stretch;
+  padding: 0 8px;
+  gap: 0;
+}
+.tab-item {
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab-item:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+.tab-item.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  background: rgba(74,144,217,0.08);
+}
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-section {
+  border-bottom: 1px solid var(--border-color);
+}
+.sidebar-section-title {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  background: var(--bg-tertiary);
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+  gap: 8px;
+}
+.sidebar-item:hover { background: rgba(255,255,255,0.03); }
+.sidebar-item.active { background: rgba(74,144,217,0.12); border-left-color: var(--accent-blue); }
+.sidebar-item .color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.sidebar-item .struct-name { flex: 1; }
+.sidebar-item .struct-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Patient List */
+.patient-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.patient-table th {
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+}
+.patient-table td {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.patient-table tr:hover td { background: rgba(255,255,255,0.03); }
+.patient-table .status-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-planning { background: rgba(74,144,217,0.2); color: var(--accent-blue); }
+.status-approved { background: rgba(76,175,80,0.2); color: var(--accent-green); }
+.status-review { background: rgba(255,152,0,0.2); color: var(--accent-orange); }
+.status-completed { background: rgba(156,39,176,0.2); color: var(--accent-purple); }
+.status-qa { background: rgba(0,188,212,0.2); color: var(--accent-cyan); }
+.open-btn {
+  padding: 3px 12px;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.open-btn:hover { background: #5a9de6; }
+/* Viewport with CT slice */
+.viewport-container {
+  flex: 1;
+  display: flex;
+  background: #000;
+  position: relative;
+}
+.viewport-panel {
+  flex: 1;
+  position: relative;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  background: #0a0a0a;
+}
+.viewport-panel .vp-label {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 10px;
+  color: var(--accent-green);
+  z-index: 2;
+  text-shadow: 1px 1px 2px #000;
+}
+.viewport-panel .vp-info {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  z-index: 2;
+  line-height: 1.5;
+  text-shadow: 1px 1px 2px #000;
+}
+.viewport-panel .vp-info-right {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  z-index: 2;
+  text-align: right;
+  line-height: 1.5;
+  text-shadow: 1px 1px 2px #000;
+}
+.viewport-panel canvas {
+  width: 100%;
+  height: 100%;
+}
+/* DVH Chart */
+.dvh-container {
+  flex: 1;
+  background: var(--bg-primary);
+  padding: 12px;
+  position: relative;
+}
+.dvh-canvas-wrap {
+  height: 260px;
+  background: #0a0a0a;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+/* Constraint Table */
+.constraint-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.constraint-table th {
+  background: var(--bg-tertiary);
+  padding: 6px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+.constraint-table td {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.constraint-pass { color: var(--status-pass); }
+.constraint-fail { color: var(--status-fail); }
+/* Planning panel */
+.planning-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+.plan-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.plan-card-header {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.plan-card-body { padding: 12px; }
+.plan-field {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.plan-field label {
+  width: 120px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.plan-field input, .plan-field select {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 0 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+.plan-field input:focus, .plan-field select:focus { border-color: var(--accent-blue); }
+.plan-field .unit {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  width: 40px;
+}
+/* Beam table */
+.beam-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.beam-table th {
+  background: var(--bg-tertiary);
+  padding: 6px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+.beam-table td {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+/* Progress overlay */
+.progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.progress-overlay.show { display: flex; }
+.progress-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 32px 48px;
+  text-align: center;
+  min-width: 320px;
+}
+.progress-bar-outer {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.progress-bar-inner {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s;
+}
+/* Status bar */
+.status-bar {
+  height: var(--statusbar-height);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+  gap: 20px;
+}
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.green { background: var(--accent-green); }
+.status-dot.orange { background: var(--accent-orange); }
+.status-dot.red { background: var(--accent-red); }
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-width: 400px;
+  max-width: 600px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+.modal-body { padding: 16px; }
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn-primary {
+  padding: 6px 18px;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-primary:hover { background: #5a9de6; }
+.btn-secondary {
+  padding: 6px 18px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-secondary:hover { background: var(--bg-input); }
+.btn-danger {
+  padding: 6px 18px;
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+/* Approval section */
+.approval-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin: 12px;
+  padding: 16px;
+}
+.approval-section h3 {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--accent-blue);
+}
+.approval-section textarea {
+  width: 100%;
+  height: 80px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  resize: vertical;
+  outline: none;
+}
+.approval-section textarea:focus { border-color: var(--accent-blue); }
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+/* Utility */
+.hidden { display: none !important; }
+.flex-1 { flex: 1; }
+.overflow-auto { overflow: auto; }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen">
+  <div class="login-container">
+    <div class="login-logo">
+      <h1>Accuray Precision™</h1>
+      <div class="subtitle">Treatment Planning System</div>
+      <div class="system-version">iDMS™ Data Management System v4.2.1 | Build 2024.03.15</div>
+    </div>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="loginUser" placeholder="Enter username" autocomplete="off">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter password" autocomplete="off">
+      <div class="field-hint">Contact IT administrator for access credentials</div>
+    </div>
+    <button class="login-btn" id="loginBtn">LOGIN</button>
+    <div class="login-error" id="loginError">Invalid credentials. Please try again.</div>
+    <div class="login-info">
+      DICOM Connectivity: Active &nbsp;|&nbsp; Delivery System: Online<br>
+      Accuray Precision™ &copy; 2024 Accuray Inc. All rights reserved.<br>
+      CAUTION: Federal law restricts this device to sale by or on the order of a physician.
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APPLICATION ============ -->
+<div id="mainApp">
+  <!-- Header Bar -->
+  <div class="header">
+    <div class="header-brand">Accuray Precision™ TPS</div>
+    <div class="header-patient" id="headerPatient">
+      <span class="patient-detail" style="color:var(--text-dim)">No patient loaded</span>
+    </div>
+    <div class="header-right">
+      <span id="clockDisplay">--:--</span>
+      <span class="user-badge" id="userBadge">admin</span>
+      <button class="toolbar-btn" id="logoutBtn" style="color:var(--accent-red)">Logout</button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="mainToolbar">
+    <button class="toolbar-btn" id="toolUndo" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="toolbar-btn" id="toolRedo" title="Redo (Ctrl+Y)">↪ Redo</button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" id="toolZoomIn" title="Zoom In">🔍+ Zoom In</button>
+    <button class="toolbar-btn" id="toolZoomOut" title="Zoom Out">🔍− Zoom Out</button>
+    <button class="toolbar-btn" id="toolReset" title="Reset View">⟲ Reset</button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" id="toolMeasure" title="Measurement">📏 Measure</button>
+    <button class="toolbar-btn" id="toolCrosshair" title="Crosshair">✛ Crosshair</button>
+    <button class="toolbar-btn" id="toolWL" title="Window/Level">◐ W/L</button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" id="toolLayout1" title="1x1 Layout">▢ 1×1</button>
+    <button class="toolbar-btn" id="toolLayout2" title="2x2 Layout">▦ 2×2</button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" id="toolFusion" title="Image Fusion">⊕ Fusion</button>
+    <button class="toolbar-btn" id="toolSnapshot" title="Screenshot">📷 Snapshot</button>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" id="tabBar">
+    <div class="tab-item active" data-tab="patients">Patient List</div>
+    <div class="tab-item" data-tab="contouring">Contouring</div>
+    <div class="tab-item" data-tab="planning">Planning</div>
+    <div class="tab-item" data-tab="optimization">Optimization</div>
+    <div class="tab-item" data-tab="evaluation">Evaluation</div>
+    <div class="tab-item" data-tab="qa">QA / Reports</div>
+  </div>
+
+  <!-- Content -->
+  <div class="main-content">
+    <!-- ===== PATIENT LIST TAB ===== -->
+    <div class="content-area overflow-auto" id="tabPatients" style="padding:0;">
+      <div style="padding:12px 16px; display:flex; align-items:center; gap:12px; background:var(--bg-secondary); border-bottom:1px solid var(--border-color);">
+        <span style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; font-weight:600;">Patient Worklist</span>
+        <div style="flex:1;"></div>
+        <input type="text" id="patientSearch" placeholder="Search patients..." style="height:26px; width:200px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:3px; padding:0 8px; color:var(--text-primary); font-size:11px; outline:none;">
+        <select id="filterStatus" style="height:26px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:3px; padding:0 8px; color:var(--text-secondary); font-size:11px;">
+          <option value="all">All Status</option>
+          <option value="planning">Planning</option>
+          <option value="review">Review</option>
+          <option value="approved">Approved</option>
+          <option value="qa">QA</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select id="filterSite" style="height:26px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:3px; padding:0 8px; color:var(--text-secondary); font-size:11px;">
+          <option value="all">All Sites</option>
+          <option value="head_neck">Head &amp; Neck</option>
+          <option value="brain">Brain</option>
+          <option value="lung">Lung</option>
+          <option value="prostate">Prostate</option>
+          <option value="breast">Breast</option>
+          <option value="spine">Spine</option>
+        </select>
+      </div>
+      <table class="patient-table" id="patientTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Patient Name</th>
+            <th>MRN</th>
+            <th>DOB</th>
+            <th>Diagnosis</th>
+            <th>Tx Site</th>
+            <th>Technique</th>
+            <th>Physician</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Due Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="patientTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- ===== CONTOURING TAB ===== -->
+    <div class="content-area hidden" id="tabContouring" style="flex-direction:row;">
+      <!-- Structure sidebar -->
+      <div class="sidebar" id="structureSidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Target Volumes</div>
+          <div id="targetStructures"></div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Organs at Risk (OARs)</div>
+          <div id="oarStructures"></div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Support Structures</div>
+          <div id="supportStructures"></div>
+        </div>
+        <div style="padding:8px;">
+          <button class="btn-primary" id="autoContourBtn" style="width:100%; margin-bottom:6px;">
+            🤖 AI Auto-Contour (All)
+          </button>
+          <button class="btn-secondary" id="addStructureBtn" style="width:100%; margin-bottom:6px;">
+            + Add Structure
+          </button>
+          <button class="btn-secondary" id="importContBtn" style="width:100%;">
+            📂 Import Contours (DICOM RT)
+          </button>
+        </div>
+      </div>
+      <!-- Viewport area -->
+      <div style="flex:1; display:flex; flex-direction:column;">
+        <!-- Contouring toolbar -->
+        <div style="height:32px; background:var(--bg-tertiary); border-bottom:1px solid var(--border-color); display:flex; align-items:center; padding:0 8px; gap:4px;">
+          <button class="toolbar-btn" id="contourDraw" title="Freehand Draw">✏ Draw</button>
+          <button class="toolbar-btn" id="contourBrush" title="Brush">🖌 Brush</button>
+          <button class="toolbar-btn" id="contourEraser" title="Eraser">⌫ Eraser</button>
+          <button class="toolbar-btn" id="contourThreshold" title="Threshold">▧ Threshold</button>
+          <button class="toolbar-btn" id="contourInterpolate" title="Interpolate">⇅ Interpolate</button>
+          <button class="toolbar-btn" id="contourSmooth" title="Smooth">∿ Smooth</button>
+          <div class="toolbar-sep"></div>
+          <span style="font-size:10px; color:var(--text-dim); margin-left:4px;">Brush Size:</span>
+          <input type="range" id="brushSize" min="1" max="30" value="8" style="width:80px; accent-color:var(--accent-blue);">
+          <span id="brushSizeVal" style="font-size:10px; color:var(--text-secondary); width:24px;">8</span>
+          <div class="toolbar-sep"></div>
+          <span style="font-size:10px; color:var(--text-dim);">Slice:</span>
+          <input type="range" id="sliceSlider" min="1" max="120" value="60" style="width:100px; accent-color:var(--accent-blue);">
+          <span id="sliceNum" style="font-size:10px; color:var(--text-secondary); width:40px;">60/120</span>
+        </div>
+        <!-- 3-panel viewport -->
+        <div class="viewport-container" id="contouringViewport">
+          <div class="viewport-panel" id="vpAxial">
+            <span class="vp-label">AXIAL</span>
+            <canvas id="axialCanvas"></canvas>
+            <div class="vp-info">W: 400 L: 40<br>Slice: 60/120</div>
+            <div class="vp-info-right">Zoom: 100%</div>
+          </div>
+          <div class="viewport-panel" id="vpSagittal">
+            <span class="vp-label">SAGITTAL</span>
+            <canvas id="sagittalCanvas"></canvas>
+            <div class="vp-info">W: 400 L: 40</div>
+          </div>
+          <div class="viewport-panel" id="vpCoronal">
+            <span class="vp-label">CORONAL</span>
+            <canvas id="coronalCanvas"></canvas>
+            <div class="vp-info">W: 400 L: 40</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PLANNING TAB ===== -->
+    <div class="content-area hidden" id="tabPlanning" style="flex-direction:column; overflow:auto;">
+      <div class="planning-grid">
+        <!-- Prescription Card -->
+        <div class="plan-card">
+          <div class="plan-card-header">
+            <span>Prescription</span>
+            <span id="rxStatus" style="font-size:10px; color:var(--accent-orange);">Not Set</span>
+          </div>
+          <div class="plan-card-body">
+            <div class="plan-field">
+              <label>Plan Name</label>
+              <input type="text" id="planName" value="Plan_1">
+            </div>
+            <div class="plan-field">
+              <label>Total Dose</label>
+              <input type="number" id="rxDose" min="0" max="100" step="0.1" value="">
+              <span class="unit">Gy</span>
+            </div>
+            <div class="plan-field">
+              <label>Fractions</label>
+              <input type="number" id="rxFractions" min="1" max="50" step="1" value="">
+              <span class="unit">fx</span>
+            </div>
+            <div class="plan-field">
+              <label>Dose/Fraction</label>
+              <input type="text" id="rxDosePerFx" readonly style="background:var(--bg-tertiary);">
+              <span class="unit">Gy/fx</span>
+            </div>
+            <div class="plan-field">
+              <label>Target Volume</label>
+              <select id="rxTarget">
+                <option value="">-- Select Target --</option>
+              </select>
+            </div>
+            <div class="plan-field">
+              <label>Normalization</label>
+              <select id="rxNorm">
+                <option value="95">95% volume receives Rx dose</option>
+                <option value="100">100% dose to PTV</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <button class="btn-primary" id="setRxBtn" style="width:100%; margin-top:8px;">Set Prescription</button>
+          </div>
+        </div>
+
+        <!-- Delivery System Card -->
+        <div class="plan-card">
+          <div class="plan-card-header">
+            <span>Delivery System</span>
+            <span style="font-size:10px; color:var(--accent-green);">Connected</span>
+          </div>
+          <div class="plan-card-body">
+            <div class="plan-field">
+              <label>System</label>
+              <select id="deliverySystem">
+                <option value="radixact">Radixact™ Treatment Delivery</option>
+                <option value="tomo">TomoTherapy® H Series</option>
+                <option value="cyberknife">CyberKnife® M6</option>
+              </select>
+            </div>
+            <div class="plan-field">
+              <label>Technique</label>
+              <select id="technique">
+                <option value="IMRT">IMRT (TomoHelical™)</option>
+                <option value="TomoDirect">TomoDirect™</option>
+                <option value="3DCRT">3D CRT</option>
+                <option value="SRS">SRS/SBRT</option>
+              </select>
+            </div>
+            <div class="plan-field">
+              <label>Jaw Width</label>
+              <select id="jawWidth">
+                <option value="1.0">1.0 cm</option>
+                <option value="2.5" selected>2.5 cm</option>
+                <option value="5.0">5.0 cm</option>
+              </select>
+            </div>
+            <div class="plan-field">
+              <label>Pitch</label>
+              <input type="number" id="pitch" min="0.1" max="1.0" step="0.01" value="0.287">
+            </div>
+            <div class="plan-field">
+              <label>Mod. Factor</label>
+              <input type="number" id="modFactor" min="1.0" max="5.0" step="0.1" value="2.5">
+            </div>
+            <div style="margin-top:12px; padding:8px; background:var(--bg-tertiary); border-radius:3px; font-size:11px;">
+              <div style="color:var(--text-dim); margin-bottom:4px;">System Status</div>
+              <div style="display:flex; gap:16px;">
+                <span class="status-indicator"><span class="status-dot green"></span> MLC Ready</span>
+                <span class="status-indicator"><span class="status-dot green"></span> Linac Online</span>
+                <span class="status-indicator"><span class="status-dot green"></span> Couch Cal.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Beam Configuration Card -->
+        <div class="plan-card" style="grid-column: 1 / -1;">
+          <div class="plan-card-header">
+            <span>Beam Configuration</span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-secondary" id="addBeamBtn" style="padding:2px 10px; font-size:10px;">+ Add Beam</button>
+              <button class="btn-secondary" id="autoBeamBtn" style="padding:2px 10px; font-size:10px;">Auto-Configure</button>
+              <button class="btn-secondary" id="equalSpaceBtn" style="padding:2px 10px; font-size:10px;">Equal Spacing</button>
+            </div>
+          </div>
+          <div class="plan-card-body" style="padding:0;">
+            <table class="beam-table" id="beamTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Beam Name</th>
+                  <th>Gantry (°)</th>
+                  <th>Couch (°)</th>
+                  <th>Collimator (°)</th>
+                  <th>Energy (MV)</th>
+                  <th>Weight</th>
+                  <th>MU</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="beamTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Optimization Objectives Card -->
+        <div class="plan-card" style="grid-column: 1 / -1;">
+          <div class="plan-card-header">
+            <span>Optimization Objectives</span>
+            <button class="btn-secondary" id="addObjBtn" style="padding:2px 10px; font-size:10px;">+ Add Objective</button>
+          </div>
+          <div class="plan-card-body" style="padding:0;">
+            <table class="beam-table" id="objectivesTable">
+              <thead>
+                <tr>
+                  <th>Structure</th>
+                  <th>Type</th>
+                  <th>Goal</th>
+                  <th>Priority</th>
+                  <th>Weight</th>
+                </tr>
+              </thead>
+              <tbody id="objectivesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== OPTIMIZATION TAB ===== -->
+    <div class="content-area hidden" id="tabOptimization" style="flex-direction:column;">
+      <div style="padding:16px; display:flex; flex-direction:column; gap:12px; flex:1;">
+        <div class="plan-card" style="flex:1;">
+          <div class="plan-card-header">
+            <span>Plan Optimization</span>
+            <span id="optStatus" style="font-size:10px;">Ready</span>
+          </div>
+          <div class="plan-card-body" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:12px;">
+              <div style="flex:1;">
+                <div class="plan-field">
+                  <label>Max Iterations</label>
+                  <input type="number" id="maxIter" value="100" min="10" max="500">
+                </div>
+                <div class="plan-field">
+                  <label>Convergence</label>
+                  <input type="number" id="convergence" value="0.001" step="0.001" min="0.0001" max="0.1">
+                </div>
+                <div class="plan-field">
+                  <label>Algorithm</label>
+                  <select id="optAlgorithm">
+                    <option value="volo">VoLO™ (Volume Optimization)</option>
+                    <option value="dvo">DVO (Direct Volume Optimization)</option>
+                    <option value="sequential">Sequential Optimization</option>
+                  </select>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <div class="plan-field">
+                  <label>Dose Grid</label>
+                  <select id="doseGrid">
+                    <option value="fine">Fine (1.95mm)</option>
+                    <option value="normal" selected>Normal (3.9mm)</option>
+                    <option value="coarse">Coarse (7.8mm)</option>
+                  </select>
+                </div>
+                <div class="plan-field">
+                  <label>Calc. Engine</label>
+                  <select id="calcEngine">
+                    <option value="cc">Collapsed Cone</option>
+                    <option value="mc">Monte Carlo</option>
+                  </select>
+                </div>
+                <div class="plan-field">
+                  <label>Heterogeneity</label>
+                  <select id="hetCorr">
+                    <option value="on" selected>Enabled</option>
+                    <option value="off">Disabled</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div id="optimizationLog" style="flex:1; min-height:120px; background:#0a0d12; border:1px solid var(--border-color); border-radius:3px; padding:8px; font-family:monospace; font-size:11px; color:var(--accent-green); overflow-y:auto; line-height:1.6;">
+              <div style="color:var(--text-dim);">[System] Ready for optimization. Load patient and set prescription first.</div>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn-secondary" id="resetOptBtn">Reset</button>
+              <button class="btn-primary" id="optimizeBtn" style="min-width:160px;">▶ Optimize Plan</button>
+              <button class="btn-primary" id="calcDoseBtn" style="min-width:160px; background:var(--accent-green);">⚡ Calculate Dose</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EVALUATION TAB ===== -->
+    <div class="content-area hidden" id="tabEvaluation" style="flex-direction:column; overflow:auto;">
+      <div style="display:flex; flex:1; min-height:0;">
+        <!-- DVH and constraints -->
+        <div style="flex:1; display:flex; flex-direction:column; overflow:auto;">
+          <div class="dvh-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary);">Dose Volume Histogram (DVH)</span>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-secondary" style="padding:2px 8px; font-size:10px;" id="dvhCumulative">Cumulative</button>
+                <button class="btn-secondary" style="padding:2px 8px; font-size:10px;" id="dvhDifferential">Differential</button>
+                <button class="btn-secondary" style="padding:2px 8px; font-size:10px;" id="exportDVH">Export</button>
+              </div>
+            </div>
+            <div class="dvh-canvas-wrap">
+              <canvas id="dvhCanvas"></canvas>
+            </div>
+            <div id="dvhLegend" style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; font-size:10px;"></div>
+          </div>
+          <!-- Dose Constraints Table -->
+          <div style="padding:0 12px 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary);">Dose Constraints</span>
+              <span id="constraintSummary" style="font-size:11px;"></span>
+            </div>
+            <table class="constraint-table" id="constraintTable">
+              <thead>
+                <tr>
+                  <th>Structure</th>
+                  <th>Constraint</th>
+                  <th>Limit</th>
+                  <th>Achieved</th>
+                  <th>Margin</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="constraintBody"></tbody>
+            </table>
+          </div>
+          <!-- Plan Statistics -->
+          <div style="padding:0 12px 12px;">
+            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); margin-bottom:6px;">Plan Statistics</div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;" id="planStats"></div>
+          </div>
+          <!-- Plan Approval -->
+          <div class="approval-section" id="approvalSection">
+            <h3>Plan Approval</h3>
+            <div style="margin-bottom:8px;">
+              <label style="font-size:11px; color:var(--text-secondary);">Plan Summary / Clinical Notes</label>
+              <textarea id="planSummary" placeholder="Enter plan summary, clinical justification, and notes for approval..."></textarea>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text-secondary);">
+                <input type="checkbox" id="physicsCheck"> Physics review completed
+              </label>
+              <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text-secondary);">
+                <input type="checkbox" id="mdCheck"> Physician review completed
+              </label>
+              <div style="flex:1;"></div>
+              <button class="btn-danger" id="rejectPlanBtn">Reject</button>
+              <button class="btn-primary" id="approvePlanBtn" style="background:var(--accent-green); min-width:140px;">✓ Approve Plan</button>
+            </div>
+            <div id="approvalStatus" style="margin-top:8px; font-size:12px; display:none;"></div>
+          </div>
+        </div>
+        <!-- Right info panel -->
+        <div style="width:240px; background:var(--bg-panel); border-left:1px solid var(--border-color); padding:12px; overflow-y:auto;">
+          <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:8px;">Dose Summary</div>
+          <div id="doseSummaryPanel" style="font-size:11px; line-height:2;"></div>
+          <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-top:16px; margin-bottom:8px;">Plan History</div>
+          <div id="planHistoryPanel" style="font-size:11px; line-height:1.8; color:var(--text-secondary);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== QA / REPORTS TAB ===== -->
+    <div class="content-area hidden" id="tabQA" style="flex-direction:column; overflow:auto; padding:16px;">
+      <div class="planning-grid">
+        <div class="plan-card">
+          <div class="plan-card-header"><span>Quality Assurance</span></div>
+          <div class="plan-card-body">
+            <div style="margin-bottom:12px;">
+              <button class="btn-primary" id="runDQABtn" style="width:100%; margin-bottom:6px;">Run Delivery QA (DQA)</button>
+              <button class="btn-secondary" id="runPatientQABtn" style="width:100%; margin-bottom:6px;">Patient-Specific QA</button>
+              <button class="btn-secondary" id="runMachineQABtn" style="width:100%;">Machine QA Check</button>
+            </div>
+            <div id="qaResults" style="background:var(--bg-tertiary); padding:8px; border-radius:3px; font-size:11px; color:var(--text-secondary); min-height:60px;">
+              No QA results available.
+            </div>
+          </div>
+        </div>
+        <div class="plan-card">
+          <div class="plan-card-header"><span>Reports</span></div>
+          <div class="plan-card-body">
+            <button class="btn-secondary" id="reportPlanBtn" style="width:100%; margin-bottom:6px;">📄 Generate Plan Report</button>
+            <button class="btn-secondary" id="reportDVHBtn" style="width:100%; margin-bottom:6px;">📊 Export DVH Data</button>
+            <button class="btn-secondary" id="reportDICOMBtn" style="width:100%; margin-bottom:6px;">💿 Export DICOM RT</button>
+            <button class="btn-secondary" id="reportOISBtn" style="width:100%;">🏥 Send to OIS (Connect)</button>
+          </div>
+        </div>
+        <div class="plan-card" style="grid-column: 1 / -1;">
+          <div class="plan-card-header"><span>Treatment Schedule</span></div>
+          <div class="plan-card-body" id="txSchedule" style="font-size:11px; color:var(--text-secondary);">
+            No active treatment plan.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-indicator"><span class="status-dot green"></span> iDMS™ Connected</span>
+    <span class="status-indicator"><span class="status-dot green"></span> DICOM Active</span>
+    <span class="status-indicator" id="statusDelivery"><span class="status-dot green"></span> Radixact™ Online</span>
+    <span class="status-indicator" id="statusCalc"><span class="status-dot orange"></span> Calc Engine Idle</span>
+    <div style="flex:1"></div>
+    <span id="statusPatientInfo">No patient loaded</span>
+    <span style="margin-left:12px;">Accuray Precision™ v4.2.1</span>
+  </div>
+</div>
+
+<!-- Progress Overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-box">
+    <div id="progressTitle" style="font-size:14px; font-weight:600; margin-bottom:4px;">Processing...</div>
+    <div id="progressDetail" style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;"></div>
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+    <div id="progressPercent" style="font-size:11px; color:var(--text-dim); margin-top:6px;">0%</div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="addStructureModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Add Structure</span>
+      <button class="btn-secondary" onclick="document.getElementById('addStructureModal').classList.remove('show')" style="padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="plan-field">
+        <label>Name</label>
+        <input type="text" id="newStructName" placeholder="Structure name">
+      </div>
+      <div class="plan-field">
+        <label>Type</label>
+        <select id="newStructType">
+          <option value="target">Target (GTV/CTV/PTV)</option>
+          <option value="oar">Organ at Risk</option>
+          <option value="support">Support / External</option>
+        </select>
+      </div>
+      <div class="plan-field">
+        <label>Color</label>
+        <input type="color" id="newStructColor" value="#ff6b6b">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="document.getElementById('addStructureModal').classList.remove('show')">Cancel</button>
+      <button class="btn-primary" id="confirmAddStruct">Add Structure</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="approveConfirmModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Confirm Plan Approval</span>
+      <button class="btn-secondary" onclick="document.getElementById('approveConfirmModal').classList.remove('show')" style="padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">You are about to approve this treatment plan. This action will:</p>
+      <ul style="margin-left:20px; line-height:1.8; font-size:12px; color:var(--text-secondary);">
+        <li>Lock the plan from further modifications</li>
+        <li>Send the plan to the delivery system via iDMS™</li>
+        <li>Notify the treatment team</li>
+        <li>Record your digital signature</li>
+      </ul>
+      <div style="margin-top:12px; padding:8px; background:rgba(239,83,80,0.1); border:1px solid var(--accent-red); border-radius:3px; font-size:11px; color:var(--accent-red);">
+        ⚠ This action cannot be undone. Ensure all constraints are met and reviews are complete.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="document.getElementById('approveConfirmModal').classList.remove('show')">Cancel</button>
+      <button class="btn-primary" id="confirmApproveBtn" style="background:var(--accent-green);">✓ Confirm Approval</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ======================================================================
+// Accuray Precision™ TPS — Interactive Simulation
+// ======================================================================
+
+// --- Seeded PRNG ---
+function _seededRandom(seed) {
+  let s = seed | 0 || 42;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+}
+
+let _rng = _seededRandom(42);
+
+// --- Task State ---
+window._taskState = {
+  initialized: false,
+  loggedIn: false,
+  currentUser: null,
+  currentTab: "patients",
+  // Patient data
+  patients: [],
+  selectedPatient: null,
+  selectedPatientData: null,
+  // Structures
+  structures: {},
+  autoContoured: false,
+  // Prescription
+  prescription: { dose: null, fractions: null, dosePerFx: null, target: null },
+  // Beams
+  beams: [],
+  technique: "IMRT",
+  deliverySystem: "radixact",
+  // Optimization
+  optimized: false,
+  doseCalculated: false,
+  optimizationIterations: 0,
+  // Evaluation
+  constraintResults: [],
+  planStatistics: {},
+  // Approval
+  planApproved: false,
+  planSummary: "",
+  approvalTimestamp: null,
+};
+
+// --- Patient Database ---
+function _generatePatients(rng) {
+  return [
+    {
+      id: "RT001", name: "Zhang, Wei", mrn: "MRN-20240301", dob: "1958-03-15",
+      diagnosis: "Nasopharyngeal Carcinoma (T2N1M0)", site: "head_neck",
+      technique: "IMRT (TomoHelical™)", physician: "Dr. Chen, Li",
+      status: "planning", priority: "High", dueDate: "2024-04-10",
+      structures: {
+        "GTV-P":    { type:"target", color:"#ff4444", volume: 42.3, contoured: false },
+        "GTV-N":    { type:"target", color:"#ff6b6b", volume: 8.7, contoured: false },
+        "CTV-High": { type:"target", color:"#ff9999", volume: 125.6, contoured: false },
+        "CTV-Low":  { type:"target", color:"#ffbbbb", volume: 289.4, contoured: false },
+        "PTV-High": { type:"target", color:"#ee3333", volume: 168.2, contoured: false },
+        "PTV-Low":  { type:"target", color:"#cc4444", volume: 342.1, contoured: false },
+        "Brain Stem":     { type:"oar", color:"#4caf50", volume: 25.8, contoured: false },
+        "Spinal Cord":    { type:"oar", color:"#8bc34a", volume: 18.3, contoured: false },
+        "L Parotid":      { type:"oar", color:"#00bcd4", volume: 22.1, contoured: false },
+        "R Parotid":      { type:"oar", color:"#0097a7", volume: 23.4, contoured: false },
+        "L Optic Nerve":  { type:"oar", color:"#ffc107", volume: 1.2, contoured: false },
+        "R Optic Nerve":  { type:"oar", color:"#ffb300", volume: 1.1, contoured: false },
+        "Chiasm":         { type:"oar", color:"#ff9800", volume: 0.8, contoured: false },
+        "L Cochlea":      { type:"oar", color:"#9c27b0", volume: 0.3, contoured: false },
+        "R Cochlea":      { type:"oar", color:"#7b1fa2", volume: 0.3, contoured: false },
+        "Mandible":       { type:"oar", color:"#795548", volume: 58.6, contoured: false },
+        "L Lens":         { type:"oar", color:"#607d8b", volume: 0.2, contoured: false },
+        "R Lens":         { type:"oar", color:"#546e7a", volume: 0.2, contoured: false },
+        "Oral Cavity":    { type:"oar", color:"#e91e63", volume: 65.3, contoured: false },
+        "External":       { type:"support", color:"#90a4ae", volume: 4250.0, contoured: false },
+        "Couch":          { type:"support", color:"#455a64", volume: null, contoured: false },
+      },
+      objectives: [
+        { structure:"PTV-High", type:"Min Dose", goal:"66.5 Gy",  priority:1, weight:100 },
+        { structure:"PTV-High", type:"Max Dose", goal:"75.6 Gy",  priority:1, weight:80 },
+        { structure:"PTV-Low",  type:"Min Dose", goal:"52.25 Gy", priority:2, weight:90 },
+        { structure:"Brain Stem", type:"Max Dose", goal:"<54 Gy", priority:1, weight:100 },
+        { structure:"Spinal Cord", type:"Max Dose", goal:"<45 Gy",priority:1, weight:100 },
+        { structure:"L Parotid", type:"Mean Dose", goal:"<26 Gy", priority:3, weight:60 },
+        { structure:"R Parotid", type:"Mean Dose", goal:"<26 Gy", priority:3, weight:60 },
+        { structure:"Chiasm",    type:"Max Dose", goal:"<54 Gy",  priority:2, weight:80 },
+        { structure:"Oral Cavity", type:"Mean Dose", goal:"<40 Gy",priority:4, weight:40 },
+      ],
+      constraints: [
+        { structure:"PTV-High", constraint:"D95 ≥ 95% Rx", limit:"66.5 Gy" },
+        { structure:"PTV-High", constraint:"D107 ≤ 107% Rx", limit:"74.9 Gy" },
+        { structure:"PTV-Low",  constraint:"D95 ≥ 95% Rx", limit:"52.25 Gy" },
+        { structure:"Brain Stem", constraint:"Dmax < 54 Gy", limit:"54 Gy" },
+        { structure:"Spinal Cord", constraint:"Dmax < 45 Gy", limit:"45 Gy" },
+        { structure:"L Parotid", constraint:"Dmean < 26 Gy", limit:"26 Gy" },
+        { structure:"R Parotid", constraint:"Dmean < 26 Gy", limit:"26 Gy" },
+        { structure:"Chiasm",    constraint:"Dmax < 54 Gy", limit:"54 Gy" },
+        { structure:"L Lens",   constraint:"Dmax < 7 Gy", limit:"7 Gy" },
+        { structure:"R Lens",   constraint:"Dmax < 7 Gy", limit:"7 Gy" },
+        { structure:"Mandible", constraint:"Dmax < 70 Gy", limit:"70 Gy" },
+        { structure:"Oral Cavity", constraint:"Dmean < 40 Gy", limit:"40 Gy" },
+      ],
+      beamsDefault: [
+        { name:"Beam 1", gantry:0,   couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 2", gantry:51,  couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 3", gantry:102, couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 4", gantry:153, couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 5", gantry:204, couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 6", gantry:255, couch:0, collimator:0, energy:6, weight:1.0 },
+        { name:"Beam 7", gantry:306, couch:0, collimator:0, energy:6, weight:1.0 },
+      ],
+    },
+    {
+      id: "RT002", name: "Li, Mei Hua", mrn: "MRN-20240215", dob: "1965-07-22",
+      diagnosis: "Left Breast Cancer (T1N0M0)", site: "breast",
+      technique: "TomoDirect™", physician: "Dr. Wang, Jun",
+      status: "review", priority: "Medium", dueDate: "2024-04-12",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+    {
+      id: "RT003", name: "Chen, Jian Guo", mrn: "MRN-20240128", dob: "1972-11-08",
+      diagnosis: "Stage IIIA NSCLC (T2aN2M0)", site: "lung",
+      technique: "IMRT (TomoHelical™)", physician: "Dr. Chen, Li",
+      status: "planning", priority: "High", dueDate: "2024-04-08",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+    {
+      id: "RT004", name: "Wang, Lan", mrn: "MRN-20240110", dob: "1980-04-30",
+      diagnosis: "Prostate Cancer (T2cN0M0)", site: "prostate",
+      technique: "IMRT (TomoHelical™)", physician: "Dr. Liu, Fang",
+      status: "approved", priority: "Standard", dueDate: "2024-04-15",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+    {
+      id: "RT005", name: "Liu, Xiao Ming", mrn: "MRN-20240305", dob: "1955-09-18",
+      diagnosis: "C2-C4 Spine Metastasis", site: "spine",
+      technique: "SRS/SBRT", physician: "Dr. Chen, Li",
+      status: "planning", priority: "Urgent", dueDate: "2024-04-05",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+    {
+      id: "RT006", name: "Zhao, Hong", mrn: "MRN-20240312", dob: "1948-01-25",
+      diagnosis: "Brain Metastasis (3 lesions, from Lung primary)", site: "brain",
+      technique: "SRS/SBRT", physician: "Dr. Wang, Jun",
+      status: "planning", priority: "Urgent", dueDate: "2024-04-06",
+      structures: {
+        "GTV-Met1": { type:"target", color:"#ff4444", volume: 3.2, contoured: false },
+        "GTV-Met2": { type:"target", color:"#ff6b6b", volume: 1.8, contoured: false },
+        "GTV-Met3": { type:"target", color:"#ff9999", volume: 0.9, contoured: false },
+        "PTV-Met1": { type:"target", color:"#ee3333", volume: 6.1, contoured: false },
+        "PTV-Met2": { type:"target", color:"#cc4444", volume: 4.2, contoured: false },
+        "PTV-Met3": { type:"target", color:"#bb3333", volume: 2.5, contoured: false },
+        "Brain":          { type:"oar", color:"#4caf50", volume: 1420.0, contoured: false },
+        "Brain Stem":     { type:"oar", color:"#8bc34a", volume: 25.8, contoured: false },
+        "L Optic Nerve":  { type:"oar", color:"#ffc107", volume: 1.2, contoured: false },
+        "R Optic Nerve":  { type:"oar", color:"#ffb300", volume: 1.1, contoured: false },
+        "Chiasm":         { type:"oar", color:"#ff9800", volume: 0.8, contoured: false },
+        "L Cochlea":      { type:"oar", color:"#9c27b0", volume: 0.3, contoured: false },
+        "R Cochlea":      { type:"oar", color:"#7b1fa2", volume: 0.3, contoured: false },
+        "L Eye":          { type:"oar", color:"#00bcd4", volume: 7.5, contoured: false },
+        "R Eye":          { type:"oar", color:"#0097a7", volume: 7.6, contoured: false },
+        "External":       { type:"support", color:"#90a4ae", volume: 3800.0, contoured: false },
+      },
+      objectives: [
+        { structure:"PTV-Met1", type:"Min Dose", goal:"24 Gy", priority:1, weight:100 },
+        { structure:"PTV-Met2", type:"Min Dose", goal:"24 Gy", priority:1, weight:100 },
+        { structure:"PTV-Met3", type:"Min Dose", goal:"24 Gy", priority:1, weight:100 },
+        { structure:"Brain Stem", type:"Max Dose", goal:"<15 Gy", priority:1, weight:100 },
+        { structure:"Chiasm",   type:"Max Dose", goal:"<10 Gy", priority:1, weight:100 },
+        { structure:"Brain",    type:"V12Gy",    goal:"<10 cc", priority:2, weight:80 },
+      ],
+      constraints: [
+        { structure:"PTV-Met1", constraint:"D95 ≥ 95% Rx", limit:"22.8 Gy" },
+        { structure:"PTV-Met2", constraint:"D95 ≥ 95% Rx", limit:"22.8 Gy" },
+        { structure:"PTV-Met3", constraint:"D95 ≥ 95% Rx", limit:"22.8 Gy" },
+        { structure:"Brain Stem", constraint:"Dmax < 15 Gy", limit:"15 Gy" },
+        { structure:"Chiasm",   constraint:"Dmax < 10 Gy", limit:"10 Gy" },
+        { structure:"Brain",    constraint:"V12Gy < 10 cc", limit:"10 cc" },
+        { structure:"L Eye",    constraint:"Dmax < 8 Gy", limit:"8 Gy" },
+        { structure:"R Eye",    constraint:"Dmax < 8 Gy", limit:"8 Gy" },
+      ],
+      beamsDefault: [
+        { name:"Arc 1", gantry:180, couch:0,  collimator:0, energy:6, weight:1.0 },
+        { name:"Arc 2", gantry:180, couch:45, collimator:0, energy:6, weight:1.0 },
+        { name:"Arc 3", gantry:180, couch:90, collimator:0, energy:6, weight:1.0 },
+      ],
+    },
+    {
+      id: "RT007", name: "Sun, Yi Fan", mrn: "MRN-20240202", dob: "1969-06-11",
+      diagnosis: "Rectal Cancer (T3N1M0)", site: "pelvis",
+      technique: "IMRT (TomoHelical™)", physician: "Dr. Liu, Fang",
+      status: "qa", priority: "Standard", dueDate: "2024-04-18",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+    {
+      id: "RT008", name: "Huang, Xiu Ying", mrn: "MRN-20240118", dob: "1974-12-03",
+      diagnosis: "Cervical Cancer (T2bN0M0)", site: "pelvis",
+      technique: "IMRT (TomoHelical™)", physician: "Dr. Wang, Jun",
+      status: "completed", priority: "Standard", dueDate: "2024-03-28",
+      structures: {}, objectives: [], constraints: [], beamsDefault: [],
+    },
+  ];
+}
+
+// --- Initialization ---
+function _init(seed) {
+  _rng = _seededRandom(seed || 42);
+  const patients = _generatePatients(_rng);
+  window._taskState = {
+    initialized: true,
+    loggedIn: false,
+    currentUser: null,
+    currentTab: "patients",
+    patients: patients,
+    selectedPatient: null,
+    selectedPatientData: null,
+    structures: {},
+    autoContoured: false,
+    prescription: { dose: null, fractions: null, dosePerFx: null, target: null },
+    beams: [],
+    technique: "IMRT",
+    deliverySystem: "radixact",
+    optimized: false,
+    doseCalculated: false,
+    optimizationIterations: 0,
+    constraintResults: [],
+    planStatistics: {},
+    planApproved: false,
+    planSummary: "",
+    approvalTimestamp: null,
+  };
+  // Reset UI
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("mainApp").style.display = "none";
+  document.getElementById("loginUser").value = "";
+  document.getElementById("loginPass").value = "";
+  document.getElementById("loginError").style.display = "none";
+}
+
+window._medgym_init = function(seed) { _init(seed); };
+window._medgym_navigate = function(hash) {
+  if (hash) switchTab(hash.replace("#",""));
+};
+
+// --- Clock ---
+function updateClock() {
+  const now = new Date();
+  const el = document.getElementById("clockDisplay");
+  if (el) el.textContent = now.toLocaleTimeString("en-US", { hour12: false });
+}
+setInterval(updateClock, 1000);
+
+// --- Login ---
+document.getElementById("loginBtn").addEventListener("click", doLogin);
+document.getElementById("loginPass").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") doLogin();
+});
+
+function doLogin() {
+  const user = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value.trim();
+  if (user === "admin" && pass === "tps123") {
+    window._taskState.loggedIn = true;
+    window._taskState.currentUser = user;
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("mainApp").style.display = "flex";
+    document.getElementById("userBadge").textContent = user;
+    renderPatientList();
+    switchTab("patients");
+    updateClock();
+  } else {
+    document.getElementById("loginError").style.display = "block";
+  }
+}
+
+// --- Logout ---
+document.getElementById("logoutBtn").addEventListener("click", function() {
+  _init(window._taskState.initialized ? undefined : 42);
+});
+
+// --- Tab Navigation ---
+function switchTab(tabName) {
+  window._taskState.currentTab = tabName;
+  document.querySelectorAll("#tabBar .tab-item").forEach(t => {
+    t.classList.toggle("active", t.dataset.tab === tabName);
+  });
+  const tabs = ["patients","contouring","planning","optimization","evaluation","qa"];
+  const ids = ["tabPatients","tabContouring","tabPlanning","tabOptimization","tabEvaluation","tabQA"];
+  tabs.forEach((t, i) => {
+    const el = document.getElementById(ids[i]);
+    if (t === tabName) { el.classList.remove("hidden"); el.style.display = "flex"; }
+    else { el.classList.add("hidden"); el.style.display = "none"; }
+  });
+  if (tabName === "contouring") renderContouring();
+  if (tabName === "planning") renderPlanning();
+  if (tabName === "evaluation") renderEvaluation();
+}
+
+document.querySelectorAll("#tabBar .tab-item").forEach(tab => {
+  tab.addEventListener("click", function() {
+    switchTab(this.dataset.tab);
+  });
+});
+
+// --- Patient List ---
+function renderPatientList() {
+  const tbody = document.getElementById("patientTableBody");
+  const patients = window._taskState.patients;
+  const searchVal = (document.getElementById("patientSearch").value || "").toLowerCase();
+  const filterStatus = document.getElementById("filterStatus").value;
+  const filterSite = document.getElementById("filterSite").value;
+
+  let filtered = patients.filter(p => {
+    if (searchVal && !p.name.toLowerCase().includes(searchVal) && !p.id.toLowerCase().includes(searchVal) && !p.mrn.toLowerCase().includes(searchVal)) return false;
+    if (filterStatus !== "all" && p.status !== filterStatus) return false;
+    if (filterSite !== "all" && p.site !== filterSite) return false;
+    return true;
+  });
+
+  tbody.innerHTML = filtered.map(p => `
+    <tr>
+      <td style="font-weight:600; color:var(--accent-blue);">${p.id}</td>
+      <td style="font-weight:600;">${p.name}</td>
+      <td>${p.mrn}</td>
+      <td>${p.dob}</td>
+      <td style="max-width:200px;">${p.diagnosis}</td>
+      <td>${p.site.replace("_"," ")}</td>
+      <td style="font-size:11px;">${p.technique}</td>
+      <td>${p.physician}</td>
+      <td><span class="status-badge status-${p.status}">${p.status}</span></td>
+      <td style="color:${p.priority==='Urgent'?'var(--accent-red)':p.priority==='High'?'var(--accent-orange)':'var(--text-secondary)'}; font-weight:${p.priority==='Urgent'||p.priority==='High'?600:400};">${p.priority}</td>
+      <td>${p.dueDate}</td>
+      <td><button class="open-btn" onclick="openPatient('${p.id}')">Open</button></td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("patientSearch").addEventListener("input", renderPatientList);
+document.getElementById("filterStatus").addEventListener("change", renderPatientList);
+document.getElementById("filterSite").addEventListener("change", renderPatientList);
+
+function openPatient(pid) {
+  const p = window._taskState.patients.find(pt => pt.id === pid);
+  if (!p) return;
+  window._taskState.selectedPatient = pid;
+  window._taskState.selectedPatientData = p;
+
+  // Load structures
+  window._taskState.structures = {};
+  if (p.structures && Object.keys(p.structures).length > 0) {
+    window._taskState.structures = JSON.parse(JSON.stringify(p.structures));
+  }
+  window._taskState.autoContoured = false;
+  window._taskState.prescription = { dose: null, fractions: null, dosePerFx: null, target: null };
+  window._taskState.beams = p.beamsDefault ? p.beamsDefault.map((b,i) => ({...b, mu: 0, status: "ready"})) : [];
+  window._taskState.optimized = false;
+  window._taskState.doseCalculated = false;
+  window._taskState.constraintResults = [];
+  window._taskState.planStatistics = {};
+  window._taskState.planApproved = false;
+  window._taskState.planSummary = "";
+
+  // Update header
+  document.getElementById("headerPatient").innerHTML = `
+    <span class="patient-name">${p.name}</span>
+    <span class="patient-detail">ID: ${p.id}</span>
+    <span class="patient-detail">MRN: ${p.mrn}</span>
+    <span class="patient-detail">DOB: ${p.dob}</span>
+    <span class="patient-detail" style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.diagnosis}</span>
+    <span class="status-badge status-${p.status}" style="font-size:10px;">${p.status}</span>
+  `;
+  document.getElementById("statusPatientInfo").textContent = `${p.name} (${p.id})`;
+
+  switchTab("contouring");
+}
+
+// --- Contouring ---
+function renderContouring() {
+  const structs = window._taskState.structures;
+  const targets = document.getElementById("targetStructures");
+  const oars = document.getElementById("oarStructures");
+  const support = document.getElementById("supportStructures");
+  targets.innerHTML = ""; oars.innerHTML = ""; support.innerHTML = "";
+
+  Object.entries(structs).forEach(([name, s]) => {
+    const html = `
+      <div class="sidebar-item" data-struct="${name}">
+        <input type="checkbox" checked style="accent-color:${s.color};">
+        <span class="color-swatch" style="background:${s.color};"></span>
+        <span class="struct-name">${name}</span>
+        <span class="struct-status" style="background:${s.contoured ? 'rgba(76,175,80,0.2)' : 'rgba(255,152,0,0.2)'}; color:${s.contoured ? 'var(--accent-green)' : 'var(--accent-orange)'};">
+          ${s.contoured ? '✓' : '○'}
+        </span>
+        ${s.volume !== null ? `<span style="font-size:9px; color:var(--text-dim);">${s.volume}cc</span>` : ''}
+      </div>
+    `;
+    if (s.type === "target") targets.innerHTML += html;
+    else if (s.type === "oar") oars.innerHTML += html;
+    else support.innerHTML += html;
+  });
+
+  renderViewportSlice();
+}
+
+// Auto-Contour
+document.getElementById("autoContourBtn").addEventListener("click", function() {
+  if (!window._taskState.selectedPatient) return;
+  showProgress("AI Auto-Contouring", "Initializing AutoSegmentation™ engine...", function(done) {
+    const steps = [
+      "Loading CT dataset...",
+      "Registering atlas models...",
+      "Running deep learning segmentation...",
+      "Processing target volumes (GTV, CTV, PTV)...",
+      "Segmenting organs at risk...",
+      "Refining boundaries with deformable registration...",
+      "Applying smoothing filters...",
+      "Validating contour topology...",
+      "Computing volume statistics...",
+      "Finalizing contours..."
+    ];
+    let step = 0;
+    const interval = setInterval(function() {
+      if (step >= steps.length) {
+        clearInterval(interval);
+        // Mark all structures as contoured
+        Object.values(window._taskState.structures).forEach(s => { s.contoured = true; });
+        window._taskState.autoContoured = true;
+        renderContouring();
+        done();
+        return;
+      }
+      updateProgress((step + 1) / steps.length * 100, steps[step]);
+      step++;
+    }, 400);
+  });
+});
+
+// Add structure
+document.getElementById("addStructureBtn").addEventListener("click", function() {
+  document.getElementById("addStructureModal").classList.add("show");
+});
+document.getElementById("confirmAddStruct").addEventListener("click", function() {
+  const name = document.getElementById("newStructName").value.trim();
+  const type = document.getElementById("newStructType").value;
+  const color = document.getElementById("newStructColor").value;
+  if (!name) return;
+  window._taskState.structures[name] = { type, color, volume: 0, contoured: false };
+  document.getElementById("addStructureModal").classList.remove("show");
+  document.getElementById("newStructName").value = "";
+  renderContouring();
+});
+
+// --- Canvas rendering (simple simulation) ---
+function renderViewportSlice() {
+  const vs = window._viewportState || { zoom: 100, windowLevel: { w: 400, l: 40 }, fusionEnabled: false, pan: { x: 0, y: 0 }, crosshair: null, measurements: [] };
+  const slice = parseInt(document.getElementById("sliceSlider")?.value || 60);
+  ["axialCanvas","sagittalCanvas","coronalCanvas"].forEach(cid => {
+    const canvas = document.getElementById(cid);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent.style.display === "none") return;
+    const rect = parent.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    const ctx = canvas.getContext("2d");
+    const cx = canvas.width / 2 + (vs.pan?.x || 0);
+    const cy = canvas.height / 2 + (vs.pan?.y || 0);
+    const zoomFactor = vs.zoom / 100;
+
+    // ------- Window/Level affects greyscale background mapping -------
+    // Map W/L to display: Soft Tissue (W400/L40) -> normal; Lung (W1500/L-600) -> very dark; Bone (W2000/L400) -> bright
+    const wl = vs.windowLevel || { w: 400, l: 40 };
+    const bgGrey = Math.max(0, Math.min(255, Math.round(20 + (wl.l + 1024) / 2048 * 60)));
+    const bodyGrey = Math.max(0, Math.min(255, Math.round(60 + (wl.l + 1024) / 2048 * 90 + (400 - Math.min(wl.w, 2000)) * 0.02)));
+    ctx.fillStyle = `rgb(${bgGrey},${bgGrey},${bgGrey})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // ------- Simulated CT speckle (deterministic per slice) -------
+    const rng = _seededRandom(slice * 31 + cid.length);
+    ctx.save();
+    for (let i = 0; i < 200; i++) {
+      const px = rng() * canvas.width;
+      const py = rng() * canvas.height;
+      const grey = bgGrey + Math.floor(rng() * 30 - 15);
+      ctx.fillStyle = `rgb(${grey},${grey},${grey})`;
+      ctx.fillRect(px, py, 1, 1);
+    }
+    ctx.restore();
+
+    // ------- Body outline (zoomed) -------
+    const baseR = Math.min(canvas.width, canvas.height) * 0.35;
+    const rx = baseR * zoomFactor;
+    const ry = rx * (cid === "axialCanvas" ? 0.8 : 1.0);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${bodyGrey},${bodyGrey},${bodyGrey})`;
+    ctx.fill();
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // ------- Internal anatomy hint (vary by slice) -------
+    ctx.beginPath();
+    const offset = ((slice - 60) / 60) * rx * 0.15;
+    ctx.ellipse(cx + offset, cy - ry * 0.2, rx * 0.25, ry * 0.18, 0, 0, Math.PI * 2);
+    const innerGrey = Math.max(0, Math.min(255, bodyGrey + 25));
+    ctx.fillStyle = `rgb(${innerGrey},${innerGrey},${innerGrey})`;
+    ctx.fill();
+
+    // ------- Fusion overlay (MR pseudo-color when enabled) -------
+    if (vs.fusionEnabled) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = "rgba(180, 60, 200, 0.5)";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx * 0.95, ry * 0.95, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = "#ff66ff";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("MR Overlay [α=0.35]", 8, canvas.height - 22);
+    }
+
+    // ------- Contours -------
+    if (window._taskState.selectedPatient && window._taskState.autoContoured) {
+      const structs = window._taskState.structures;
+      let idx = 0;
+      const total = Object.keys(structs).length;
+      Object.entries(structs).forEach(([name, s]) => {
+        if (!s.contoured || s.type === "support") return;
+        ctx.beginPath();
+        const sr = (s.type === "target" ? 0.15 : 0.08) * rx;
+        const angle = (idx / total) * Math.PI * 2;
+        const ox = cx + Math.cos(angle) * rx * 0.4;
+        const oy = cy + Math.sin(angle) * ry * 0.4;
+        ctx.ellipse(ox, oy, sr, sr * 0.9, angle * 0.2, 0, Math.PI * 2);
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        idx++;
+      });
+    }
+
+    // ------- Crosshair (only if active or always-on default) -------
+    const showCrosshair = vs.activeTool === "Crosshair" || vs.crosshair !== false;
+    if (showCrosshair) {
+      const chx = vs.crosshair?.x ?? cx;
+      const chy = vs.crosshair?.y ?? cy;
+      ctx.strokeStyle = vs.activeTool === "Crosshair" ? "rgba(255,255,0,0.6)" : "rgba(0,255,0,0.2)";
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(chx, 0); ctx.lineTo(chx, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, chy); ctx.lineTo(canvas.width, chy); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ------- Measurements -------
+    const measurements = (vs.measurements || []).filter(m => m.canvas === cid);
+    measurements.forEach(m => {
+      ctx.strokeStyle = "#ffeb3b";
+      ctx.fillStyle = "#ffeb3b";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(m.x1, m.y1);
+      ctx.lineTo(m.x2, m.y2);
+      ctx.stroke();
+      // End markers
+      ctx.beginPath(); ctx.arc(m.x1, m.y1, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(m.x2, m.y2, 3, 0, Math.PI * 2); ctx.fill();
+      // Label
+      const dx = m.x2 - m.x1, dy = m.y2 - m.y1;
+      const distPx = Math.sqrt(dx*dx + dy*dy);
+      const distMm = (distPx / zoomFactor * 0.5).toFixed(1);
+      ctx.font = "11px sans-serif";
+      ctx.fillStyle = "#000";
+      ctx.fillRect((m.x1 + m.x2) / 2 - 22, (m.y1 + m.y2) / 2 - 8, 44, 14);
+      ctx.fillStyle = "#ffeb3b";
+      ctx.fillText(`${distMm} mm`, (m.x1 + m.x2) / 2 - 18, (m.y1 + m.y2) / 2 + 3);
+    });
+  });
+}
+
+// ------- Mouse interaction on canvases for tools -------
+["axialCanvas","sagittalCanvas","coronalCanvas"].forEach(cid => {
+  const canvas = document.getElementById(cid);
+  if (!canvas) return;
+  let measureStart = null;
+  let panning = false;
+  let panStart = null;
+  canvas.addEventListener("mousedown", function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const tool = window._viewportState.activeTool;
+    if (tool === "Measurement") {
+      measureStart = { x, y };
+    } else if (tool === "Crosshair") {
+      window._viewportState.crosshair = { x, y };
+      renderViewportSlice();
+    } else if (tool === "Window/Level") {
+      panStart = { x: e.clientX, y: e.clientY, w: window._viewportState.windowLevel.w, l: window._viewportState.windowLevel.l };
+      panning = "wl";
+    } else {
+      // Default: pan
+      panStart = { x: e.clientX, y: e.clientY, ox: window._viewportState.pan?.x || 0, oy: window._viewportState.pan?.y || 0 };
+      panning = "pan";
+    }
+  });
+  canvas.addEventListener("mousemove", function(e) {
+    if (panning === "pan" && panStart) {
+      window._viewportState.pan = { x: panStart.ox + (e.clientX - panStart.x), y: panStart.oy + (e.clientY - panStart.y) };
+      renderViewportSlice();
+    } else if (panning === "wl" && panStart) {
+      window._viewportState.windowLevel = {
+        w: Math.max(1, panStart.w + (e.clientX - panStart.x) * 4),
+        l: panStart.l + (e.clientY - panStart.y) * 2,
+      };
+      updateViewportInfo();
+      renderViewportSlice();
+    }
+  });
+  canvas.addEventListener("mouseup", function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (measureStart) {
+      window._viewportState.measurements = window._viewportState.measurements || [];
+      const dx = x - measureStart.x, dy = y - measureStart.y;
+      if (Math.sqrt(dx*dx + dy*dy) > 5) {
+        window._viewportState.measurements.push({ canvas: cid, x1: measureStart.x, y1: measureStart.y, x2: x, y2: y });
+        const distMm = (Math.sqrt(dx*dx + dy*dy) / (window._viewportState.zoom/100) * 0.5).toFixed(1);
+        showToast(`Measured: ${distMm} mm`, "success");
+        renderViewportSlice();
+      }
+      measureStart = null;
+    }
+    panning = false;
+    panStart = null;
+  });
+  canvas.addEventListener("wheel", function(e) {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 10 : -10;
+    window._viewportState.zoom = Math.max(25, Math.min(800, window._viewportState.zoom + delta));
+    updateViewportInfo();
+    renderViewportSlice();
+  }, { passive: false });
+});
+
+window.addEventListener("resize", renderViewportSlice);
+
+// Slice slider
+document.getElementById("sliceSlider").addEventListener("input", function() {
+  document.getElementById("sliceNum").textContent = this.value + "/120";
+  renderViewportSlice();
+});
+document.getElementById("brushSize").addEventListener("input", function() {
+  document.getElementById("brushSizeVal").textContent = this.value;
+});
+
+// --- Planning ---
+function renderPlanning() {
+  const state = window._taskState;
+  // Prescription fields
+  if (state.prescription.dose) {
+    document.getElementById("rxDose").value = state.prescription.dose;
+    document.getElementById("rxFractions").value = state.prescription.fractions;
+    document.getElementById("rxDosePerFx").value = state.prescription.dosePerFx ? state.prescription.dosePerFx.toFixed(2) : "";
+    document.getElementById("rxStatus").textContent = "Set";
+    document.getElementById("rxStatus").style.color = "var(--accent-green)";
+  }
+  // Target dropdown
+  const rxTarget = document.getElementById("rxTarget");
+  rxTarget.innerHTML = '<option value="">-- Select Target --</option>';
+  Object.entries(state.structures).forEach(([name, s]) => {
+    if (s.type === "target") {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      if (state.prescription.target === name) opt.selected = true;
+      rxTarget.appendChild(opt);
+    }
+  });
+  // Beam table
+  renderBeamTable();
+  // Objectives table
+  renderObjectives();
+}
+
+document.getElementById("rxDose").addEventListener("input", calcDosePerFx);
+document.getElementById("rxFractions").addEventListener("input", calcDosePerFx);
+
+function calcDosePerFx() {
+  const dose = parseFloat(document.getElementById("rxDose").value);
+  const fx = parseInt(document.getElementById("rxFractions").value);
+  if (dose && fx) {
+    document.getElementById("rxDosePerFx").value = (dose / fx).toFixed(2);
+  }
+}
+
+document.getElementById("setRxBtn").addEventListener("click", function() {
+  const dose = parseFloat(document.getElementById("rxDose").value);
+  const fx = parseInt(document.getElementById("rxFractions").value);
+  const target = document.getElementById("rxTarget").value;
+  if (!dose || !fx) return;
+  window._taskState.prescription = {
+    dose: dose,
+    fractions: fx,
+    dosePerFx: dose / fx,
+    target: target || null,
+  };
+  document.getElementById("rxStatus").textContent = "Set";
+  document.getElementById("rxStatus").style.color = "var(--accent-green)";
+});
+
+function renderBeamTable() {
+  const tbody = document.getElementById("beamTableBody");
+  const beams = window._taskState.beams;
+  tbody.innerHTML = beams.map((b, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${b.name}</td>
+      <td>${b.gantry}°</td>
+      <td>${b.couch}°</td>
+      <td>${b.collimator}°</td>
+      <td>${b.energy} MV</td>
+      <td>${b.weight.toFixed(2)}</td>
+      <td>${b.mu || '—'}</td>
+      <td><span style="color:${b.status==='ready'?'var(--accent-green)':'var(--accent-orange)'};">${b.status}</span></td>
+      <td><button class="btn-secondary" style="padding:1px 6px; font-size:10px;" onclick="removeBeam(${i})">✕</button></td>
+    </tr>
+  `).join("");
+}
+
+window.removeBeam = function(idx) {
+  window._taskState.beams.splice(idx, 1);
+  renderBeamTable();
+};
+
+document.getElementById("addBeamBtn").addEventListener("click", function() {
+  const beams = window._taskState.beams;
+  const num = beams.length + 1;
+  beams.push({
+    name: "Beam " + num,
+    gantry: Math.round(_rng() * 360),
+    couch: 0,
+    collimator: 0,
+    energy: 6,
+    weight: 1.0,
+    mu: 0,
+    status: "ready",
+  });
+  renderBeamTable();
+});
+
+document.getElementById("autoBeamBtn").addEventListener("click", function() {
+  if (window._taskState.beams.length < 5) {
+    const count = 7;
+    window._taskState.beams = [];
+    for (let i = 0; i < count; i++) {
+      window._taskState.beams.push({
+        name: "Beam " + (i + 1),
+        gantry: Math.round(i * 360 / count),
+        couch: 0,
+        collimator: 0,
+        energy: 6,
+        weight: 1.0,
+        mu: 0,
+        status: "ready",
+      });
+    }
+  }
+  renderBeamTable();
+});
+
+document.getElementById("equalSpaceBtn").addEventListener("click", function() {
+  const beams = window._taskState.beams;
+  const n = beams.length || 7;
+  for (let i = 0; i < n; i++) {
+    beams[i].gantry = Math.round(i * 360 / n);
+  }
+  renderBeamTable();
+});
+
+function renderObjectives() {
+  const tbody = document.getElementById("objectivesBody");
+  const pd = window._taskState.selectedPatientData;
+  const objectives = pd && pd.objectives ? pd.objectives : [];
+  tbody.innerHTML = objectives.map(o => `
+    <tr>
+      <td>${o.structure}</td>
+      <td>${o.type}</td>
+      <td>${o.goal}</td>
+      <td>${o.priority}</td>
+      <td>${o.weight}</td>
+    </tr>
+  `).join("");
+}
+
+// --- Optimization ---
+document.getElementById("optimizeBtn").addEventListener("click", function() {
+  if (!window._taskState.selectedPatient) return;
+  showProgress("Plan Optimization", "Initializing VoLO™ optimizer...", function(done) {
+    const log = document.getElementById("optimizationLog");
+    const messages = [
+      "[Optimizer] Loading plan parameters...",
+      "[Optimizer] Beam sinograms initialized.",
+      "[Optimizer] Starting iterative optimization...",
+      "[Optimizer] Iteration 10/100 — Cost: 245.8",
+      "[Optimizer] Iteration 20/100 — Cost: 189.3",
+      "[Optimizer] Iteration 30/100 — Cost: 142.7",
+      "[Optimizer] Iteration 40/100 — Cost: 108.4",
+      "[Optimizer] Iteration 50/100 — Cost: 87.6",
+      "[Optimizer] Iteration 60/100 — Cost: 72.1",
+      "[Optimizer] Iteration 70/100 — Cost: 63.5",
+      "[Optimizer] Iteration 80/100 — Cost: 58.2",
+      "[Optimizer] Iteration 90/100 — Cost: 55.7",
+      "[Optimizer] Iteration 100/100 — Cost: 54.3 (Converged)",
+      "[Optimizer] Optimization complete. Final cost: 54.3",
+      "[Optimizer] Computing MU values...",
+      "[Optimizer] Plan optimized successfully.",
+    ];
+    let step = 0;
+    const interval = setInterval(function() {
+      if (step >= messages.length) {
+        clearInterval(interval);
+        window._taskState.optimized = true;
+        window._taskState.optimizationIterations = 100;
+        // Set MU on beams
+        window._taskState.beams.forEach(b => { b.mu = Math.round(150 + _rng() * 300); b.status = "optimized"; });
+        document.getElementById("optStatus").textContent = "Optimized";
+        document.getElementById("optStatus").style.color = "var(--accent-green)";
+        done();
+        return;
+      }
+      log.innerHTML += `<div>${messages[step]}</div>`;
+      log.scrollTop = log.scrollHeight;
+      updateProgress((step + 1) / messages.length * 100, messages[step].substring(0, 60));
+      step++;
+    }, 250);
+  });
+});
+
+document.getElementById("calcDoseBtn").addEventListener("click", function() {
+  if (!window._taskState.optimized) {
+    alert("Please optimize the plan first.");
+    return;
+  }
+  showProgress("Dose Calculation", "Initializing collapsed cone convolution...", function(done) {
+    const log = document.getElementById("optimizationLog");
+    const messages = [
+      "[Dose Calc] Preparing dose grid (3.9mm)...",
+      "[Dose Calc] Computing beam dose contributions...",
+      "[Dose Calc] Processing Beam 1... done.",
+      "[Dose Calc] Processing Beam 2... done.",
+      "[Dose Calc] Processing Beam 3... done.",
+      "[Dose Calc] Applying heterogeneity corrections...",
+      "[Dose Calc] Summing beam contributions...",
+      "[Dose Calc] Computing DVH curves...",
+      "[Dose Calc] Evaluating dose constraints...",
+      "[Dose Calc] Dose calculation complete.",
+    ];
+    let step = 0;
+    const interval = setInterval(function() {
+      if (step >= messages.length) {
+        clearInterval(interval);
+        window._taskState.doseCalculated = true;
+        document.getElementById("statusCalc").innerHTML = '<span class="status-dot green"></span> Calc Complete';
+        // Generate constraint results
+        generateConstraintResults();
+        generatePlanStatistics();
+        log.innerHTML += '<div style="color:#4caf50;">[System] Dose calculation finished. Proceed to Evaluation tab.</div>';
+        log.scrollTop = log.scrollHeight;
+        done();
+        return;
+      }
+      log.innerHTML += `<div>${messages[step]}</div>`;
+      log.scrollTop = log.scrollHeight;
+      updateProgress((step + 1) / messages.length * 100, messages[step].substring(0, 60));
+      step++;
+    }, 350);
+  });
+});
+
+function generateConstraintResults() {
+  const pd = window._taskState.selectedPatientData;
+  if (!pd || !pd.constraints) return;
+  window._taskState.constraintResults = pd.constraints.map(c => {
+    const limitVal = parseFloat(c.limit);
+    let achieved, met;
+    if (c.constraint.includes("≥") || c.constraint.includes("D95")) {
+      achieved = limitVal + (_rng() * 4 - 1);
+      met = achieved >= limitVal * 0.98;
+    } else if (c.constraint.includes("<") || c.constraint.includes("Dmax") || c.constraint.includes("Dmean")) {
+      achieved = limitVal * (0.55 + _rng() * 0.5);
+      met = achieved < limitVal;
+    } else {
+      achieved = limitVal * (0.6 + _rng() * 0.5);
+      met = achieved <= limitVal;
+    }
+    return {
+      structure: c.structure,
+      constraint: c.constraint,
+      limit: c.limit,
+      achieved: achieved.toFixed(1) + (c.limit.includes("cc") ? " cc" : " Gy"),
+      margin: (met ? "+" : "") + (limitVal - achieved).toFixed(1),
+      met: met,
+    };
+  });
+}
+
+function generatePlanStatistics() {
+  const rx = window._taskState.prescription;
+  if (!rx.dose) return;
+  window._taskState.planStatistics = {
+    totalMU: window._taskState.beams.reduce((sum, b) => sum + (b.mu || 0), 0),
+    estimatedTime: (3 + _rng() * 8).toFixed(1) + " min",
+    homogeneityIndex: (0.06 + _rng() * 0.08).toFixed(3),
+    conformityIndex: (0.85 + _rng() * 0.12).toFixed(3),
+    maxDose: (rx.dose * (1.05 + _rng() * 0.05)).toFixed(1) + " Gy",
+    meanPTVDose: (rx.dose * (0.98 + _rng() * 0.04)).toFixed(1) + " Gy",
+    doseGrid: "3.9 mm",
+    algorithm: "Collapsed Cone",
+  };
+}
+
+document.getElementById("resetOptBtn").addEventListener("click", function() {
+  window._taskState.optimized = false;
+  window._taskState.doseCalculated = false;
+  window._taskState.constraintResults = [];
+  window._taskState.planStatistics = {};
+  window._taskState.planApproved = false;
+  document.getElementById("optimizationLog").innerHTML = '<div style="color:var(--text-dim);">[System] Reset. Ready for optimization.</div>';
+  document.getElementById("optStatus").textContent = "Ready";
+  document.getElementById("optStatus").style.color = "";
+});
+
+// --- Evaluation ---
+function renderEvaluation() {
+  const state = window._taskState;
+  // Constraint table
+  const tbody = document.getElementById("constraintBody");
+  const results = state.constraintResults;
+  let passed = 0, failed = 0;
+  tbody.innerHTML = results.map(r => {
+    if (r.met) passed++; else failed++;
+    return `
+      <tr>
+        <td>${r.structure}</td>
+        <td>${r.constraint}</td>
+        <td>${r.limit}</td>
+        <td style="font-weight:600;">${r.achieved}</td>
+        <td style="color:${r.met?'var(--accent-green)':'var(--accent-red)'};">${r.margin}</td>
+        <td class="${r.met?'constraint-pass':'constraint-fail'}" style="font-weight:600;">${r.met?'✓ PASS':'✗ FAIL'}</td>
+      </tr>
+    `;
+  }).join("");
+  document.getElementById("constraintSummary").innerHTML = results.length > 0
+    ? `<span style="color:var(--accent-green);">${passed} Passed</span> &nbsp;|&nbsp; <span style="color:var(--accent-red);">${failed} Failed</span>`
+    : '<span style="color:var(--text-dim);">No results — calculate dose first</span>';
+
+  // Plan statistics
+  const stats = state.planStatistics;
+  const statsDiv = document.getElementById("planStats");
+  if (stats.totalMU) {
+    statsDiv.innerHTML = [
+      { label:"Total MU", value: stats.totalMU },
+      { label:"Est. Tx Time", value: stats.estimatedTime },
+      { label:"HI", value: stats.homogeneityIndex },
+      { label:"CI", value: stats.conformityIndex },
+      { label:"Max Dose", value: stats.maxDose },
+      { label:"Mean PTV Dose", value: stats.meanPTVDose },
+      { label:"Dose Grid", value: stats.doseGrid },
+      { label:"Algorithm", value: stats.algorithm },
+    ].map(s => `
+      <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:3px; padding:8px; text-align:center;">
+        <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">${s.label}</div>
+        <div style="font-size:14px; font-weight:600;">${s.value}</div>
+      </div>
+    `).join("");
+  }
+
+  // Dose summary panel
+  const dosePanel = document.getElementById("doseSummaryPanel");
+  if (state.doseCalculated) {
+    const rx = state.prescription;
+    dosePanel.innerHTML = `
+      <div>Rx Dose: <strong>${rx.dose} Gy</strong></div>
+      <div>Fractions: <strong>${rx.fractions} fx</strong></div>
+      <div>Dose/Fx: <strong>${rx.dosePerFx ? rx.dosePerFx.toFixed(2) : '—'} Gy</strong></div>
+      <div>Technique: <strong>${state.technique}</strong></div>
+      <div>Beams: <strong>${state.beams.length}</strong></div>
+      <div>Max Dose: <strong>${stats.maxDose || '—'}</strong></div>
+      <div>CI: <strong>${stats.conformityIndex || '—'}</strong></div>
+    `;
+  } else {
+    dosePanel.innerHTML = '<div style="color:var(--text-dim);">Calculate dose to see summary.</div>';
+  }
+
+  // Plan history
+  const historyPanel = document.getElementById("planHistoryPanel");
+  historyPanel.innerHTML = state.planApproved
+    ? `<div>✓ Plan approved at ${state.approvalTimestamp}</div>`
+    : state.doseCalculated
+    ? '<div>Dose calculated — awaiting approval</div>'
+    : state.optimized
+    ? '<div>Optimized — dose calc needed</div>'
+    : '<div>No plan activity</div>';
+
+  // DVH (simple canvas render)
+  renderDVH();
+}
+
+function renderDVH() {
+  const canvas = document.getElementById("dvhCanvas");
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const w = canvas.width, h = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const pw = w - pad.left - pad.right;
+  const ph = h - pad.top - pad.bottom;
+
+  // Grid
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 10; i++) {
+    const x = pad.left + (pw * i / 10);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + ph); ctx.stroke();
+    const y = pad.top + (ph * i / 10);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + pw, y); ctx.stroke();
+  }
+
+  // Axes labels
+  ctx.fillStyle = "var(--text-dim)";
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = "#6a7280";
+  ctx.textAlign = "center";
+  ctx.fillText("Dose (Gy)", pad.left + pw / 2, h - 4);
+  ctx.save();
+  ctx.translate(12, pad.top + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("Volume (%)", 0, 0);
+  ctx.restore();
+
+  if (!window._taskState.doseCalculated) {
+    ctx.fillStyle = "#555";
+    ctx.font = "14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No dose data — calculate dose first", w / 2, h / 2);
+    return;
+  }
+
+  // Draw DVH curves for key structures
+  const structs = window._taskState.structures;
+  const rx = window._taskState.prescription.dose || 70;
+  const legend = document.getElementById("dvhLegend");
+  legend.innerHTML = "";
+
+  let curveIdx = 0;
+  Object.entries(structs).forEach(([name, s]) => {
+    if (s.type === "support") return;
+    const isTarget = s.type === "target";
+    // Simple sigmoid-like DVH curve
+    ctx.beginPath();
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 1.5;
+    const maxDose = isTarget ? rx * 1.1 : rx * (0.3 + _rng() * 0.5);
+    for (let i = 0; i <= 100; i++) {
+      const dose = (i / 100) * rx * 1.2;
+      let vol;
+      if (isTarget) {
+        // Steep drop around Rx dose
+        vol = 100 / (1 + Math.exp((dose - rx * 0.98) / (rx * 0.03)));
+      } else {
+        // Gradual drop
+        vol = 100 / (1 + Math.exp((dose - maxDose * 0.5) / (maxDose * 0.12)));
+      }
+      const x = pad.left + (dose / (rx * 1.2)) * pw;
+      const y = pad.top + (1 - vol / 100) * ph;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    legend.innerHTML += `<span style="display:flex; align-items:center; gap:3px;"><span style="width:10px; height:3px; background:${s.color}; display:inline-block;"></span>${name}</span>`;
+    curveIdx++;
+  });
+}
+
+// --- Plan Approval ---
+document.getElementById("approvePlanBtn").addEventListener("click", function() {
+  document.getElementById("approveConfirmModal").classList.add("show");
+});
+
+document.getElementById("confirmApproveBtn").addEventListener("click", function() {
+  window._taskState.planApproved = true;
+  window._taskState.planSummary = document.getElementById("planSummary").value;
+  window._taskState.approvalTimestamp = new Date().toISOString();
+  document.getElementById("approveConfirmModal").classList.remove("show");
+
+  const statusDiv = document.getElementById("approvalStatus");
+  statusDiv.style.display = "block";
+  statusDiv.style.color = "var(--accent-green)";
+  statusDiv.innerHTML = "✓ Plan approved by " + (window._taskState.currentUser || "admin") +
+    " at " + window._taskState.approvalTimestamp +
+    ". Plan locked and sent to iDMS™ for delivery.";
+
+  renderEvaluation();
+});
+
+document.getElementById("rejectPlanBtn").addEventListener("click", function() {
+  window._taskState.planApproved = false;
+  const statusDiv = document.getElementById("approvalStatus");
+  statusDiv.style.display = "block";
+  statusDiv.style.color = "var(--accent-red)";
+  statusDiv.innerHTML = "✗ Plan rejected. Please revise and re-optimize.";
+});
+
+// --- Progress helper ---
+function showProgress(title, detail, callback) {
+  const overlay = document.getElementById("progressOverlay");
+  document.getElementById("progressTitle").textContent = title;
+  document.getElementById("progressDetail").textContent = detail;
+  document.getElementById("progressBar").style.width = "0%";
+  document.getElementById("progressPercent").textContent = "0%";
+  overlay.classList.add("show");
+  callback(function() {
+    overlay.classList.remove("show");
+  });
+}
+
+function updateProgress(pct, detail) {
+  document.getElementById("progressBar").style.width = pct + "%";
+  document.getElementById("progressPercent").textContent = Math.round(pct) + "%";
+  if (detail) document.getElementById("progressDetail").textContent = detail;
+}
+
+// --- QA stubs ---
+document.getElementById("runDQABtn").addEventListener("click", function() {
+  document.getElementById("qaResults").innerHTML = '<div style="color:var(--accent-green);">DQA: PASS — All beam parameters within tolerance (γ 3%/3mm: 98.2% pass rate)</div>';
+});
+document.getElementById("runPatientQABtn").addEventListener("click", function() {
+  document.getElementById("qaResults").innerHTML = '<div style="color:var(--accent-green);">Patient QA: PASS — Ion chamber: +1.2%, Film dosimetry: γ 3%/3mm 97.8%</div>';
+});
+document.getElementById("runMachineQABtn").addEventListener("click", function() {
+  document.getElementById("qaResults").innerHTML = '<div style="color:var(--accent-green);">Machine QA: PASS — Output constancy ±0.5%, MLC positional accuracy ±0.2mm</div>';
+});
+
+// --- Delivery / technique change ---
+document.getElementById("technique").addEventListener("change", function() {
+  window._taskState.technique = this.value;
+});
+document.getElementById("deliverySystem").addEventListener("change", function() {
+  window._taskState.deliverySystem = this.value;
+  const label = this.options[this.selectedIndex].text;
+  document.getElementById("statusDelivery").innerHTML = `<span class="status-dot green"></span> ${label.split("(")[0].trim()} Online`;
+});
+
+// --- Treatment Schedule in QA tab ---
+function updateTxSchedule() {
+  const el = document.getElementById("txSchedule");
+  const state = window._taskState;
+  if (!state.planApproved || !state.prescription.dose) {
+    el.innerHTML = "No active treatment plan.";
+    return;
+  }
+  const rx = state.prescription;
+  let html = `<div style="margin-bottom:8px; font-weight:600; color:var(--accent-blue);">Treatment Schedule — ${state.selectedPatient}</div>`;
+  html += `<div>Prescription: ${rx.dose} Gy / ${rx.fractions} fx (${rx.dosePerFx.toFixed(2)} Gy/fx)</div>`;
+  html += `<div>Technique: ${state.technique} | System: ${state.deliverySystem}</div>`;
+  html += `<div style="margin-top:8px;">`;
+  for (let i = 1; i <= Math.min(rx.fractions, 10); i++) {
+    html += `<div style="display:flex; gap:8px; padding:2px 0;">
+      <span style="width:60px;">Fx ${i}/${rx.fractions}</span>
+      <span style="color:var(--text-dim);">Scheduled</span>
+    </div>`;
+  }
+  if (rx.fractions > 10) html += `<div style="color:var(--text-dim);">... and ${rx.fractions - 10} more fractions</div>`;
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// Watch for tab changes to update schedule
+const origSwitchTab = switchTab;
+
+// ------------------------------------------------------------------
+// Toast notifications + viewport state for previously-inert buttons
+// ------------------------------------------------------------------
+(function ensureToastContainer() {
+  if (document.getElementById("toastContainer")) return;
+  const c = document.createElement("div");
+  c.id = "toastContainer";
+  c.style.cssText = "position:fixed; top:60px; right:16px; z-index:2000; display:flex; flex-direction:column; gap:8px; pointer-events:none;";
+  document.body.appendChild(c);
+})();
+
+function showToast(message, type) {
+  const c = document.getElementById("toastContainer");
+  if (!c) return;
+  const colors = {
+    info: "var(--accent-blue)",
+    success: "var(--accent-green)",
+    warn: "var(--accent-orange)",
+    error: "var(--accent-red)",
+  };
+  const t = document.createElement("div");
+  t.style.cssText = `background:var(--bg-secondary); border:1px solid ${colors[type]||colors.info}; border-left:3px solid ${colors[type]||colors.info}; color:var(--text-primary); padding:8px 14px; border-radius:4px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,0.4); min-width:220px; max-width:340px; opacity:0; transform:translateX(20px); transition:all 0.25s; pointer-events:auto;`;
+  t.textContent = message;
+  c.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity = "1"; t.style.transform = "translateX(0)"; });
+  setTimeout(() => {
+    t.style.opacity = "0";
+    t.style.transform = "translateX(20px)";
+    setTimeout(() => t.remove(), 300);
+  }, 2400);
+}
+
+// Viewport state for zoom/pan/W-L/tools
+window._viewportState = {
+  zoom: 100,
+  layout: "2x2",
+  activeTool: null,
+  windowLevel: { w: 400, l: 40 },
+  fusionEnabled: false,
+  pan: { x: 0, y: 0 },
+  crosshair: null,
+  measurements: [],
+  history: [],
+  redoStack: [],
+};
+
+function _vsSnapshot() {
+  return JSON.stringify({
+    zoom: window._viewportState.zoom,
+    windowLevel: window._viewportState.windowLevel,
+    pan: window._viewportState.pan,
+    measurements: window._viewportState.measurements,
+    crosshair: window._viewportState.crosshair,
+    fusionEnabled: window._viewportState.fusionEnabled,
+  });
+}
+function _vsPushHistory() {
+  window._viewportState.history.push(_vsSnapshot());
+  if (window._viewportState.history.length > 50) window._viewportState.history.shift();
+  window._viewportState.redoStack = [];
+}
+function _vsRestore(snap) {
+  const s = JSON.parse(snap);
+  Object.assign(window._viewportState, s);
+  updateViewportInfo();
+  renderViewportSlice();
+}
+
+function updateViewportInfo() {
+  const vs = window._viewportState;
+  const zoomEls = document.querySelectorAll(".vp-info-right");
+  zoomEls.forEach(el => { el.textContent = `Zoom: ${vs.zoom}%`; });
+  const wlEls = document.querySelectorAll(".vp-info");
+  wlEls.forEach(el => {
+    if (el.innerHTML.includes("W:")) {
+      const slice = el.innerHTML.includes("Slice") ? `<br>Slice: ${document.getElementById("sliceSlider")?.value || 60}/120` : "";
+      el.innerHTML = `W: ${Math.round(vs.windowLevel.w)} L: ${Math.round(vs.windowLevel.l)}${slice}`;
+    }
+  });
+}
+
+function setActiveTool(btnId, toolName) {
+  // Clear active state on toolbar buttons
+  document.querySelectorAll("#mainToolbar .toolbar-btn").forEach(b => b.classList.remove("active"));
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.add("active");
+  window._viewportState.activeTool = toolName;
+  showToast(`${toolName} tool active`, "info");
+}
+
+// --- Top toolbar handlers ---
+document.getElementById("toolUndo").addEventListener("click", function() {
+  const h = window._viewportState.history;
+  if (h.length === 0) { showToast("Nothing to undo", "warn"); return; }
+  window._viewportState.redoStack.push(_vsSnapshot());
+  _vsRestore(h.pop());
+  showToast("Undo", "info");
+});
+document.getElementById("toolRedo").addEventListener("click", function() {
+  const r = window._viewportState.redoStack;
+  if (r.length === 0) { showToast("Nothing to redo", "warn"); return; }
+  window._viewportState.history.push(_vsSnapshot());
+  _vsRestore(r.pop());
+  showToast("Redo", "info");
+});
+
+document.getElementById("toolZoomIn").addEventListener("click", function() {
+  _vsPushHistory();
+  window._viewportState.zoom = Math.min(800, window._viewportState.zoom + 25);
+  updateViewportInfo();
+  renderViewportSlice();
+  showToast(`Zoom: ${window._viewportState.zoom}%`, "info");
+});
+document.getElementById("toolZoomOut").addEventListener("click", function() {
+  _vsPushHistory();
+  window._viewportState.zoom = Math.max(25, window._viewportState.zoom - 25);
+  updateViewportInfo();
+  renderViewportSlice();
+  showToast(`Zoom: ${window._viewportState.zoom}%`, "info");
+});
+document.getElementById("toolReset").addEventListener("click", function() {
+  _vsPushHistory();
+  window._viewportState.zoom = 100;
+  window._viewportState.windowLevel = { w: 400, l: 40 };
+  window._viewportState.pan = { x: 0, y: 0 };
+  window._viewportState.measurements = [];
+  window._viewportState.crosshair = null;
+  window._viewportState._wlIdx = 0;
+  updateViewportInfo();
+  renderViewportSlice();
+  showToast("View reset", "success");
+});
+
+document.getElementById("toolMeasure").addEventListener("click", () => setActiveTool("toolMeasure", "Measurement"));
+document.getElementById("toolCrosshair").addEventListener("click", () => setActiveTool("toolCrosshair", "Crosshair"));
+document.getElementById("toolWL").addEventListener("click", function() {
+  setActiveTool("toolWL", "Window/Level");
+  // Cycle through common presets
+  const presets = [
+    { w: 400, l: 40,  name: "Soft Tissue" },
+    { w: 1500, l: -600, name: "Lung" },
+    { w: 2000, l: 400, name: "Bone" },
+    { w: 80, l: 40,   name: "Brain" },
+  ];
+  const cur = window._viewportState._wlIdx || 0;
+  const next = (cur + 1) % presets.length;
+  window._viewportState._wlIdx = next;
+  window._viewportState.windowLevel = { w: presets[next].w, l: presets[next].l };
+  updateViewportInfo();
+  showToast(`W/L preset: ${presets[next].name} (W:${presets[next].w}/L:${presets[next].l})`, "info");
+});
+
+document.getElementById("toolLayout1").addEventListener("click", function() {
+  document.querySelectorAll("#mainToolbar .toolbar-btn").forEach(b => {
+    if (b.id === "toolLayout1" || b.id === "toolLayout2") b.classList.remove("active");
+  });
+  this.classList.add("active");
+  window._viewportState.layout = "1x1";
+  // Show only axial
+  const axial = document.getElementById("vpAxial");
+  const sag = document.getElementById("vpSagittal");
+  const cor = document.getElementById("vpCoronal");
+  if (sag && cor && axial) {
+    sag.style.display = "none";
+    cor.style.display = "none";
+    axial.style.flex = "1";
+  }
+  renderViewportSlice();
+  showToast("Layout: 1×1 (Axial only)", "info");
+});
+document.getElementById("toolLayout2").addEventListener("click", function() {
+  document.querySelectorAll("#mainToolbar .toolbar-btn").forEach(b => {
+    if (b.id === "toolLayout1" || b.id === "toolLayout2") b.classList.remove("active");
+  });
+  this.classList.add("active");
+  window._viewportState.layout = "2x2";
+  const axial = document.getElementById("vpAxial");
+  const sag = document.getElementById("vpSagittal");
+  const cor = document.getElementById("vpCoronal");
+  if (sag && cor && axial) {
+    sag.style.display = "";
+    cor.style.display = "";
+    axial.style.flex = "";
+  }
+  renderViewportSlice();
+  showToast("Layout: 2×2 (Multi-plane)", "info");
+});
+
+document.getElementById("toolFusion").addEventListener("click", function() {
+  window._viewportState.fusionEnabled = !window._viewportState.fusionEnabled;
+  this.classList.toggle("active", window._viewportState.fusionEnabled);
+  showToast(`Image Fusion: ${window._viewportState.fusionEnabled ? "ON (CT + MR overlay)" : "OFF"}`, "info");
+});
+document.getElementById("toolSnapshot").addEventListener("click", function() {
+  // Real snapshot: download axial canvas as PNG
+  const canvas = document.getElementById("axialCanvas");
+  if (!canvas) { showToast("No viewport to snapshot", "warn"); return; }
+  try {
+    const dataUrl = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `tps-snapshot-${ts}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast("Snapshot saved as PNG", "success");
+  } catch (e) {
+    showToast("Snapshot failed: " + e.message, "error");
+  }
+});
+
+// --- Contouring sub-toolbar handlers ---
+const contourTools = [
+  ["contourDraw", "Freehand Draw"],
+  ["contourBrush", "Brush"],
+  ["contourEraser", "Eraser"],
+  ["contourThreshold", "Threshold"],
+  ["contourInterpolate", "Interpolate"],
+  ["contourSmooth", "Smooth"],
+];
+contourTools.forEach(([id, name]) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("click", function() {
+    document.querySelectorAll("#tabContouring .toolbar-btn").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    window._viewportState.activeTool = name;
+    showToast(`${name} tool active`, "info");
+  });
+});
+
+// --- Import contours / structure ---
+const importBtn = document.getElementById("importContBtn");
+if (importBtn) importBtn.addEventListener("click", () => showToast("DICOM RT Structure Set import dialog opened", "info"));
+
+// --- DVH controls ---
+const dvhCum = document.getElementById("dvhCumulative");
+if (dvhCum) dvhCum.addEventListener("click", function() {
+  this.classList.add("active");
+  const diff = document.getElementById("dvhDifferential");
+  if (diff) diff.classList.remove("active");
+  renderDVH();
+  showToast("DVH: Cumulative view", "info");
+});
+const dvhDiff = document.getElementById("dvhDifferential");
+if (dvhDiff) dvhDiff.addEventListener("click", function() {
+  this.classList.add("active");
+  const cum = document.getElementById("dvhCumulative");
+  if (cum) cum.classList.remove("active");
+  showToast("DVH: Differential view", "info");
+});
+const exportDvh = document.getElementById("exportDVH");
+if (exportDvh) exportDvh.addEventListener("click", () => showToast("DVH data exported (CSV)", "success"));
+
+// --- Reports ---
+const reports = [
+  ["reportPlanBtn",  "Plan report PDF generated"],
+  ["reportDVHBtn",   "DVH data exported (CSV)"],
+  ["reportDICOMBtn", "DICOM RT Plan + Dose + Structure Set exported"],
+  ["reportOISBtn",   "Plan transmitted to OIS via Connect"],
+];
+reports.forEach(([id, msg]) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("click", () => showToast(msg, "success"));
+});
+
+// --- Login error auto-clear on input ---
+["loginUser","loginPass"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", () => {
+    document.getElementById("loginError").style.display = "none";
+  });
+});
+
+// --- Init on load ---
+document.addEventListener("DOMContentLoaded", function() {
+  _init(42);
+});
+</script>
+</body>
+</html>

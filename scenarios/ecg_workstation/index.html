@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: ECG Workstation (CardioView – 12-Lead Resting ECG)
+
+  REAL-WORLD REFERENCES:
+  1. Welch Allyn CardioPerfect Workstation (DIR 80012336 Ver. E)
+     - Menu bar: File / Edit / View / Tools / Module / Help
+     - Search area with Patient tab, Search tab (search patterns)
+     - Patient card: General / Address / History tabs
+     - Test modules: Rest ECG, Exercise ECG, Spirometry, ABP, Mini Holter
+     - Worklist with status (Unconfirmed / Confirmed)
+     - ECG Viewer with 12-lead waveform, measurements, interpretation
+     - Reporting with findings/impression, confirm/unconfirm workflow
+     - Print: single view / selected formats / preview
+     - Export: current test / all tests, XML / TIF / PDF / TFL
+     - Search patterns: Patient search / Test search wizards
+     - Settings: General / Print / Mail tabs
+     - Telemedicine: Send / Receive / Inbox / Outbox
+  2. GE MAC 5500 HD / Philips PageWriter TC70
+  3. AHA/ACC 2009 ECG Standardization
+  4. IEC 60601-2-25
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardioView ECG Workstation</title>
+<style>
+:root{--bg:#0a0a10;--panel:#12121c;--panel2:#181828;--border:#20203a;--border2:#2a2a4a;
+--text:#c8c8e0;--text-dim:#5a5a7a;--text-light:#e0e0f0;
+--accent:#e67e22;--accent2:#2980b9;--accent3:#8e44ad;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;
+--row-hover:rgba(230,126,34,0.06);--row-selected:rgba(230,126,34,0.12);
+--ecg-green:#00e676}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);font-size:12px;overflow:hidden;height:100vh}
+
+/* ─── Login ─── */
+#loginPage{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#0a0a18 0%,#14142a 100%)}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:40px;width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.login-box h1{color:var(--accent);font-size:22px;margin-bottom:4px;letter-spacing:1px}
+.login-box .subtitle{color:var(--text-dim);font-size:11px;margin-bottom:4px}
+.login-box .version{color:var(--text-dim);font-size:10px;margin-bottom:18px}
+.login-box input{width:100%;padding:10px 12px;margin:5px 0;background:#0a0a12;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px}
+.login-box input:focus{outline:none;border-color:var(--accent)}
+.login-box .login-row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.login-box .login-row select{flex:1;padding:8px;background:#0a0a12;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px}
+.login-box button{width:100%;padding:12px;margin-top:14px;background:var(--accent);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:background .2s}
+.login-box button:hover{background:#d35400}
+.login-status{display:flex;gap:12px;margin-top:16px;justify-content:center;font-size:10px;color:var(--text-dim)}
+.login-status .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:3px}
+.dot-green{background:var(--success)}.dot-yellow{background:var(--warning)}.dot-red{background:var(--danger)}
+
+/* ─── Main App ─── */
+#mainApp{display:none;height:100vh;flex-direction:column}
+/* Title / Menu Bar */
+.title-bar{display:flex;align-items:center;padding:2px 8px;background:linear-gradient(180deg,#18182a,#10101e);border-bottom:1px solid var(--border);height:28px}
+.title-bar .app-name{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:1px;margin-right:18px}
+.menu-bar{display:flex;gap:0}
+.menu-bar .menu-item{padding:4px 12px;color:var(--text);font-size:11px;cursor:pointer;position:relative;border-radius:3px}
+.menu-bar .menu-item:hover{background:rgba(230,126,34,.12);color:var(--accent)}
+.dropdown{position:absolute;top:100%;left:0;background:var(--panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.5);display:none;min-width:200px;z-index:900}
+.dropdown.show{display:block}
+.dropdown .dd-item{padding:6px 16px;font-size:11px;cursor:pointer;color:var(--text);display:flex;justify-content:space-between}
+.dropdown .dd-item:hover{background:var(--row-hover);color:var(--accent)}
+.dropdown .dd-item.disabled{color:var(--text-dim);pointer-events:none}
+.dropdown .dd-sep{height:1px;background:var(--border);margin:2px 0}
+.dropdown .dd-shortcut{color:var(--text-dim);font-size:10px;margin-left:20px}
+.title-bar .sys-info{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:10px;color:var(--text-dim)}
+.title-bar .sys-info span{display:flex;align-items:center;gap:4px}
+
+/* Toolbar */
+.tool-bar{display:flex;gap:2px;padding:3px 8px;background:#0e0e1a;border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.tb-btn{padding:4px 10px;border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:10px;background:transparent;color:var(--text-dim);transition:all .15s;white-space:nowrap}
+.tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tb-btn.active{background:rgba(230,126,34,.15);border-color:var(--accent);color:var(--accent)}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 6px}
+
+/* ─── Layout: Search + Workspace ─── */
+.main-body{flex:1;display:flex;overflow:hidden}
+/* Search Area (left sidebar) */
+.search-area{width:260px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sa-tabs{display:flex;border-bottom:1px solid var(--border);background:#0e0e1a}
+.sa-tab{flex:1;padding:6px 4px;text-align:center;font-size:10px;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent}
+.sa-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* Patient Tab */
+.sa-content{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.sa-search-box{padding:6px 8px;border-bottom:1px solid var(--border)}
+.sa-search-box label{font-size:10px;color:var(--text-dim)}
+.sa-search-box input{width:100%;padding:5px 8px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;margin-top:3px}
+.sa-search-box input:focus{outline:none;border-color:var(--accent)}
+.sa-search-box .go-btn{margin-top:4px;padding:3px 12px;background:var(--accent);border:none;border-radius:3px;color:#fff;font-size:10px;cursor:pointer}
+.sa-search-box .go-btn:hover{background:#d35400}
+.sa-list-title{padding:5px 8px;background:#0e0e1a;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.sa-list{flex:1;overflow-y:auto}
+.sa-list-item{padding:5px 8px;border-bottom:1px solid rgba(32,32,58,.4);cursor:pointer;font-size:11px;display:flex;justify-content:space-between}
+.sa-list-item:hover{background:var(--row-hover)}
+.sa-list-item.selected{background:var(--row-selected);border-left:3px solid var(--accent)}
+.sa-test-list{max-height:200px;overflow-y:auto}
+/* Search Pattern Tab */
+.sa-pattern-list{flex:1;overflow-y:auto}
+.sa-pattern-item{padding:5px 8px;border-bottom:1px solid rgba(32,32,58,.4);cursor:pointer;font-size:11px;color:var(--text-dim)}
+.sa-pattern-item:hover{background:var(--row-hover);color:var(--text)}
+
+/* ─── Workspace Area ─── */
+.workspace{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ─── Nav Tabs (inside workspace) ─── */
+nav{display:flex;background:#0c0c16;border-bottom:1px solid var(--border)}
+nav button{padding:7px 18px;background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;border-bottom:2px solid transparent;transition:all .15s}
+nav button:hover{color:var(--text)}
+nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* Content */
+.ws-content{flex:1;overflow:hidden;position:relative}
+
+/* ─── Tables ─── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:#0e0e1a;padding:6px 8px;text-align:left;font-size:10px;color:var(--text-dim);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.5px;user-select:none}
+.tbl td{padding:5px 8px;border-bottom:1px solid rgba(32,32,58,.5);font-size:11px;cursor:pointer}
+.tbl tr:hover td{background:var(--row-hover)}
+.tbl tr.selected td{background:var(--row-selected)}
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-block}
+.badge-unconfirmed{background:rgba(243,156,18,.15);color:var(--warning)}
+.badge-confirmed{background:rgba(39,174,96,.15);color:var(--success)}
+.badge-critical{background:rgba(192,57,43,.2);color:var(--danger);animation:pulse 1.5s infinite}
+.badge-pending{background:rgba(142,68,173,.15);color:var(--accent3)}
+.badge-stat{background:rgba(192,57,43,.2);color:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ─── Worklist ─── */
+.wl-toolbar{display:flex;gap:4px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.wl-search{display:flex;gap:6px;padding:6px 8px;background:var(--panel2);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.wl-search label{font-size:10px;color:var(--text-dim);white-space:nowrap}
+.wl-search input,.wl-search select{padding:4px 6px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px}
+.wl-search input{width:110px}
+.wl-filter-bar{display:flex;gap:2px;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--border)}
+.wl-filter-btn{padding:3px 12px;border:none;background:transparent;color:var(--text-dim);font-size:10px;cursor:pointer;border-radius:3px}
+.wl-filter-btn.active{background:rgba(230,126,34,.15);color:var(--accent)}
+
+/* ─── ECG Viewer ─── */
+.viewer-layout{display:flex;height:100%}
+.viewer-main{flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden}
+.viewer-header{display:flex;justify-content:space-between;padding:6px 12px;background:#0a0a14;border-bottom:1px solid var(--border);font-size:10px;color:var(--text-dim)}
+.viewer-canvas-wrap{flex:1;position:relative;overflow:hidden}
+.viewer-canvas-wrap canvas{display:block;width:100%;height:100%}
+.lead-label{position:absolute;color:var(--ecg-green);font-size:9px;font-family:'Courier New',monospace;opacity:.8}
+.viewer-controls{display:flex;gap:4px;padding:6px 8px;background:#0a0a14;border-top:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.viewer-controls label{font-size:10px;color:var(--text-dim);margin-right:2px}
+.viewer-controls select{padding:3px 6px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px}
+/* Measurements Sidebar */
+.meas-sidebar{width:280px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.meas-section{border-bottom:1px solid var(--border);padding:10px 12px}
+.meas-section h4{color:var(--accent);font-size:11px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.meas-row{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}
+.meas-row .label{color:var(--text-dim)}
+.meas-row .value{color:var(--text-light);font-weight:600}
+.meas-row .value.abnormal{color:var(--danger)}
+.meas-row .value.critical{color:var(--danger);font-weight:700;animation:pulse 1.5s infinite}
+/* Interpretation */
+.interp-section{padding:10px 12px}
+.interp-section h4{color:var(--accent);font-size:11px;margin-bottom:6px}
+.interp-text{background:#0a0a12;border:1px solid var(--border);border-radius:3px;padding:6px 8px;font-size:11px;color:var(--text);min-height:40px;line-height:1.5}
+.interp-editor{width:100%;min-height:60px;padding:6px 8px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;resize:vertical;font-family:inherit}
+.interp-editor:focus{outline:none;border-color:var(--accent)}
+.interp-categories{margin-top:6px;max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:3px;background:#0a0a12}
+.interp-cat{padding:4px 8px;font-size:10px;font-weight:600;color:var(--accent2);background:#0e0e1a;border-bottom:1px solid var(--border);cursor:pointer}
+.interp-cat:hover{color:var(--accent)}
+.interp-stmt{padding:3px 8px 3px 16px;font-size:10px;color:var(--text-dim);cursor:pointer;border-bottom:1px solid rgba(32,32,58,.3)}
+.interp-stmt:hover{background:var(--row-hover);color:var(--text)}
+/* Critical Section */
+.critical-section{padding:10px 12px;background:rgba(192,57,43,.05);border-bottom:1px solid var(--border)}
+.critical-section h4{color:var(--danger);font-size:11px;margin-bottom:6px}
+.critical-finding{padding:6px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:4px;font-size:11px;color:var(--danger);margin-bottom:6px}
+
+/* ─── Report Page ─── */
+.report-layout{display:flex;height:100%}
+.report-main{flex:1;overflow-y:auto;padding:20px;background:#0a0a14}
+.report-card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:20px;max-width:800px;margin:0 auto}
+.report-card h3{color:var(--accent);font-size:15px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.report-row{display:flex;gap:8px;margin-bottom:6px;font-size:11px}
+.report-row .rl{flex:0 0 130px;color:var(--text-dim);text-align:right;font-weight:600}
+.report-row .rv{flex:1;color:var(--text)}
+.report-section{margin-top:14px}
+.report-section h4{color:var(--accent);font-size:12px;margin-bottom:6px}
+.report-findings{background:#0a0a12;border:1px solid var(--border);border-radius:4px;padding:10px;font-size:11px;line-height:1.6;min-height:60px}
+.report-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
+/* ─── Patient Card Modal ─── */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:480px;max-width:620px;box-shadow:0 8px 32px rgba(0,0,0,.5);max-height:80vh;overflow-y:auto}
+.modal h3{color:var(--accent);font-size:14px;margin-bottom:12px}
+.modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px}
+.modal-tab{padding:6px 14px;cursor:pointer;font-size:11px;color:var(--text-dim);border-bottom:2px solid transparent}
+.modal-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.form-row label{flex:0 0 110px;font-size:11px;color:var(--text-dim);text-align:right}
+.form-row input,.form-row select,.form-row textarea{flex:1;padding:5px 8px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px}
+.form-row textarea{min-height:50px;resize:vertical;font-family:inherit}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ─── Settings Modal ─── */
+.settings-layout{display:flex;gap:12px}
+.settings-sidebar{width:140px;display:flex;flex-direction:column;gap:2px}
+.settings-item{padding:6px 10px;cursor:pointer;font-size:11px;color:var(--text-dim);border-radius:3px}
+.settings-item.active{background:rgba(230,126,34,.12);color:var(--accent)}
+.settings-item:hover{background:var(--row-hover)}
+.settings-content{flex:1}
+
+/* ─── Print / Export Dialogs ─── */
+.print-preview{background:#fff;color:#000;padding:20px;border-radius:4px;max-height:60vh;overflow-y:auto;font-family:'Times New Roman',serif}
+
+/* ─── New Test Dialog ─── */
+.new-test-form .form-row label{flex:0 0 140px}
+
+/* ─── Search Pattern Wizard ─── */
+.wizard-steps{display:flex;gap:4px;margin-bottom:12px}
+.wizard-step{padding:4px 12px;background:var(--border);border-radius:12px;font-size:10px;color:var(--text-dim)}
+.wizard-step.active{background:var(--accent);color:#fff}
+.wizard-step.done{background:var(--success);color:#fff}
+
+/* ─── Status Bar ─── */
+.status-bar{display:flex;justify-content:space-between;padding:3px 12px;background:linear-gradient(180deg,#0e0e1a,#0c0c16);border-top:1px solid var(--border);font-size:10px;color:var(--text-dim)}
+.status-bar .indicator{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.indicator-green{background:var(--success)}.indicator-yellow{background:var(--warning)}.indicator-red{background:var(--danger)}
+
+/* ─── Buttons ─── */
+.btn{padding:4px 12px;border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;background:transparent;color:var(--text);transition:all .15s}
+.btn:hover{border-color:var(--text-dim)}
+.btn-orange{background:var(--accent);border-color:var(--accent);color:#fff}.btn-orange:hover{background:#d35400}
+.btn-green{background:var(--success);border-color:var(--success);color:#fff}.btn-green:hover{background:#219a52}
+.btn-red{background:var(--danger);border-color:var(--danger);color:#fff}.btn-red:hover{background:#a93226}
+.btn-blue{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.btn-dim{background:var(--border);border-color:var(--border);color:var(--text)}
+.btn-sm{padding:2px 8px;font-size:10px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ─── Telemedicine ─── */
+.tele-layout{display:flex;height:100%}
+.tele-sidebar{width:180px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.tele-folder{padding:6px 10px;cursor:pointer;font-size:11px;color:var(--text-dim);border-left:3px solid transparent}
+.tele-folder:hover{background:var(--row-hover)}
+.tele-folder.active{background:var(--row-selected);color:var(--accent);border-left-color:var(--accent)}
+.tele-folder .count{background:var(--accent);color:#fff;border-radius:8px;padding:0 6px;font-size:9px;margin-left:4px}
+.tele-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ LOGIN ═══ -->
+<div id="loginPage">
+  <div class="login-box">
+    <h1>CardioView ECG Workstation</h1>
+    <div class="subtitle">12-Lead ECG Management System</div>
+    <div class="version">Ref: Welch Allyn CardioPerfect / GE MAC / Philips PageWriter &mdash; v4.1.2</div>
+    <input id="loginUser" placeholder="Username" autocomplete="off">
+    <input type="password" id="loginPass" placeholder="Password">
+    <div class="login-row">
+      <select id="loginSite">
+        <option value="main">Main Hospital</option>
+        <option value="cc">Cardiac Center</option>
+        <option value="er">Emergency Dept</option>
+      </select>
+    </div>
+    <button onclick="doLogin()">Sign In</button>
+    <div class="login-status">
+      <span><span class="dot dot-green"></span>ECG Device: Connected</span>
+      <span><span class="dot dot-green"></span>Database: Online</span>
+      <span><span class="dot dot-yellow"></span>PACS: Standby</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ MAIN ═══ -->
+<div id="mainApp">
+  <!-- Title / Menu Bar -->
+  <div class="title-bar">
+    <span class="app-name">CardioView</span>
+    <div class="menu-bar">
+      <div class="menu-item" onclick="toggleMenu('fileMenu',event)">File
+        <div class="dropdown" id="fileMenu">
+          <div class="dd-item" onclick="openNewPatient()">New &rarr; Patient<span class="dd-shortcut"></span></div>
+          <div class="dd-item" onclick="openNewTest()">New &rarr; Rest ECG<span class="dd-shortcut">Shift+Ctrl+E</span></div>
+          <div class="dd-item disabled">New &rarr; Exercise ECG<span class="dd-shortcut">Shift+Ctrl+X</span></div>
+          <div class="dd-item disabled">New &rarr; Spirometry<span class="dd-shortcut">Shift+Ctrl+S</span></div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="showExportDialog()">Export...<span class="dd-shortcut"></span></div>
+          <div class="dd-item" onclick="showImportDialog()">Import...<span class="dd-shortcut"></span></div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="showPrintDialog()">Print<span class="dd-shortcut">Ctrl+P</span></div>
+          <div class="dd-item" onclick="showPrintPreview()">Print Preview<span class="dd-shortcut"></span></div>
+          <div class="dd-item" onclick="printSelectedFormats()">Print Selected Formats<span class="dd-shortcut"></span></div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="showSettings()">Settings...<span class="dd-shortcut"></span></div>
+          <div class="dd-item" onclick="showChangePassword()">Change Password...<span class="dd-shortcut"></span></div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="doLogout()">Exit<span class="dd-shortcut"></span></div>
+        </div>
+      </div>
+      <div class="menu-item" onclick="toggleMenu('editMenu',event)">Edit
+        <div class="dropdown" id="editMenu">
+          <div class="dd-item" onclick="editPatientCard()">Patient Card...<span class="dd-shortcut">Alt+P</span></div>
+          <div class="dd-item" onclick="deleteSelectedTest()">Delete<span class="dd-shortcut">Ctrl+Del</span></div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="openSearchPatterns()">Search Patterns...<span class="dd-shortcut"></span></div>
+        </div>
+      </div>
+      <div class="menu-item" onclick="toggleMenu('viewMenu',event)">View
+        <div class="dropdown" id="viewMenu">
+          <div class="dd-item" onclick="toggleView('standard')">Standard 12-Lead</div>
+          <div class="dd-item" onclick="toggleView('cabrera')">Cabrera Sequence</div>
+          <div class="dd-item" onclick="toggleView('median')">Median Complexes</div>
+          <div class="dd-item" onclick="toggleView('rhythm')">Rhythm Strip</div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="toggleView('measurements')">Measurements</div>
+          <div class="dd-item" onclick="toggleView('interpretation')">Interpretation</div>
+        </div>
+      </div>
+      <div class="menu-item" onclick="toggleMenu('toolsMenu',event)">Tools
+        <div class="dropdown" id="toolsMenu">
+          <div class="dd-item" onclick="toggleCaliper()">Caliper Tool</div>
+          <div class="dd-item" onclick="doCompareECG()">Compare ECGs</div>
+          <div class="dd-item" onclick="showOverreadQueue()">Over-read Queue</div>
+        </div>
+      </div>
+      <div class="menu-item" onclick="toggleMenu('moduleMenu',event)">Module
+        <div class="dropdown" id="moduleMenu">
+          <div class="dd-item active-mod">Rest ECG</div>
+          <div class="dd-item disabled">Exercise ECG</div>
+          <div class="dd-item disabled">Spirometry</div>
+          <div class="dd-item disabled">ABP Monitor</div>
+          <div class="dd-item disabled">Mini Holter</div>
+        </div>
+      </div>
+      <div class="menu-item" onclick="toggleMenu('helpMenu',event)">Help
+        <div class="dropdown" id="helpMenu">
+          <div class="dd-item">Contents</div>
+          <div class="dd-sep"></div>
+          <div class="dd-item">About CardioView Workstation</div>
+        </div>
+      </div>
+    </div>
+    <div class="sys-info">
+      <span id="clockDisplay">2026-04-20 08:00:00</span>
+      <span><span class="indicator indicator-green" id="dbInd"></span>Database</span>
+      <span><span class="indicator indicator-green" id="devInd"></span>ECG Device</span>
+      <span id="userDisplay" style="color:var(--accent)"></span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="tool-bar">
+    <button class="tb-btn" onclick="openNewPatient()" title="New Patient">&#x1F464; New Patient</button>
+    <button class="tb-btn" onclick="openNewTest()" title="New Rest ECG">&#x2764; New ECG</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" onclick="showPrintDialog()" title="Print">&#x1F5A8; Print</button>
+    <button class="tb-btn" onclick="showPrintPreview()" title="Print Preview">&#x1F50D; Preview</button>
+    <button class="tb-btn" onclick="showExportDialog()" title="Export">&#x1F4E4; Export</button>
+    <span class="tb-sep"></span>
+    <button class="tb-btn" onclick="switchTab('worklist')" title="Worklist">Worklist</button>
+    <button class="tb-btn" onclick="switchTab('viewer')" title="ECG Viewer">ECG Viewer</button>
+    <button class="tb-btn" onclick="switchTab('report')" title="Report">Report</button>
+    <button class="tb-btn" onclick="switchTab('telemedicine')" title="Telemedicine">Telemedicine</button>
+    <span class="tb-sep"></span>
+    <span style="font-size:10px;color:var(--text-dim)">Module: <b style="color:var(--accent)">Rest ECG</b></span>
+    <span style="flex:1"></span>
+    <span style="font-size:10px;color:var(--text-dim)">Recording Location: <b id="locationDisplay">Main Hospital</b></span>
+  </div>
+
+  <!-- Main Body: Search Area + Workspace -->
+  <div class="main-body">
+    <!-- ═══════ SEARCH AREA (Left Sidebar) ═══════ -->
+    <div class="search-area">
+      <div class="sa-tabs">
+        <div class="sa-tab active" data-sa="patient" onclick="switchSATab('patient')">Patient</div>
+        <div class="sa-tab" data-sa="search" onclick="switchSATab('search')">Search</div>
+      </div>
+      <!-- Patient Tab -->
+      <div class="sa-content" id="saPatientTab">
+        <div class="sa-search-box">
+          <label>Find Patient (name or number):</label>
+          <input id="saSearchInput" placeholder="Type name or patient #..." oninput="filterPatients()">
+          <button class="go-btn" onclick="filterPatients()">Go</button>
+        </div>
+        <div class="sa-list-title">Patient List</div>
+        <div class="sa-list" id="saPatientList"></div>
+        <div class="sa-list-title">Test List</div>
+        <div class="sa-test-list" id="saTestList">
+          <div style="padding:8px;color:var(--text-dim);font-size:10px">Select a patient to view tests.</div>
+        </div>
+      </div>
+      <!-- Search Tab -->
+      <div class="sa-content" id="saSearchTab" style="display:none">
+        <div style="padding:8px">
+          <button class="btn btn-sm btn-orange" onclick="openSearchPatterns()" style="width:100%;margin-bottom:6px">Define Search Patterns...</button>
+        </div>
+        <div class="sa-list-title">Saved Patterns</div>
+        <div class="sa-pattern-list" id="saPatternList">
+          <div class="sa-pattern-item" onclick="runPattern('unconfirmed')">&#x1F50D; Unconfirmed Tests - Today</div>
+          <div class="sa-pattern-item" onclick="runPattern('male50')">&#x1F50D; Male Patients Over 50</div>
+          <div class="sa-pattern-item" onclick="runPattern('thisweek')">&#x1F50D; ECGs This Week</div>
+          <div class="sa-pattern-item" onclick="runPattern('stat')">&#x1F50D; STAT Priority</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ WORKSPACE ═══════ -->
+    <div class="workspace">
+      <!-- Navigation -->
+      <nav>
+        <button class="active" data-tab="worklist" onclick="switchTab('worklist')">Worklist</button>
+        <button data-tab="viewer" onclick="switchTab('viewer')">ECG Viewer</button>
+        <button data-tab="report" onclick="switchTab('report')">Report</button>
+        <button data-tab="telemedicine" onclick="switchTab('telemedicine')">Telemedicine</button>
+      </nav>
+
+      <div class="ws-content" id="wsContent">
+        <!-- ─── TAB: WORKLIST ─── -->
+        <div id="tab-worklist" style="overflow:hidden;height:100%;display:flex;flex-direction:column">
+          <div class="wl-toolbar">
+            <button class="btn btn-orange btn-sm" onclick="openStudy()">Open</button>
+            <button class="btn btn-sm" onclick="openNewTest()">New ECG</button>
+            <button class="btn btn-sm btn-red" onclick="deleteSelectedTest()">Delete</button>
+            <button class="btn btn-sm btn-blue" onclick="refreshWorklist()">Refresh</button>
+            <span class="tb-sep"></span>
+            <button class="btn btn-sm" onclick="toggleWlSearch()">Search Options</button>
+            <button class="btn btn-sm" onclick="confirmSelected()">Confirm</button>
+            <button class="btn btn-sm" onclick="unconfirmSelected()">Unconfirm</button>
+            <span style="flex:1"></span>
+            <span style="font-size:10px;color:var(--text-dim)">Studies: <b id="studyCountDisplay">0</b></span>
+          </div>
+          <div class="wl-search" id="wlSearchPanel" style="display:none">
+            <label>Patient ID:</label><input id="wlSearchPID" placeholder="ID" oninput="filterWorklist()">
+            <label>Name:</label><input id="wlSearchName" placeholder="Name" oninput="filterWorklist()">
+            <label>Date:</label><select id="wlSearchDate" onchange="filterWorklist()"><option value="">All</option><option>Today</option><option>This Week</option><option>This Month</option></select>
+            <label>Status:</label><select id="wlSearchStatus" onchange="filterWorklist()"><option value="">All</option><option value="unconfirmed">Unconfirmed</option><option value="confirmed">Confirmed</option></select>
+            <label>Priority:</label><select id="wlSearchPriority" onchange="filterWorklist()"><option value="">All</option><option value="stat">STAT</option><option value="routine">Routine</option></select>
+          </div>
+          <div class="wl-filter-bar">
+            <button class="wl-filter-btn active" data-filter="all" onclick="setWlFilter('all')">All</button>
+            <button class="wl-filter-btn" data-filter="unconfirmed" onclick="setWlFilter('unconfirmed')">Unconfirmed</button>
+            <button class="wl-filter-btn" data-filter="confirmed" onclick="setWlFilter('confirmed')">Confirmed</button>
+            <button class="wl-filter-btn" data-filter="critical" onclick="setWlFilter('critical')">Critical</button>
+          </div>
+          <div style="flex:1;overflow-y:auto">
+            <table class="tbl"><thead><tr>
+              <th style="width:30px">#</th><th>Patient ID</th><th>Name</th><th>Sex/Age</th><th>Recording Date</th>
+              <th>Recorded By</th><th>Referring Physician</th><th>Status</th><th>Priority</th><th>Heart Rate</th><th>Interpretation</th>
+              <th style="width:60px">Action</th>
+            </tr></thead><tbody id="wlBody"></tbody></table>
+          </div>
+        </div>
+
+        <!-- ─── TAB: ECG VIEWER ─── -->
+        <div id="tab-viewer" class="viewer-layout" style="display:none">
+          <div class="viewer-main">
+            <!-- Patient Header -->
+            <div class="viewer-header">
+              <span id="viewerPatientInfo">No study selected</span>
+              <span id="viewerRecordInfo"></span>
+            </div>
+            <!-- ECG Canvas -->
+            <div class="viewer-canvas-wrap">
+              <canvas id="ecgCanvas"></canvas>
+            </div>
+            <!-- Controls Bar (Speed / Gain / Layout / Filter) -->
+            <div class="viewer-controls">
+              <label>Speed:</label>
+              <select id="speedSelect" onchange="changeSpeed()">
+                <option value="25" selected>25 mm/s</option>
+                <option value="50">50 mm/s</option>
+                <option value="10">10 mm/s</option>
+              </select>
+              <span class="tb-sep"></span>
+              <label>Gain:</label>
+              <select id="gainSelect" onchange="changeGain()">
+                <option value="10" selected>10 mm/mV</option>
+                <option value="5">5 mm/mV</option>
+                <option value="20">20 mm/mV</option>
+              </select>
+              <span class="tb-sep"></span>
+              <label>Layout:</label>
+              <select id="layoutSelect" onchange="changeLayout()">
+                <option value="standard">Standard 12-Lead</option>
+                <option value="cabrera">Cabrera Sequence</option>
+                <option value="3x4">3×4 + Rhythm</option>
+                <option value="6x2">6×2</option>
+              </select>
+              <span class="tb-sep"></span>
+              <label>Filter:</label>
+              <select id="filterSelect" onchange="changeFilter()">
+                <option value="0.05-150">0.05–150 Hz</option>
+                <option value="0.05-40">0.05–40 Hz</option>
+                <option value="0.05-100">0.05–100 Hz</option>
+              </select>
+              <span class="tb-sep"></span>
+              <button class="btn btn-sm" onclick="toggleCaliper()">Caliper</button>
+              <button class="btn btn-sm" onclick="doCompareECG()">Compare</button>
+              <button class="btn btn-sm btn-orange" onclick="switchTab('report')">Report</button>
+            </div>
+          </div>
+          <!-- Measurements Sidebar -->
+          <div class="meas-sidebar" id="measSidebar">
+            <div class="meas-section">
+              <h4>&#x2764; Measurements</h4>
+              <div id="measValues">
+                <div style="padding:8px;color:var(--text-dim);font-size:10px">Open a study to view measurements.</div>
+              </div>
+            </div>
+            <div class="meas-section">
+              <h4>&#x26A0; Auto-Analysis</h4>
+              <div id="autoAnalysisResult">
+                <div style="padding:4px 0;font-size:10px;color:var(--text-dim)">Not yet performed.</div>
+              </div>
+              <button class="btn btn-sm btn-blue" onclick="runAutoAnalysis()" style="margin-top:6px;width:100%">Run Auto-Analysis</button>
+            </div>
+            <div class="interp-section">
+              <h4>&#x1F4DD; Interpretation</h4>
+              <div id="interpDisplay">
+                <div class="interp-text" id="interpText"></div>
+              </div>
+              <div style="margin-top:6px">
+                <textarea class="interp-editor" id="interpEditor" placeholder="Enter interpretation..."></textarea>
+                <div class="interp-categories" id="interpCategories"></div>
+              </div>
+            </div>
+            <div class="critical-section" id="criticalSection" style="display:none">
+              <h4>&#x1F6A8; Critical Finding</h4>
+              <div class="critical-finding" id="criticalText"></div>
+              <button class="btn btn-sm btn-red" onclick="triggerCriticalAlert()" id="critAlertBtn" style="width:100%">Trigger Critical Alert</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── TAB: REPORT ─── -->
+        <div id="tab-report" class="report-layout" style="display:none">
+          <div class="report-main">
+            <div class="report-card" id="reportCard">
+              <h3>ECG Report</h3>
+              <div id="reportContent">
+                <div style="padding:20px;color:var(--text-dim);text-align:center">No study selected. Open a study from the Worklist first.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── TAB: TELEMEDICINE ─── -->
+        <div id="tab-telemedicine" class="tele-layout" style="display:none">
+          <div class="tele-sidebar">
+            <div style="padding:8px;font-size:11px;color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)">Mail Folders</div>
+            <div class="tele-folder active" data-folder="inbox" onclick="switchTeleFolder('inbox')">Inbox <span class="count" id="teleInboxCount">0</span></div>
+            <div class="tele-folder" data-folder="outbox" onclick="switchTeleFolder('outbox')">Outbox <span class="count" id="teleOutboxCount">0</span></div>
+            <div class="tele-folder" data-folder="sent" onclick="switchTeleFolder('sent')">Sent Items</div>
+            <div class="tele-folder" data-folder="unresolved" onclick="switchTeleFolder('unresolved')">Unresolved Items</div>
+            <div style="padding:8px;margin-top:auto;border-top:1px solid var(--border)">
+              <button class="btn btn-sm btn-orange" onclick="teleSendReceive()" style="width:100%">Send / Receive</button>
+            </div>
+          </div>
+          <div class="tele-main">
+            <div style="padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;gap:4px">
+              <button class="btn btn-sm" onclick="teleSendStudy()">Send</button>
+              <button class="btn btn-sm" onclick="teleReply()">Reply</button>
+              <button class="btn btn-sm" onclick="teleForward()">Forward</button>
+              <button class="btn btn-sm btn-red" onclick="teleDelete()">Delete</button>
+              <span style="flex:1"></span>
+              <button class="btn btn-sm btn-blue" onclick="teleSendReceive()">Send/Receive</button>
+            </div>
+            <div style="flex:1;overflow-y:auto">
+              <table class="tbl"><thead><tr>
+                <th>From / To</th><th>Patient</th><th>Test Type</th><th>Date</th><th>Status</th>
+              </tr></thead><tbody id="teleBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span><span class="indicator indicator-green"></span>User: <span id="statusUser"></span> | Site: <span id="statusSite"></span></span>
+    <span>Module: Rest ECG | <span id="statusPatient">No patient selected</span></span>
+    <span id="statusFlags"></span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ MODALS ═══════════════════ -->
+
+<!-- Patient Card Modal -->
+<div class="modal-overlay" id="patientCardModal">
+  <div class="modal" style="min-width:520px">
+    <h3>Patient Card</h3>
+    <div class="modal-tabs">
+      <div class="modal-tab active" data-pctab="general" onclick="switchPCTab('general')">General</div>
+      <div class="modal-tab" data-pctab="address" onclick="switchPCTab('address')">Address</div>
+      <div class="modal-tab" data-pctab="history" onclick="switchPCTab('history')">History</div>
+    </div>
+    <div id="pcGeneral">
+      <div class="form-row"><label>Patient Number*:</label><input id="pcNumber"></div>
+      <div class="form-row"><label>Last Name*:</label><input id="pcLastName"></div>
+      <div class="form-row"><label>First Name:</label><input id="pcFirstName"></div>
+      <div class="form-row"><label>Insurance Number:</label><input id="pcInsurance"></div>
+      <div class="form-row"><label>Gender:</label><select id="pcGender"><option value="M">Male</option><option value="F">Female</option><option value="">Not specified</option></select></div>
+      <div class="form-row"><label>Date of Birth:</label><input type="date" id="pcDOB"></div>
+      <div class="form-row"><label>Race:</label><select id="pcRace"><option>Caucasian</option><option>Asian</option><option>African</option><option>Hispanic</option><option>Other</option></select></div>
+      <div class="form-row"><label>Height (cm):</label><input type="number" id="pcHeight"></div>
+      <div class="form-row"><label>Weight (kg):</label><input type="number" id="pcWeight"></div>
+    </div>
+    <div id="pcAddress" style="display:none">
+      <div class="form-row"><label>Street:</label><input id="pcStreet"></div>
+      <div class="form-row"><label>City:</label><input id="pcCity"></div>
+      <div class="form-row"><label>State:</label><input id="pcState"></div>
+      <div class="form-row"><label>Zip Code:</label><input id="pcZip"></div>
+      <div class="form-row"><label>Phone:</label><input id="pcPhone"></div>
+      <div class="form-row"><label>Email:</label><input id="pcEmail"></div>
+    </div>
+    <div id="pcHistory" style="display:none">
+      <div class="form-row" style="align-items:flex-start"><label>History Notes:</label><textarea id="pcHistoryNotes" rows="4"></textarea></div>
+      <div class="form-row"><label>Smoker:</label><select id="pcSmoker"><option value="no">No</option><option value="yes">Yes</option><option value="former">Former</option></select></div>
+      <div class="form-row"><label>Asthma:</label><select id="pcAsthma"><option value="no">No</option><option value="yes">Yes</option></select></div>
+      <div class="form-row"><label>Medications:</label><input id="pcMedications" placeholder="e.g. Metoprolol, Aspirin"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('patientCardModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="savePatientCard()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Test Dialog -->
+<div class="modal-overlay" id="newTestModal">
+  <div class="modal">
+    <h3>New Rest ECG Test</h3>
+    <div class="new-test-form">
+      <div class="form-row"><label>Patient:</label><input id="ntPatient" readonly></div>
+      <div class="form-row"><label>Referring Physician:</label><select id="ntReferring">
+        <option>Dr. Wang</option><option>Dr. Li</option><option>Dr. Chen</option><option>Dr. Zhang</option><option>Dr. Liu</option>
+      </select></div>
+      <div class="form-row"><label>Ordering Physician:</label><select id="ntOrdering">
+        <option>Dr. Wang</option><option>Dr. Li</option><option>Dr. Chen</option><option>Dr. Zhang</option><option>Dr. Liu</option>
+      </select></div>
+      <div class="form-row"><label>Attending Physician:</label><select id="ntAttending">
+        <option>Dr. Wang</option><option>Dr. Li</option><option>Dr. Chen</option><option>Dr. Zhang</option><option>Dr. Liu</option>
+      </select></div>
+      <div class="form-row"><label>Priority:</label><select id="ntPriority"><option value="routine">Routine</option><option value="stat">STAT</option></select></div>
+      <div class="form-row"><label>Reason for Test:</label><input id="ntReason" placeholder="e.g. Chest pain, Pre-operative"></div>
+      <div class="form-row"><label>Comments:</label><textarea id="ntComments" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('newTestModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="createNewTest()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Dialog -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="min-width:560px">
+    <h3>Settings</h3>
+    <div class="settings-layout">
+      <div class="settings-sidebar">
+        <div class="settings-item active" data-stab="general" onclick="switchSettingsTab('general')">General</div>
+        <div class="settings-item" data-stab="print" onclick="switchSettingsTab('print')">Print</div>
+        <div class="settings-item" data-stab="mail" onclick="switchSettingsTab('mail')">Mail</div>
+        <div class="settings-item" data-stab="ecg" onclick="switchSettingsTab('ecg')">ECG Module</div>
+      </div>
+      <div class="settings-content" id="settingsContent">
+        <div id="setGeneral">
+          <div class="form-row"><label>Location:</label><select id="setLocation"><option>Main Hospital</option><option>Cardiac Center</option><option>ER</option><option>Clinic A</option></select></div>
+          <div class="form-row"><label>Default Module:</label><select id="setModule"><option>Rest ECG</option><option>Exercise ECG</option><option>Spirometry</option><option>Framework</option></select></div>
+          <div class="form-row"><label>Language:</label><select id="setLanguage"><option>English</option><option>Chinese</option><option>Spanish</option><option>German</option><option>French</option></select></div>
+          <div class="form-row"><label>Name Display:</label><select><option>Last, First</option><option>First Last</option></select></div>
+          <div class="form-row"><label>Title Display:</label><select><option>Before Name</option><option>After Name</option><option>Do not show</option></select></div>
+          <div class="form-row"><label>Auto-generate IDs:</label><select><option>Yes</option><option>No</option></select></div>
+        </div>
+        <div id="setPrint" style="display:none">
+          <div class="form-row"><label>Title on Printouts:</label><input value="CardioView ECG Workstation"></div>
+          <div class="form-row"><label>Default Format:</label><select><option>Standard 12-Lead</option><option>3×4 + Rhythm</option><option>6×2</option></select></div>
+          <div class="form-row"><label>Paper Size:</label><select><option>A4</option><option>Letter</option></select></div>
+        </div>
+        <div id="setMail" style="display:none">
+          <div class="form-row"><label>Mail Server:</label><input value="mail.hospital.local"></div>
+          <div class="form-row"><label>TCP/IP Port:</label><input type="number" value="8025"></div>
+          <div class="form-row"><label>Notifications Port:</label><input type="number" value="8026"></div>
+          <div class="form-row"><label>Auto Signature:</label><select><option>Yes</option><option>No</option></select></div>
+          <div class="form-row"><label>Play Sound:</label><select><option>Yes</option><option>No</option></select></div>
+        </div>
+        <div id="setEcg" style="display:none">
+          <div class="form-row"><label>Default Speed:</label><select><option>25 mm/s</option><option>50 mm/s</option></select></div>
+          <div class="form-row"><label>Default Gain:</label><select><option>10 mm/mV</option><option>5 mm/mV</option><option>20 mm/mV</option></select></div>
+          <div class="form-row"><label>Default Filter:</label><select><option>0.05–150 Hz</option><option>0.05–40 Hz</option></select></div>
+          <div class="form-row"><label>Auto-Analysis:</label><select><option>On Acquisition</option><option>Manual</option></select></div>
+          <div class="form-row"><label>Lead Names:</label><select><option>AHA (V1-V6)</option><option>IEC (C1-C6)</option></select></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="saveSettings()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Dialog -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h3>Export Test</h3>
+    <div class="form-row"><label>Export Scope:</label><select id="exportScope"><option value="current">Current Test</option><option value="all">All Tests of Same Type</option></select></div>
+    <div class="form-row"><label>Export Format:</label><select id="exportFormat"><option>PDF</option><option>XML (HL7 aECG)</option><option>DICOM ECG</option><option>TIF Image</option><option>CSV Raw Data</option></select></div>
+    <div class="form-row"><label>Destination:</label><input id="exportPath" value="C:\ECG_Export\"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('exportModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="doExport()">Export</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print Dialog -->
+<div class="modal-overlay" id="printModal">
+  <div class="modal">
+    <h3>Print ECG</h3>
+    <div class="form-row"><label>View:</label><select id="printView"><option>Standard 12-Lead</option><option>3×4 + Rhythm</option><option>Cabrera Sequence</option><option>Median Complexes</option><option>Measurements</option><option>Interpretation</option></select></div>
+    <div class="form-row"><label>Copies:</label><input type="number" id="printCopies" value="1" min="1"></div>
+    <div class="form-row"><label>Printer:</label><select><option>Default Printer</option><option>PDF Writer</option></select></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="printPreviewFromDialog()">Preview</button>
+      <button class="btn" onclick="closeModal('printModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="doPrint()">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- Search Pattern Wizard -->
+<div class="modal-overlay" id="searchPatternModal">
+  <div class="modal" style="min-width:500px">
+    <h3>Define Search Pattern</h3>
+    <div class="wizard-steps" id="wizardSteps">
+      <span class="wizard-step active">1. Type</span>
+      <span class="wizard-step">2. Properties</span>
+      <span class="wizard-step">3. Values</span>
+      <span class="wizard-step">4. Name</span>
+    </div>
+    <div id="wizardContent">
+      <div style="margin-bottom:12px">
+        <div class="form-row"><label>Search Type:</label><select id="wizType"><option value="patient">Patient Search</option><option value="test">Test Search</option></select></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('searchPatternModal')">Cancel</button>
+      <button class="btn" onclick="wizardBack()" id="wizBack" disabled>Back</button>
+      <button class="btn btn-orange" onclick="wizardNext()" id="wizNext">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password Dialog -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal" style="min-width:380px">
+    <h3>Change Password</h3>
+    <div class="form-row"><label>Old Password:</label><input type="password" id="pwOld"></div>
+    <div class="form-row"><label>New Password:</label><input type="password" id="pwNew"></div>
+    <div class="form-row"><label>Confirm New:</label><input type="password" id="pwConfirm"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('passwordModal')">Cancel</button>
+      <button class="btn btn-orange" onclick="doChangePassword()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SCRIPT ═══════════════════ -->
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   STATE — preserved for checker compatibility
+   ═══════════════════════════════════════════════════════════════ */
+window._taskState={
+  initialized:false,
+  loggedIn:false,
+  currentUser:null,
+  currentPage:'worklist',
+  selectedStudyIdx:null,
+  selectedPatientIdx:null,
+  paperSpeed:25,
+  gain:10,
+  leadLayout:'standard',
+  filter:'0.05-150',
+  studies:[],
+  patients:[],
+  wlFilter:'all',
+  caliperActive:false,
+  teleFolder:'inbox',
+  teleInbox:[],
+  teleOutbox:[],
+  settingsChanged:false,
+  searchPatterns:[],
+  exportDone:false,
+  printDone:false
+};
+
+/* ─── 12-Lead Names ─── */
+const STANDARD_LEADS=['I','II','III','aVR','aVL','aVF','V1','V2','V3','V4','V5','V6'];
+const CABRERA_LEADS=['aVL','I','−aVR','II','aVF','III','V1','V2','V3','V4','V5','V6'];
+
+/* ─── Interpretation statement categories (CardioPerfect ecg.txt style) ─── */
+const INTERP_CATEGORIES={
+  'Rhythm':[
+    'Normal sinus rhythm','Sinus bradycardia','Sinus tachycardia','Atrial fibrillation',
+    'Atrial flutter','Supraventricular tachycardia','Ventricular tachycardia',
+    'First degree AV block','Second degree AV block','Third degree AV block',
+    'Junctional rhythm','Premature atrial complexes','Premature ventricular complexes'
+  ],
+  'Axis':[
+    'Normal axis','Left axis deviation','Right axis deviation','Extreme axis deviation',
+    'Northwest axis'
+  ],
+  'Conduction':[
+    'Normal conduction','Left bundle branch block','Right bundle branch block',
+    'Left anterior fascicular block','Left posterior fascicular block',
+    'Bifascicular block','Nonspecific intraventricular conduction delay',
+    'Wolff-Parkinson-White pattern'
+  ],
+  'ST-T Changes':[
+    'Normal ST segments','ST elevation','ST depression',
+    'T wave inversion','T wave flattening','Peaked T waves',
+    'ST elevation consistent with acute MI','ST depression suggesting ischemia'
+  ],
+  'Hypertrophy':[
+    'Left ventricular hypertrophy','Right ventricular hypertrophy',
+    'Left atrial enlargement','Right atrial enlargement',
+    'Biventricular hypertrophy','Bi-atrial enlargement'
+  ],
+  'Infarction':[
+    'Anterior STEMI pattern','Inferior STEMI pattern','Lateral STEMI pattern',
+    'Old anterior MI','Old inferior MI','Old lateral MI',
+    'Anteroseptal MI','Posterior MI pattern'
+  ],
+  'Other':[
+    'Low voltage QRS','Early repolarization','Pericarditis pattern',
+    'Long QT interval','Short QT interval','Brugada pattern',
+    'Digitalis effect','Electrolyte abnormality suspected',
+    'Technically limited (artifact)','Normal ECG'
+  ]
+};
+
+/* ─── Patient and Study Data ─── */
+const BASE_PATIENTS=[
+  {pid:'ECG-001',lastName:'Zhang',firstName:'Wei',gender:'M',dob:'1958-03-15',age:68,height:172,weight:75,insurance:'INS-39528101',
+   race:'Asian',phone:'138-0001-0001',city:'Beijing',smoker:'former',allergies:'None',medications:'Metoprolol 50mg, Aspirin 100mg'},
+  {pid:'ECG-002',lastName:'Li',firstName:'Fang',gender:'F',dob:'1975-07-22',age:50,height:160,weight:58,insurance:'INS-47823001',
+   race:'Asian',phone:'139-0002-0002',city:'Shanghai',smoker:'no',allergies:'Penicillin',medications:'Amlodipine 5mg'},
+  {pid:'ECG-003',lastName:'Wang',firstName:'Qiang',gender:'M',dob:'1962-11-08',age:63,height:178,weight:82,insurance:'INS-51234501',
+   race:'Asian',phone:'136-0003-0003',city:'Guangzhou',smoker:'yes',allergies:'None',medications:'Atorvastatin 20mg, Lisinopril 10mg'},
+  {pid:'ECG-004',lastName:'Chen',firstName:'Jing',gender:'F',dob:'1980-01-30',age:46,height:165,weight:62,insurance:'INS-60891201',
+   race:'Asian',phone:'137-0004-0004',city:'Shenzhen',smoker:'no',allergies:'None',medications:'None'},
+  {pid:'ECG-007',lastName:'Huang',firstName:'Lei',gender:'M',dob:'1955-12-18',age:70,height:170,weight:78,insurance:'INS-91234001',
+   race:'Asian',phone:'158-0007-0007',city:'Chengdu',smoker:'former',allergies:'Iodine contrast',medications:'Clopidogrel 75mg, Metoprolol 100mg, Atorvastatin 40mg'},
+  {pid:'ECG-006',lastName:'Zhao',firstName:'Min',gender:'F',dob:'1988-04-05',age:38,height:158,weight:55,insurance:'INS-82345001',
+   race:'Asian',phone:'150-0006-0006',city:'Nanjing',smoker:'no',allergies:'None',medications:'Levothyroxine 50mcg'},
+  {pid:'ECG-005',lastName:'Liu',firstName:'Yang',gender:'M',dob:'1970-09-12',age:55,height:175,weight:80,insurance:'INS-71234801',
+   race:'Asian',phone:'135-0005-0005',city:'Hangzhou',smoker:'yes',allergies:'Sulfa drugs',medications:'Warfarin 5mg, Digoxin 0.125mg'},
+  {pid:'ECG-008',lastName:'Zhou',firstName:'Ting',gender:'F',dob:'1965-06-25',age:60,height:162,weight:68,insurance:'INS-10234501',
+   race:'Asian',phone:'186-0008-0008',city:'Wuhan',smoker:'no',allergies:'None',medications:'Diltiazem 180mg, Omeprazole 20mg'}
+];
+
+const BASE_STUDIES=[
+  /* idx 0 — Zhang Wei (ECG-001) */
+  {patientIdx:0,recordDate:'2026-04-20 07:30',recordedBy:'ecgtech',referring:'Dr. Wang',ordering:'Dr. Wang',attending:'Dr. Li',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:72,pr:168,qrs:88,qt:380,qtc:416,axis:45,
+   autoInterp:'Normal sinus rhythm. Normal axis. No acute ST-T changes.',
+   findings:'Normal sinus rhythm at 72 bpm.\nNormal PR interval.\nNormal QRS duration.\nNo ST elevation or depression.\nNormal T waves.',
+   impression:'Normal ECG.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 1 — Li Fang (ECG-002) */
+  {patientIdx:1,recordDate:'2026-04-20 07:45',recordedBy:'ecgtech',referring:'Dr. Li',ordering:'Dr. Li',attending:'Dr. Chen',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:88,pr:148,qrs:84,qt:350,qtc:424,axis:30,
+   autoInterp:'Sinus tachycardia. Left axis deviation. T wave flattening in lateral leads.',
+   findings:'Sinus tachycardia at 88 bpm.\nLeft axis deviation.\nT wave flattening in leads I, aVL, V5-V6.',
+   impression:'Borderline ECG. Suggest clinical correlation.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 2 — Wang Qiang (ECG-003) */
+  {patientIdx:2,recordDate:'2026-04-20 08:00',recordedBy:'ecgtech',referring:'Dr. Chen',ordering:'Dr. Chen',attending:'Dr. Zhang',
+   priority:'stat',status:'unconfirmed',location:'Main Hospital',
+   hr:98,pr:210,qrs:92,qt:400,qtc:455,axis:-30,
+   autoInterp:'Sinus tachycardia. First degree AV block. Left anterior fascicular block. ST depression in leads V4-V6.',
+   findings:'Sinus tachycardia at 98 bpm.\nProlonged PR interval (210 ms) — first degree AV block.\nLeft axis deviation with left anterior fascicular block.\nST depression 1mm in leads V4-V6.\nInverted T waves in leads V5-V6.',
+   impression:'Abnormal ECG. Ischemic changes. Strongly recommend cardiology consult.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 3 — Chen Jing (ECG-004) */
+  {patientIdx:3,recordDate:'2026-04-20 08:15',recordedBy:'ecgtech',referring:'Dr. Zhang',ordering:'Dr. Zhang',attending:'Dr. Liu',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:65,pr:156,qrs:80,qt:400,qtc:416,axis:60,
+   autoInterp:'Normal sinus rhythm. Normal ECG.',
+   findings:'Normal sinus rhythm at 65 bpm.\nNormal intervals.\nNo ST-T wave abnormality.',
+   impression:'Normal ECG.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 4 — Huang Lei (ECG-007) — CRITICAL: Anterior STEMI */
+  {patientIdx:4,recordDate:'2026-04-20 08:30',recordedBy:'ecgtech',referring:'Dr. Liu',ordering:'Dr. Liu',attending:'Dr. Wang',
+   priority:'stat',status:'unconfirmed',location:'Cardiac Center',
+   hr:110,pr:160,qrs:96,qt:320,qtc:433,axis:75,
+   autoInterp:'Sinus tachycardia. ST elevation in leads V1-V4. Reciprocal ST depression in inferior leads. ***ACUTE ANTERIOR STEMI***.',
+   findings:'Sinus tachycardia at 110 bpm.\nST elevation 3-5mm in leads V1-V4 (anterior wall).\nReciprocal ST depression in leads II, III, aVF.\nHyperacute T waves in V2-V4.',
+   impression:'***ACUTE ANTERIOR STEMI*** — Activate cath lab immediately.',
+   critical:'Anterior STEMI — ST elevation V1-V4 with reciprocal changes. Immediate cardiac catheterization required.',
+   autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 5 — Zhao Min (ECG-006) */
+  {patientIdx:5,recordDate:'2026-04-20 08:45',recordedBy:'ecgtech',referring:'Dr. Wang',ordering:'Dr. Wang',attending:'Dr. Li',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:75,pr:152,qrs:86,qt:370,qtc:413,axis:50,
+   autoInterp:'Normal sinus rhythm. Left atrial enlargement. Otherwise normal ECG.',
+   findings:'Normal sinus rhythm at 75 bpm.\nP wave duration prolonged in lead II (bifid P wave).\nSuggestive of left atrial enlargement.\nOtherwise normal intervals and morphology.',
+   impression:'Left atrial enlargement. Otherwise normal.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 6 — Liu Yang (ECG-005) */
+  {patientIdx:6,recordDate:'2026-04-20 09:00',recordedBy:'ecgtech',referring:'Dr. Li',ordering:'Dr. Li',attending:'Dr. Chen',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:58,pr:192,qrs:130,qt:440,qtc:433,axis:-45,
+   autoInterp:'Sinus bradycardia. Left bundle branch block. Cannot evaluate ST-T changes secondary to LBBB.',
+   findings:'Sinus bradycardia at 58 bpm.\nQRS duration 130 ms.\nLeft bundle branch block pattern.\nSecondary ST-T changes (discordant to QRS).\nNote: LBBB precludes ischemia evaluation by ST criteria.',
+   impression:'Sinus bradycardia with LBBB. Clinical correlation advised.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false},
+  /* idx 7 — Zhou Ting (ECG-008) */
+  {patientIdx:7,recordDate:'2026-04-20 09:15',recordedBy:'ecgtech',referring:'Dr. Chen',ordering:'Dr. Chen',attending:'Dr. Zhang',
+   priority:'routine',status:'unconfirmed',location:'Main Hospital',
+   hr:82,pr:164,qrs:90,qt:360,qtc:420,axis:40,
+   autoInterp:'Normal sinus rhythm. Nonspecific T wave changes in inferior leads. Old inferior MI cannot be excluded.',
+   findings:'Normal sinus rhythm at 82 bpm.\nNormal PR and QRS intervals.\nSmall Q waves in leads II, III, aVF.\nT wave flattening in inferior leads.',
+   impression:'Possible old inferior MI. Nonspecific T wave changes. Clinical correlation recommended.',
+   critical:null,autoMeasured:false,reportSubmitted:false,criticalAlerted:false,confirmed:false}
+];
+
+let _rng;
+function _seededRandom(s){return function(){s=(s*16807+0)%2147483647;return(s-1)/2147483646;}}
+
+/* ═══════════════ INIT ═══════════════ */
+function _medgym_init(seed=42){
+  _rng=_seededRandom(seed);
+  const S=window._taskState;
+  S.initialized=true;S.loggedIn=false;S.currentUser=null;
+  S.currentPage='worklist';S.selectedStudyIdx=null;S.selectedPatientIdx=null;
+  S.paperSpeed=25;S.gain=10;S.leadLayout='standard';S.filter='0.05-150';
+  S.wlFilter='all';S.caliperActive=false;
+  S.teleFolder='inbox';S.teleInbox=[];S.teleOutbox=[];
+  S.settingsChanged=false;S.searchPatterns=[];
+  S.exportDone=false;S.printDone=false;
+  S.patients=JSON.parse(JSON.stringify(BASE_PATIENTS));
+  S.studies=JSON.parse(JSON.stringify(BASE_STUDIES));
+}
+window._medgym_init=_medgym_init;
+window._medgym_navigate=function(h){if(h)switchTab(h);};
+
+/* ═══════════════ CLOCK ═══════════════ */
+function updateClock(){
+  const d=new Date();
+  document.getElementById('clockDisplay').textContent=d.toISOString().slice(0,19).replace('T',' ');
+}
+setInterval(updateClock,1000);
+
+/* ═══════════════ LOGIN ═══════════════ */
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value.trim();
+  if(!u)return;
+  const S=window._taskState;
+  if(!S.initialized)_medgym_init(42);
+  S.loggedIn=true;S.currentUser=u;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('userDisplay').textContent=u;
+  document.getElementById('statusUser').textContent=u;
+  const site=document.getElementById('loginSite').value;
+  const siteNames={main:'Main Hospital',cc:'Cardiac Center',er:'Emergency Dept'};
+  document.getElementById('statusSite').textContent=siteNames[site]||site;
+  document.getElementById('locationDisplay').textContent=siteNames[site]||site;
+  renderPatientList();renderWorklist();updateClock();
+}
+function doLogout(){
+  window._taskState.loggedIn=false;
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+}
+
+/* ═══════════════ MENU ═══════════════ */
+function toggleMenu(id,ev){
+  /* Ignore bubbled clicks from descendant .dd-item / .dropdown so menu items
+     don't re-open the dropdown they just dismissed. */
+  if(ev&&ev.target&&ev.target.closest('.dd-item, .dropdown'))return;
+  document.querySelectorAll('.dropdown').forEach(d=>{if(d.id!==id)d.classList.remove('show');});
+  document.getElementById(id).classList.toggle('show');
+  if(ev)ev.stopPropagation();
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.menu-item'))document.querySelectorAll('.dropdown').forEach(d=>d.classList.remove('show'));
+});
+
+/* ═══════════════ SEARCH AREA TABS ═══════════════ */
+function switchSATab(tab){
+  document.querySelectorAll('.sa-tab').forEach(t=>t.classList.toggle('active',t.dataset.sa===tab));
+  document.getElementById('saPatientTab').style.display=tab==='patient'?'':'none';
+  document.getElementById('saSearchTab').style.display=tab==='search'?'':'none';
+}
+
+/* ═══════════════ PATIENT LIST ═══════════════ */
+function renderPatientList(){
+  const S=window._taskState;
+  const q=(document.getElementById('saSearchInput')?.value||'').toLowerCase();
+  const list=document.getElementById('saPatientList');
+  let html='';
+  S.patients.forEach((p,i)=>{
+    const name=p.lastName+', '+p.firstName;
+    if(q&&!name.toLowerCase().includes(q)&&!p.pid.toLowerCase().includes(q))return;
+    const sel=S.selectedPatientIdx===i?'selected':'';
+    html+=`<div class="sa-list-item ${sel}" onclick="selectPatient(${i})">
+      <span>${name}</span><span style="color:var(--text-dim);font-size:10px">${p.pid}</span></div>`;
+  });
+  list.innerHTML=html||'<div style="padding:8px;color:var(--text-dim);font-size:10px">No patients found.</div>';
+}
+function filterPatients(){renderPatientList();}
+function selectPatient(idx){
+  const S=window._taskState;S.selectedPatientIdx=idx;
+  renderPatientList();renderTestList(idx);
+  const p=S.patients[idx];
+  document.getElementById('statusPatient').textContent=p.lastName+', '+p.firstName+' ('+p.pid+')';
+}
+function renderTestList(pidx){
+  const S=window._taskState;
+  const el=document.getElementById('saTestList');
+  let html='';
+  S.studies.forEach((s,i)=>{
+    if(s.patientIdx!==pidx)return;
+    const sel=S.selectedStudyIdx===i?'selected':'';
+    const icon=s.critical?'&#x1F6A8;':'&#x2764;';
+    html+=`<div class="sa-list-item ${sel}" onclick="selectStudyFromList(${i})" ondblclick="openStudyByIdx(${i})">
+      <span>${icon} Rest ECG — ${s.recordDate}</span>
+      <span class="badge badge-${s.status}">${s.status}</span></div>`;
+  });
+  el.innerHTML=html||'<div style="padding:8px;color:var(--text-dim);font-size:10px">No tests for this patient.</div>';
+}
+function selectStudyFromList(idx){
+  const S=window._taskState;S.selectedStudyIdx=idx;
+  const pidx=S.studies[idx].patientIdx;
+  if(S.selectedPatientIdx!==pidx){S.selectedPatientIdx=pidx;renderPatientList();}
+  renderTestList(pidx);
+}
+
+/* ═══════════════ WORKSPACE TABS ═══════════════ */
+function switchTab(tab){
+  const S=window._taskState;S.currentPage=tab;
+  document.querySelectorAll('#wsContent > div').forEach(d=>d.style.display='none');
+  const el=document.getElementById('tab-'+tab);
+  if(el){
+    if(tab==='viewer'||tab==='telemedicine'||tab==='report')el.style.display='flex';
+    else el.style.display='flex';
+  }
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='worklist')renderWorklist();
+  if(tab==='viewer')renderViewer();
+  if(tab==='report')renderReport();
+  if(tab==='telemedicine')renderTelemedicine();
+}
+
+/* ═══════════════ WORKLIST ═══════════════ */
+function toggleWlSearch(){
+  const p=document.getElementById('wlSearchPanel');
+  p.style.display=p.style.display==='none'?'flex':'none';
+}
+function setWlFilter(f){
+  window._taskState.wlFilter=f;
+  document.querySelectorAll('.wl-filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+  renderWorklist();
+}
+function refreshWorklist(){renderWorklist();}
+function filterWorklist(){renderWorklist();}
+function renderWorklist(){
+  const S=window._taskState;
+  const nameF=(document.getElementById('wlSearchName')?.value||'').toLowerCase();
+  const pidF=(document.getElementById('wlSearchPID')?.value||'').toLowerCase();
+  const statusF=document.getElementById('wlSearchStatus')?.value||'';
+  const priorityF=document.getElementById('wlSearchPriority')?.value||'';
+  const wlF=S.wlFilter;
+  let studies=S.studies.filter((s,i)=>{
+    const p=S.patients[s.patientIdx];
+    const name=(p.lastName+' '+p.firstName).toLowerCase();
+    if(nameF&&!name.includes(nameF))return false;
+    if(pidF&&!p.pid.toLowerCase().includes(pidF))return false;
+    if(statusF&&s.status!==statusF)return false;
+    if(priorityF&&s.priority!==priorityF)return false;
+    if(wlF==='unconfirmed'&&s.confirmed)return false;
+    if(wlF==='confirmed'&&!s.confirmed)return false;
+    if(wlF==='critical'&&!s.critical)return false;
+    return true;
+  });
+  const tbody=document.getElementById('wlBody');
+  let html='';
+  studies.forEach((s,fi)=>{
+    const idx=S.studies.indexOf(s);
+    const p=S.patients[s.patientIdx];
+    const name=p.lastName+', '+p.firstName;
+    const sexAge=p.gender+'/'+p.age;
+    const sel=S.selectedStudyIdx===idx?'selected':'';
+    const statusBadge=s.critical?'badge-critical':(s.confirmed?'badge-confirmed':'badge-unconfirmed');
+    const statusText=s.critical?'CRITICAL':(s.confirmed?'Confirmed':'Unconfirmed');
+    const priBadge=s.priority==='stat'?'badge-stat':'';
+    html+=`<tr class="${sel}" onclick="selectStudy(${idx})" ondblclick="openStudyByIdx(${idx})">
+      <td>${fi+1}</td><td>${p.pid}</td><td>${name}</td><td>${sexAge}</td>
+      <td>${s.recordDate}</td><td>${s.recordedBy}</td><td>${s.referring}</td>
+      <td><span class="badge ${statusBadge}">${statusText}</span></td>
+      <td><span class="badge ${priBadge}">${s.priority}</span></td>
+      <td>${s.hr} bpm</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.autoInterp.substring(0,50)}...</td>
+      <td><button class="btn btn-sm btn-orange" onclick="event.stopPropagation();openStudyByIdx(${idx})">Open</button></td>
+    </tr>`;
+  });
+  tbody.innerHTML=html;
+  document.getElementById('studyCountDisplay').textContent=studies.length;
+}
+function selectStudy(idx){
+  const S=window._taskState;S.selectedStudyIdx=idx;
+  const pidx=S.studies[idx].patientIdx;
+  S.selectedPatientIdx=pidx;
+  const p=S.patients[pidx];
+  document.getElementById('statusPatient').textContent=p.lastName+', '+p.firstName+' ('+p.pid+')';
+  renderWorklist();renderPatientList();renderTestList(pidx);
+}
+function openStudy(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  openStudyByIdx(S.selectedStudyIdx);
+}
+function openStudyByIdx(idx){
+  const S=window._taskState;S.selectedStudyIdx=idx;
+  const pidx=S.studies[idx].patientIdx;
+  S.selectedPatientIdx=pidx;
+  const p=S.patients[pidx];
+  document.getElementById('statusPatient').textContent=p.lastName+', '+p.firstName+' ('+p.pid+')';
+  switchTab('viewer');
+}
+
+/* ═══════════════ ECG VIEWER ═══════════════ */
+function renderViewer(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null){
+    document.getElementById('viewerPatientInfo').textContent='No study selected';
+    document.getElementById('viewerRecordInfo').textContent='';
+    return;
+  }
+  const s=S.studies[S.selectedStudyIdx];
+  const p=S.patients[s.patientIdx];
+  document.getElementById('viewerPatientInfo').textContent=
+    p.lastName+', '+p.firstName+' | '+p.pid+' | '+p.gender+' | Age: '+p.age+' | DOB: '+p.dob+' | '+p.height+'cm / '+p.weight+'kg';
+  document.getElementById('viewerRecordInfo').textContent=
+    'Recorded: '+s.recordDate+' | By: '+s.recordedBy+' | Referring: '+s.referring+' | Location: '+s.location;
+  /* Speed / Gain / Layout selects */
+  document.getElementById('speedSelect').value=S.paperSpeed;
+  document.getElementById('gainSelect').value=S.gain;
+  document.getElementById('layoutSelect').value=S.leadLayout;
+  document.getElementById('filterSelect').value=S.filter;
+  /* Measurements */
+  renderMeasurements(s);
+  /* Interpretation */
+  document.getElementById('interpText').innerHTML=s.autoInterp||'<span style="color:var(--text-dim)">No interpretation yet.</span>';
+  document.getElementById('interpEditor').value=s.findings||'';
+  /* Auto-Analysis */
+  renderAutoAnalysis(s);
+  /* Critical */
+  if(s.critical){
+    document.getElementById('criticalSection').style.display='';
+    document.getElementById('criticalText').textContent=s.critical;
+    document.getElementById('critAlertBtn').disabled=s.criticalAlerted;
+    document.getElementById('critAlertBtn').textContent=s.criticalAlerted?'Alert Triggered ✓':'Trigger Critical Alert';
+  }else{
+    document.getElementById('criticalSection').style.display='none';
+  }
+  /* Interpretation categories */
+  renderInterpCategories();
+  /* Draw ECG */
+  drawECG();
+}
+
+function renderMeasurements(s){
+  const el=document.getElementById('measValues');
+  el.innerHTML=`
+    <div class="meas-row"><span class="label">Heart Rate</span><span class="value">${s.hr} bpm</span></div>
+    <div class="meas-row"><span class="label">PR Interval</span><span class="value${s.pr>200?' abnormal':''}">${s.pr} ms</span></div>
+    <div class="meas-row"><span class="label">QRS Duration</span><span class="value${s.qrs>120?' abnormal':''}">${s.qrs} ms</span></div>
+    <div class="meas-row"><span class="label">QT Interval</span><span class="value">${s.qt} ms</span></div>
+    <div class="meas-row"><span class="label">QTc (Bazett)</span><span class="value${s.qtc>470?' abnormal':''}">${s.qtc} ms</span></div>
+    <div class="meas-row"><span class="label">P Axis</span><span class="value">${Math.round(s.axis*0.6)}°</span></div>
+    <div class="meas-row"><span class="label">QRS Axis</span><span class="value${(s.axis<-30||s.axis>100)?' abnormal':''}">${s.axis}°</span></div>
+    <div class="meas-row"><span class="label">T Axis</span><span class="value">${Math.round(s.axis*0.8)}°</span></div>
+    <div class="meas-row"><span class="label">RR Interval</span><span class="value">${Math.round(60000/s.hr)} ms</span></div>
+    <div class="meas-row"><span class="label">P Duration</span><span class="value">${Math.round(80+Math.random()*20)} ms</span></div>
+    <div class="meas-row"><span class="label">Sokolow-Lyon</span><span class="value">${(2.0+Math.random()*1.5).toFixed(1)} mV</span></div>
+  `;
+}
+
+function renderAutoAnalysis(s){
+  const el=document.getElementById('autoAnalysisResult');
+  if(s.autoMeasured){
+    el.innerHTML=`<div style="font-size:11px;color:var(--success)">&#x2713; Auto-analysis complete</div>
+      <div style="font-size:10px;margin-top:4px;color:var(--text)">${s.autoInterp}</div>`;
+  }else{
+    el.innerHTML='<div style="padding:4px 0;font-size:10px;color:var(--text-dim)">Not yet performed.</div>';
+  }
+}
+
+function renderInterpCategories(){
+  const el=document.getElementById('interpCategories');
+  let html='';
+  for(const[cat,stmts]of Object.entries(INTERP_CATEGORIES)){
+    html+=`<div class="interp-cat" onclick="toggleInterpCat(this)">${cat}</div>`;
+    stmts.forEach(st=>{
+      html+=`<div class="interp-stmt" style="display:none" data-cat="${cat}" onclick="insertStatement('${st.replace(/'/g,"\\'")}')"> ${st}</div>`;
+    });
+  }
+  el.innerHTML=html;
+}
+function toggleInterpCat(el){
+  const cat=el.textContent;
+  const items=document.querySelectorAll(`.interp-stmt[data-cat="${cat}"]`);
+  items.forEach(it=>{it.style.display=it.style.display==='none'?'':'none';});
+}
+function insertStatement(st){
+  const ed=document.getElementById('interpEditor');
+  ed.value+=(ed.value?'\n':'')+st;
+}
+
+/* ─── Controls ─── */
+function changeSpeed(){
+  const v=parseInt(document.getElementById('speedSelect').value);
+  window._taskState.paperSpeed=v;
+  drawECG();
+}
+function changeGain(){
+  const v=parseInt(document.getElementById('gainSelect').value);
+  window._taskState.gain=v;
+  drawECG();
+}
+function changeLayout(){
+  const v=document.getElementById('layoutSelect').value;
+  window._taskState.leadLayout=v;
+  drawECG();
+}
+function toggleView(v){
+  if(v==='cabrera'){window._taskState.leadLayout='cabrera';document.getElementById('layoutSelect').value='cabrera';}
+  else if(v==='standard'){window._taskState.leadLayout='standard';document.getElementById('layoutSelect').value='standard';}
+  drawECG();
+}
+function changeFilter(){
+  window._taskState.filter=document.getElementById('filterSelect').value;
+}
+function toggleCaliper(){
+  window._taskState.caliperActive=!window._taskState.caliperActive;
+}
+function doCompareECG(){closeAllMenus();alert('Compare ECGs: select a second study to compare (demo placeholder).');}
+
+/* ─── Auto-Analysis ─── */
+function runAutoAnalysis(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  S.studies[S.selectedStudyIdx].autoMeasured=true;
+  renderViewer();
+}
+
+/* ─── Critical Alert ─── */
+function triggerCriticalAlert(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  const s=S.studies[S.selectedStudyIdx];
+  if(!s.critical)return;
+  s.criticalAlerted=true;
+  const p=S.patients[s.patientIdx];
+  alert('⚠ CRITICAL ALERT TRIGGERED\n\nPatient: '+p.lastName+', '+p.firstName+' ('+p.pid+')\n\n'+s.critical+'\n\nNotification sent to attending physician and cath lab.');
+  renderViewer();
+}
+
+/* ─── Draw ECG (simplified 12-lead waveform) ─── */
+function drawECG(){
+  const S=window._taskState;
+  const canvas=document.getElementById('ecgCanvas');
+  if(!canvas)return;
+  const wrap=canvas.parentElement;
+  canvas.width=wrap.clientWidth;canvas.height=wrap.clientHeight;
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  /* Grid */
+  ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);
+  const smallGrid=S.paperSpeed===50?4:2;
+  ctx.strokeStyle='rgba(0,80,0,0.25)';ctx.lineWidth=0.5;
+  for(let x=0;x<w;x+=smallGrid*5){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=smallGrid*5){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(0,120,0,0.4)';ctx.lineWidth=0.8;
+  for(let x=0;x<w;x+=smallGrid*25){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=smallGrid*25){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+
+  if(S.selectedStudyIdx==null)return;
+  const study=S.studies[S.selectedStudyIdx];
+  const leads=S.leadLayout==='cabrera'?CABRERA_LEADS:STANDARD_LEADS;
+  const rows=4,cols=3;
+  const cellW=w/cols,cellH=h/rows;
+  const gainFactor=S.gain/10;
+
+  ctx.font='10px Courier New';ctx.fillStyle=S.leadLayout==='cabrera'?'#ff8':'#0f0';
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const li=r*cols+c;
+      if(li>=leads.length)continue;
+      const label=leads[li];
+      const cx=c*cellW,cy=r*cellH+cellH/2;
+      ctx.fillText(label,cx+4,r*cellH+12);
+      /* Waveform */
+      ctx.strokeStyle=study.critical?'#ff4444':'#00e676';
+      ctx.lineWidth=1.2;
+      ctx.beginPath();
+      const seed=li*1000+study.hr;
+      let rng=_seededRandom(seed);
+      const amp=15*gainFactor;
+      const freq=study.hr/60;
+      const pxPerSec=S.paperSpeed*2;
+      for(let px=0;px<cellW-10;px++){
+        const t=px/pxPerSec;
+        const cycle=t*freq;
+        const phase=(cycle%1)*2*Math.PI;
+        /* Simplified PQRST morphology */
+        let v=0;
+        const p1=phase/(2*Math.PI);
+        /* P wave */
+        if(p1>0.05&&p1<0.15)v=Math.sin((p1-0.05)*10*Math.PI)*0.15;
+        /* QRS */
+        if(p1>0.2&&p1<0.22)v=-0.1*(1+rng()*0.3);
+        if(p1>0.22&&p1<0.26)v=(0.8+rng()*0.4)*(li<6?1:-0.5*(rng()-0.3));
+        if(p1>0.26&&p1<0.3)v=-0.15*(1+rng()*0.2);
+        /* ST segment + T wave */
+        if(p1>0.32&&p1<0.5){
+          const tPhase=(p1-0.32)/0.18;
+          v=Math.sin(tPhase*Math.PI)*0.3*(1+rng()*0.2);
+          /* ST elevation for STEMI */
+          if(study.critical&&li>=6&&li<=9)v+=0.4;
+        }
+        v*=amp;
+        if(px===0)ctx.moveTo(cx+10+px,cy-v);
+        else ctx.lineTo(cx+10+px,cy-v);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+/* ═══════════════ REPORT ═══════════════ */
+function renderReport(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null){
+    document.getElementById('reportContent').innerHTML='<div style="padding:20px;color:var(--text-dim);text-align:center">No study selected. Open a study from the Worklist first.</div>';
+    return;
+  }
+  const s=S.studies[S.selectedStudyIdx];
+  const p=S.patients[s.patientIdx];
+  document.getElementById('reportContent').innerHTML=`
+    <div class="report-section">
+      <h4>Patient Information</h4>
+      <div class="report-row"><span class="rl">Name:</span><span class="rv">${p.lastName}, ${p.firstName}</span></div>
+      <div class="report-row"><span class="rl">Patient ID:</span><span class="rv">${p.pid}</span></div>
+      <div class="report-row"><span class="rl">Gender:</span><span class="rv">${p.gender==='M'?'Male':'Female'}</span></div>
+      <div class="report-row"><span class="rl">Date of Birth:</span><span class="rv">${p.dob} (Age: ${p.age})</span></div>
+      <div class="report-row"><span class="rl">Height / Weight:</span><span class="rv">${p.height} cm / ${p.weight} kg</span></div>
+      <div class="report-row"><span class="rl">Insurance:</span><span class="rv">${p.insurance}</span></div>
+    </div>
+    <div class="report-section">
+      <h4>Recording Information</h4>
+      <div class="report-row"><span class="rl">Recording Date:</span><span class="rv">${s.recordDate}</span></div>
+      <div class="report-row"><span class="rl">Recorded By:</span><span class="rv">${s.recordedBy}</span></div>
+      <div class="report-row"><span class="rl">Referring Physician:</span><span class="rv">${s.referring}</span></div>
+      <div class="report-row"><span class="rl">Ordering Physician:</span><span class="rv">${s.ordering}</span></div>
+      <div class="report-row"><span class="rl">Attending Physician:</span><span class="rv">${s.attending}</span></div>
+      <div class="report-row"><span class="rl">Location:</span><span class="rv">${s.location}</span></div>
+      <div class="report-row"><span class="rl">Priority:</span><span class="rv">${s.priority.toUpperCase()}</span></div>
+    </div>
+    <div class="report-section">
+      <h4>Measurements</h4>
+      <div class="report-row"><span class="rl">Heart Rate:</span><span class="rv">${s.hr} bpm</span></div>
+      <div class="report-row"><span class="rl">PR Interval:</span><span class="rv">${s.pr} ms</span></div>
+      <div class="report-row"><span class="rl">QRS Duration:</span><span class="rv">${s.qrs} ms</span></div>
+      <div class="report-row"><span class="rl">QT / QTc:</span><span class="rv">${s.qt} / ${s.qtc} ms</span></div>
+      <div class="report-row"><span class="rl">QRS Axis:</span><span class="rv">${s.axis}°</span></div>
+    </div>
+    <div class="report-section">
+      <h4>Findings</h4>
+      <div class="report-findings">${(s.findings||'').replace(/\n/g,'<br>')}</div>
+    </div>
+    <div class="report-section">
+      <h4>Impression</h4>
+      <div class="report-findings" style="${s.critical?'color:var(--danger);font-weight:700':''}">${s.impression||''}</div>
+    </div>
+    ${s.critical?`<div class="report-section"><h4 style="color:var(--danger)">⚠ Critical Finding</h4><div class="report-findings" style="color:var(--danger);border-color:rgba(192,57,43,.4)">${s.critical}</div></div>`:''}
+    <div class="report-section">
+      <h4>Status</h4>
+      <div class="report-row"><span class="rl">Report Status:</span><span class="rv">${s.reportSubmitted?'<span style="color:var(--success);font-weight:700">✓ Submitted</span>':'<span style="color:var(--warning)">Pending</span>'}</span></div>
+      <div class="report-row"><span class="rl">Confirmed:</span><span class="rv">${s.confirmed?'<span style="color:var(--success)">Yes</span>':'<span style="color:var(--warning)">No</span>'}</span></div>
+    </div>
+    <div class="report-actions">
+      <button class="btn" onclick="switchTab('viewer')">Back to Viewer</button>
+      <button class="btn" onclick="showPrintDialog()">Print Report</button>
+      <button class="btn btn-orange" onclick="confirmReport()" ${s.reportSubmitted?'disabled':''}>Confirm Report</button>
+      <button class="btn btn-green" onclick="submitReport()" ${s.reportSubmitted?'disabled':''}>Submit Report</button>
+    </div>
+  `;
+}
+function submitReport(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  S.studies[S.selectedStudyIdx].reportSubmitted=true;
+  S.studies[S.selectedStudyIdx].confirmed=true;
+  S.studies[S.selectedStudyIdx].status='confirmed';
+  renderReport();renderWorklist();
+}
+function confirmReport(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  S.studies[S.selectedStudyIdx].confirmed=true;
+  S.studies[S.selectedStudyIdx].status='confirmed';
+  renderReport();renderWorklist();
+}
+function confirmSelected(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  S.studies[S.selectedStudyIdx].confirmed=true;
+  S.studies[S.selectedStudyIdx].status='confirmed';
+  renderWorklist();
+}
+function unconfirmSelected(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  S.studies[S.selectedStudyIdx].confirmed=false;
+  S.studies[S.selectedStudyIdx].status='unconfirmed';
+  renderWorklist();
+}
+
+/* ═══════════════ TELEMEDICINE ═══════════════ */
+function switchTeleFolder(f){
+  window._taskState.teleFolder=f;
+  document.querySelectorAll('.tele-folder').forEach(el=>el.classList.toggle('active',el.dataset.folder===f));
+  renderTelemedicine();
+}
+function renderTelemedicine(){
+  const S=window._taskState;
+  const tbody=document.getElementById('teleBody');
+  const folder=S.teleFolder;
+  let items=[];
+  if(folder==='inbox')items=S.teleInbox;
+  else if(folder==='outbox')items=S.teleOutbox;
+  if(items.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:20px">No messages in this folder.</td></tr>';
+  }else{
+    let html='';
+    items.forEach(it=>{
+      html+=`<tr><td>${it.from||it.to}</td><td>${it.patient}</td><td>${it.type}</td><td>${it.date}</td><td>${it.status}</td></tr>`;
+    });
+    tbody.innerHTML=html;
+  }
+  document.getElementById('teleInboxCount').textContent=S.teleInbox.length;
+  document.getElementById('teleOutboxCount').textContent=S.teleOutbox.length;
+}
+function teleSendReceive(){
+  const S=window._taskState;
+  /* Simulate receiving a test */
+  if(S.teleInbox.length===0){
+    S.teleInbox.push({from:'Dr. External',patient:'Ref Patient',type:'Rest ECG',date:'2026-04-20 09:30',status:'New'});
+  }
+  renderTelemedicine();
+}
+function teleSendStudy(){
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  const s=S.studies[S.selectedStudyIdx];
+  const p=S.patients[s.patientIdx];
+  S.teleOutbox.push({to:'Dr. Consult',patient:p.lastName+', '+p.firstName,type:'Rest ECG',date:s.recordDate,status:'Queued'});
+  renderTelemedicine();
+}
+function teleReply(){alert('Reply: open a message in the Inbox first.');}
+function teleForward(){alert('Forward: open a message in the Inbox first.');}
+function teleDelete(){
+  const S=window._taskState;
+  if(S.teleFolder==='inbox'&&S.teleInbox.length){S.teleInbox.pop();}
+  else if(S.teleFolder==='outbox'&&S.teleOutbox.length){S.teleOutbox.pop();}
+  renderTelemedicine();
+}
+
+/* ═══════════════ PATIENT CARD ═══════════════ */
+function openNewPatient(){closeAllMenus();document.getElementById('patientCardModal').classList.add('show');}
+function editPatientCard(){
+  closeAllMenus();
+  const S=window._taskState;
+  if(S.selectedPatientIdx==null)return;
+  const p=S.patients[S.selectedPatientIdx];
+  document.getElementById('pcNumber').value=p.pid;
+  document.getElementById('pcLastName').value=p.lastName;
+  document.getElementById('pcFirstName').value=p.firstName;
+  document.getElementById('pcInsurance').value=p.insurance||'';
+  document.getElementById('pcGender').value=p.gender;
+  document.getElementById('pcDOB').value=p.dob;
+  document.getElementById('pcHeight').value=p.height;
+  document.getElementById('pcWeight').value=p.weight;
+  document.getElementById('patientCardModal').classList.add('show');
+}
+function switchPCTab(tab){
+  document.querySelectorAll('.modal-tab[data-pctab]').forEach(t=>t.classList.toggle('active',t.dataset.pctab===tab));
+  document.getElementById('pcGeneral').style.display=tab==='general'?'':'none';
+  document.getElementById('pcAddress').style.display=tab==='address'?'':'none';
+  document.getElementById('pcHistory').style.display=tab==='history'?'':'none';
+}
+function savePatientCard(){closeModal('patientCardModal');}
+
+/* ═══════════════ NEW TEST ═══════════════ */
+function openNewTest(){
+  closeAllMenus();
+  const S=window._taskState;
+  if(S.selectedPatientIdx==null){alert('Please select a patient first.');return;}
+  const p=S.patients[S.selectedPatientIdx];
+  document.getElementById('ntPatient').value=p.lastName+', '+p.firstName+' ('+p.pid+')';
+  document.getElementById('newTestModal').classList.add('show');
+}
+function createNewTest(){closeModal('newTestModal');}
+
+/* ═══════════════ SETTINGS ═══════════════ */
+function showSettings(){closeAllMenus();document.getElementById('settingsModal').classList.add('show');}
+function switchSettingsTab(tab){
+  document.querySelectorAll('.settings-item').forEach(i=>i.classList.toggle('active',i.dataset.stab===tab));
+  ['setGeneral','setPrint','setMail','setEcg'].forEach(id=>{
+    document.getElementById(id).style.display=id==='set'+tab.charAt(0).toUpperCase()+tab.slice(1)?'':'none';
+  });
+}
+function saveSettings(){window._taskState.settingsChanged=true;closeModal('settingsModal');}
+
+/* ═══════════════ PRINT / EXPORT ═══════════════ */
+function showPrintDialog(){closeAllMenus();document.getElementById('printModal').classList.add('show');}
+function showPrintPreview(){closeAllMenus();showPrintDialog();}
+function printPreviewFromDialog(){closeModal('printModal');alert('Print preview generated.');}
+function doPrint(){window._taskState.printDone=true;closeModal('printModal');alert('Sent to printer.');}
+function printSelectedFormats(){window._taskState.printDone=true;closeAllMenus();alert('Selected formats sent to printer.');}
+function showExportDialog(){closeAllMenus();document.getElementById('exportModal').classList.add('show');}
+function doExport(){window._taskState.exportDone=true;closeModal('exportModal');alert('Export complete.');}
+function showImportDialog(){closeAllMenus();alert('Import: select a file from the system file picker (not implemented in this demo).');}
+
+/* ═══════════════ SEARCH PATTERNS ═══════════════ */
+function openSearchPatterns(){closeAllMenus();_wizStep=1;_renderWizard();document.getElementById('searchPatternModal').classList.add('show');}
+let _wizStep=1;
+function _renderWizard(){
+  const steps=document.querySelectorAll('.wizard-step');
+  steps.forEach((el,i)=>el.classList.toggle('active',i===_wizStep-1));
+  document.getElementById('wizBack').disabled=_wizStep<=1;
+  document.getElementById('wizNext').textContent=_wizStep>=4?'Finish':'Next';
+}
+function wizardNext(){
+  if(_wizStep>=4){closeModal('searchPatternModal');return;}
+  _wizStep++;_renderWizard();
+}
+function wizardBack(){if(_wizStep>1){_wizStep--;_renderWizard();}}
+function runPattern(type){
+  const S=window._taskState;
+  switchTab('worklist');
+  if(type==='unconfirmed'){setWlFilter('unconfirmed');}
+  else if(type==='critical'){setWlFilter('critical');}
+  else if(type==='male50'){
+    setWlFilter('all');
+    /* filter via name input is not enough; mimic by setting wlSearch and re-render */
+    const inp=document.getElementById('wlSearchName');if(inp)inp.value='';
+    /* approximate: show all then alert */
+    alert('Pattern: Male Patients Over 50 (showing all studies — refine with Search Options).');
+  }
+  else if(type==='thisweek'){setWlFilter('all');alert('Pattern: ECGs This Week (showing all studies).');}
+  else if(type==='stat'){
+    setWlFilter('all');
+    const sel=document.getElementById('wlSearchPriority');if(sel){sel.value='stat';}
+    const panel=document.getElementById('wlSearchPanel');if(panel)panel.style.display='flex';
+    filterWorklist();
+  }
+  else{setWlFilter('all');}
+}
+
+/* ═══════════════ PASSWORD ═══════════════ */
+function showChangePassword(){closeAllMenus();document.getElementById('passwordModal').classList.add('show');}
+function doChangePassword(){closeModal('passwordModal');}
+
+/* ═══════════════ DELETE TEST ═══════════════ */
+function deleteSelectedTest(){
+  closeAllMenus();
+  const S=window._taskState;
+  if(S.selectedStudyIdx==null)return;
+  if(!confirm('Are you sure you want to delete this test? This action cannot be undone.'))return;
+  S.studies.splice(S.selectedStudyIdx,1);
+  S.selectedStudyIdx=null;
+  renderWorklist();
+}
+
+/* ═══════════════ OTHER ═══════════════ */
+function showOverreadQueue(){closeAllMenus();alert('Over-read Queue: 0 studies awaiting over-read.');}
+
+/* ═══════════════ MODAL UTIL ═══════════════ */
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function closeAllMenus(){document.querySelectorAll('.dropdown').forEach(d=>d.classList.remove('show'));}
+
+/* ═══════════════ RESIZE ═══════════════ */
+window.addEventListener('resize',()=>{if(window._taskState.currentPage==='viewer')drawECG();});
+</script>
+</body>
+</html>

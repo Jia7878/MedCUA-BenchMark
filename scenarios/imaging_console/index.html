@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Imaging Console (CT/MRI/DR)
+
+  REAL-WORLD REFERENCES:
+  1. feel-DRCS Digital Radiography Console Software (imfoU Co., Ltd.)
+     - Worklist with search/filter, manual input, ER mode
+     - Browser with Patient/Study/Series hierarchy, Send/Print/Export/Backup
+     - Review with Generator controls, Image Processing (Edge/Contrast/Latitude)
+     - Tools: WL Reset, Pan, Zoom, Magnify, ROI, Mirror/Flip/Rotate, Measure, Layout
+     - Configuration: Operator list, DICOM MWL/Storage/Print
+  2. Siemens Healthineers syngo CT/MR console (SOMATOM, MAGNETOM)
+  3. GE Centricity, Philips IntelliSpace Portal
+  4. ACR Dose Index Registry, AAPM Report No. 96
+  5. ACR Manual on MR Safety (2020)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imaging Console</title>
+<style>
+:root{--bg:#0a0a10;--panel:#12121c;--panel2:#181828;--border:#20203a;--border2:#2a2a4a;
+--text:#c8c8e0;--text-dim:#5a5a7a;--text-light:#e0e0f0;
+--accent:#e67e22;--accent2:#2980b9;--accent3:#8e44ad;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;
+--row-hover:rgba(230,126,34,0.06);--row-selected:rgba(230,126,34,0.12)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);font-size:12px;overflow:hidden;height:100vh}
+
+/* ─── Login ─── */
+#loginPage{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#0a0a18 0%,#14142a 100%)}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:40px;width:420px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.login-box h1{color:var(--accent);font-size:22px;margin-bottom:4px;letter-spacing:1px}
+.login-box .subtitle{color:var(--text-dim);font-size:11px;margin-bottom:6px}
+.login-box .version{color:var(--text-dim);font-size:10px;margin-bottom:20px}
+.login-box input{width:100%;padding:10px 12px;margin:5px 0;background:#0a0a12;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px}
+.login-box input:focus{outline:none;border-color:var(--accent)}
+.login-box .login-row{display:flex;gap:8px;margin-top:10px;align-items:center}
+.login-box .login-row select{flex:1;padding:8px;background:#0a0a12;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px}
+.login-box button{width:100%;padding:12px;margin-top:14px;background:var(--accent);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:background 0.2s}
+.login-box button:hover{background:#d35400}
+.login-status{display:flex;gap:12px;margin-top:16px;justify-content:center;font-size:10px;color:var(--text-dim)}
+.login-status .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:3px}
+.dot-green{background:var(--success)}.dot-yellow{background:var(--warning)}.dot-red{background:var(--danger)}
+
+/* ─── Main App ─── */
+#mainApp{display:none;height:100vh;flex-direction:column}
+.top-bar{display:flex;align-items:center;padding:3px 12px;background:linear-gradient(180deg,#10101e 0%,#0c0c16 100%);border-bottom:1px solid var(--border);height:36px;gap:10px}
+.top-bar .logo{color:var(--accent);font-weight:700;font-size:14px;letter-spacing:1px}
+.top-bar .sys-info{color:var(--text-dim);font-size:10px;margin-left:auto;display:flex;gap:16px;align-items:center}
+.top-bar .sys-info span{display:flex;align-items:center;gap:4px}
+
+/* ─── Modality Bar ─── */
+.mod-bar{display:flex;gap:4px;padding:6px 8px;background:#0c0c16;border-bottom:1px solid var(--border);align-items:center}
+.mod-btn{padding:5px 18px;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;background:transparent;color:var(--text);font-weight:600;transition:all 0.15s}
+.mod-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mod-btn.active{background:rgba(230,126,34,0.15);border-color:var(--accent);color:var(--accent)}
+.mod-sep{width:1px;height:20px;background:var(--border);margin:0 8px}
+.mod-bar .equip-info{font-size:10px;color:var(--text-dim);margin-left:12px}
+
+/* ─── Nav ─── */
+nav{display:flex;background:#0c0c16;border-bottom:1px solid var(--border)}
+nav button{padding:7px 18px;background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;border-bottom:2px solid transparent;transition:all 0.15s}
+nav button:hover{color:var(--text)}
+nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* ─── Content ─── */
+.content{flex:1;overflow:hidden;position:relative}
+
+/* ─── Tables ─── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:#0e0e1a;padding:6px 8px;text-align:left;font-size:10px;color:var(--text-dim);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:0.5px;user-select:none}
+.tbl td{padding:5px 8px;border-bottom:1px solid rgba(32,32,58,0.5);font-size:11px;cursor:pointer}
+.tbl tr:hover td{background:var(--row-hover)}
+.tbl tr.selected td{background:var(--row-selected)}
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-block}
+.badge-ready{background:rgba(39,174,96,0.15);color:var(--success)}
+.badge-scanning{background:rgba(52,152,219,0.15);color:var(--accent2)}
+.badge-pending{background:rgba(243,156,18,0.15);color:var(--warning)}
+.badge-complete{background:rgba(39,174,96,0.2);color:var(--success)}
+.badge-stat{background:rgba(192,57,43,0.2);color:var(--danger)}
+.badge-reserve{background:rgba(142,68,173,0.2);color:var(--accent3)}
+
+/* ─── Worklist ─── */
+.wl-toolbar{display:flex;gap:4px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.wl-toolbar .btn{font-size:11px}
+.wl-search{display:flex;gap:6px;padding:6px 8px;background:var(--panel2);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.wl-search label{font-size:10px;color:var(--text-dim);white-space:nowrap}
+.wl-search input,.wl-search select{padding:4px 6px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px}
+.wl-search input{width:120px}
+.wl-filter-bar{display:flex;gap:2px;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--border)}
+.wl-filter-btn{padding:3px 12px;border:none;background:transparent;color:var(--text-dim);font-size:10px;cursor:pointer;border-radius:3px}
+.wl-filter-btn.active{background:rgba(230,126,34,0.15);color:var(--accent)}
+
+/* ─── Browser ─── */
+.browser-layout{display:flex;height:100%}
+.browser-sidebar{width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--panel)}
+.browser-sidebar h5{padding:6px 8px;background:#0e0e1a;color:var(--accent);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
+.browser-list{flex:1;overflow-y:auto;font-size:11px}
+.browser-list-item{padding:5px 8px;border-bottom:1px solid rgba(32,32,58,0.4);cursor:pointer;display:flex;justify-content:space-between}
+.browser-list-item:hover{background:var(--row-hover)}
+.browser-list-item.selected{background:var(--row-selected);border-left:3px solid var(--accent)}
+.browser-main{flex:1;display:flex;flex-direction:column}
+.browser-toolbar{display:flex;gap:4px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--border)}
+.browser-thumbs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+.thumb-card{width:120px;height:140px;background:#0a0a12;border:2px solid var(--border);border-radius:4px;overflow:hidden;cursor:pointer;position:relative}
+.thumb-card:hover{border-color:var(--accent)}
+.thumb-card.selected{border-color:var(--warning);box-shadow:0 0 6px rgba(243,156,18,0.3)}
+.thumb-img{width:100%;height:100px;background:#111;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:9px}
+.thumb-label{padding:3px 6px;font-size:9px;color:var(--text-dim);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ─── Console Layout ─── */
+.console-layout{display:flex;height:100%}
+.console-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.console-preview{flex:1;background:#000;position:relative;overflow:hidden}
+.console-preview canvas{display:block;width:100%;height:100%}
+.scout-overlay{position:absolute;top:8px;left:8px;color:#0f0;font-family:'Courier New',monospace;font-size:10px;line-height:1.5;text-shadow:0 0 4px rgba(0,255,0,0.4)}
+.image-toolbar{display:flex;gap:2px;padding:4px 6px;background:#0a0a14;border-top:1px solid var(--border);flex-wrap:wrap}
+.image-toolbar .tool-btn{padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:10px;transition:all 0.1s}
+.image-toolbar .tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+.image-toolbar .tool-btn.active{background:rgba(230,126,34,0.15);border-color:var(--accent);color:var(--accent)}
+.image-toolbar .sep{width:1px;height:18px;background:var(--border);margin:0 4px;align-self:center}
+
+/* ─── Console Controls ─── */
+.console-actions{display:flex;gap:4px;padding:6px 8px;background:#0c0c16;border-top:1px solid var(--border);align-items:center}
+.ctrl-side{width:360px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.ctrl-tabs{display:flex;border-bottom:1px solid var(--border);background:#0e0e1a}
+.ctrl-tab{padding:6px 12px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:10px;border-bottom:2px solid transparent}
+.ctrl-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.ctrl-panel{flex:1;overflow-y:auto}
+.cp{padding:10px 12px;border-bottom:1px solid var(--border)}
+.cp h4{color:var(--accent);font-size:11px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cp h4 .toggle-icon{cursor:pointer;font-size:9px;color:var(--text-dim)}
+.cp select,.cp input[type="text"],.cp input[type="number"],.cp input[type="password"],.cp textarea{width:100%;padding:5px 8px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;margin-bottom:4px}
+.cp select:focus,.cp input:focus{outline:none;border-color:var(--accent)}
+.param-row{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.param-row label{flex:0 0 90px;color:var(--text-dim);font-size:10px;text-align:right}
+.param-row input,.param-row select{flex:1}
+.param-group{border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px}
+.param-group-title{font-size:10px;color:var(--accent2);margin-bottom:4px;font-weight:600}
+
+/* ─── Sequence List ─── */
+.seq-list{max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:#0a0a12}
+.seq-item{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid rgba(32,32,58,0.4);font-size:11px;cursor:pointer;align-items:center}
+.seq-item:hover{background:rgba(230,126,34,0.06)}
+.seq-item.active{background:rgba(230,126,34,0.15);border-left:3px solid var(--accent)}
+.seq-item .seq-status{font-size:9px;padding:1px 6px;border-radius:8px}
+.seq-item .seq-time{color:var(--text-dim);font-size:10px}
+
+/* ─── Image Processing ─── */
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slider-row label{flex:0 0 70px;font-size:10px;color:var(--text-dim);text-align:right}
+.slider-row input[type="range"]{flex:1;accent-color:var(--accent)}
+.slider-row .val{width:30px;font-size:10px;color:var(--accent);text-align:center}
+
+/* ─── View Position ─── */
+.vp-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.vp-item{padding:4px 6px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;font-size:10px;cursor:pointer;text-align:center}
+.vp-item:hover{border-color:var(--accent)}
+.vp-item.active{background:rgba(230,126,34,0.15);border-color:var(--accent);color:var(--accent)}
+
+/* ─── Dose / QC ─── */
+.dose-bar{display:flex;gap:12px;padding:8px 12px;background:linear-gradient(135deg,#1a0e04,#12121c);border:1px solid rgba(230,126,34,0.3);border-radius:6px;margin-bottom:8px}
+.dose-item{text-align:center;flex:1}
+.dose-item .val{font-size:18px;font-weight:700;color:var(--accent)}
+.dose-item .label{font-size:9px;color:var(--text-dim);margin-top:2px}
+.dose-table{width:100%;border-collapse:collapse;margin-top:8px}
+.dose-table th{background:#0e0e1a;padding:4px 6px;font-size:9px;color:var(--text-dim);text-align:left;border-bottom:1px solid var(--border)}
+.dose-table td{padding:4px 6px;font-size:10px;border-bottom:1px solid rgba(32,32,58,0.4)}
+
+/* ─── Configuration ─── */
+.config-layout{display:flex;height:100%}
+.config-sidebar{width:200px;background:var(--panel);border-right:1px solid var(--border);padding-top:8px}
+.config-item{padding:8px 16px;cursor:pointer;font-size:11px;color:var(--text-dim);border-left:3px solid transparent}
+.config-item:hover{background:var(--row-hover);color:var(--text)}
+.config-item.active{background:var(--row-selected);color:var(--accent);border-left-color:var(--accent)}
+.config-main{flex:1;overflow-y:auto;padding:16px}
+.config-section{margin-bottom:16px}
+.config-section h4{color:var(--accent);font-size:12px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+
+/* ─── Status Bar ─── */
+.status-bar{display:flex;justify-content:space-between;padding:3px 12px;background:linear-gradient(180deg,#0e0e1a,#0c0c16);border-top:1px solid var(--border);font-size:10px;color:var(--text-dim)}
+.status-bar .indicator{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.indicator-green{background:var(--success)}.indicator-yellow{background:var(--warning)}.indicator-red{background:var(--danger)}
+
+/* ─── Buttons ─── */
+.btn{padding:4px 12px;border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;background:transparent;color:var(--text);transition:all 0.15s}
+.btn:hover{border-color:var(--text-dim)}
+.btn-orange{background:var(--accent);border-color:var(--accent);color:#fff}.btn-orange:hover{background:#d35400}
+.btn-green{background:var(--success);border-color:var(--success);color:#fff}.btn-green:hover{background:#219a52}
+.btn-red{background:var(--danger);border-color:var(--danger);color:#fff}.btn-red:hover{background:#a93226}
+.btn-blue{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.btn-dim{background:var(--border);border-color:var(--border);color:var(--text)}
+.btn-sm{padding:2px 8px;font-size:10px}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* ─── Progress ─── */
+.progress-track{background:#0a0a12;border:1px solid var(--border);border-radius:4px;height:20px;overflow:hidden;margin-bottom:4px}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#d35400);transition:width 0.3s}
+
+/* ─── Dialogs ─── */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:400px;max-width:600px;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.modal h3{color:var(--accent);font-size:14px;margin-bottom:12px}
+.modal .form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.modal .form-row label{flex:0 0 100px;font-size:11px;color:var(--text-dim);text-align:right}
+.modal .form-row input,.modal .form-row select{flex:1;padding:6px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:12px}
+.modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ─── Context Menu ─── */
+.ctx-menu{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.5);z-index:999;display:none;min-width:160px}
+.ctx-menu-item{padding:6px 16px;font-size:11px;cursor:pointer;color:var(--text)}
+.ctx-menu-item:hover{background:var(--row-hover);color:var(--accent)}
+.ctx-menu-sep{height:1px;background:var(--border);margin:2px 0}
+
+/* ─── Send/Print Queue ─── */
+.queue-panel{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:8px;margin-top:8px;max-height:150px;overflow-y:auto}
+.queue-item{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(32,32,58,0.3)}
+.queue-item .q-status{color:var(--success)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ LOGIN ═══ -->
+<div id="loginPage">
+  <div class="login-box">
+    <h1>Imaging Console</h1>
+    <div class="subtitle">Digital Radiography Console System</div>
+    <div class="version">Ref: feel-DRCS / Siemens syngo / GE Centricity &mdash; v3.2.1</div>
+    <input id="loginUser" placeholder="Operator Name / ID" autocomplete="off">
+    <input type="password" id="loginPass" placeholder="Password">
+    <div class="login-row">
+      <select id="loginRole">
+        <option value="tech">Technologist</option>
+        <option value="supervisor">Supervisor</option>
+        <option value="engineer">Service Engineer</option>
+      </select>
+    </div>
+    <button onclick="doLogin()">LOGIN</button>
+    <div class="login-status">
+      <span><span class="dot dot-green"></span>Detector: Connected</span>
+      <span><span class="dot dot-green"></span>Generator: Ready</span>
+      <span><span class="dot dot-yellow"></span>PACS: Standby</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ MAIN ═══ -->
+<div id="mainApp">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span class="logo">Imaging Console</span>
+    <span style="color:var(--text-dim);font-size:10px;border:1px solid var(--border);padding:2px 8px;border-radius:3px" id="userInfo"></span>
+    <div class="sys-info">
+      <span id="clockDisplay">2026-04-20 08:00:00</span>
+      <span><span class="indicator indicator-green" id="detectorInd"></span>Detector</span>
+      <span><span class="indicator indicator-green" id="generatorInd"></span>Generator</span>
+      <span><span class="indicator indicator-green" id="pacsInd"></span>PACS</span>
+      <span style="color:var(--text-dim)">Exposure #: <span id="exposureCount">0</span></span>
+    </div>
+  </div>
+
+  <!-- Modality Bar -->
+  <div class="mod-bar">
+    <button class="mod-btn active" data-mod="ct" onclick="setModality('ct')">CT Scanner</button>
+    <button class="mod-btn" data-mod="mri" onclick="setModality('mri')">MRI Scanner</button>
+    <button class="mod-btn" data-mod="xr" onclick="setModality('xr')">DR / X-Ray</button>
+    <span class="mod-sep"></span>
+    <span class="equip-info" id="equipInfo">Equipment: Stand + Table &mdash; Detector: Flat Panel 17&times;17</span>
+  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <button class="active" data-tab="worklist" onclick="switchTab('worklist')">Worklist</button>
+    <button data-tab="browser" onclick="switchTab('browser')">Browser</button>
+    <button data-tab="console" onclick="switchTab('console')">Review / Exposure</button>
+    <button data-tab="dose" onclick="switchTab('dose')">QC / Dose</button>
+    <button data-tab="config" onclick="switchTab('config')">Configuration</button>
+  </nav>
+
+  <!-- ════════════════════════════════ CONTENT ════════════════════ -->
+  <div class="content" id="contentArea">
+
+    <!-- ─── TAB: WORKLIST ─── -->
+    <div id="tab-worklist" style="overflow:hidden;height:100%;display:flex;flex-direction:column">
+      <!-- Toolbar -->
+      <div class="wl-toolbar">
+        <button class="btn btn-orange btn-sm" onclick="wlExam()">EXAM</button>
+        <button class="btn btn-red btn-sm" onclick="wlDelete()">DELETE</button>
+        <button class="btn btn-blue btn-sm" onclick="wlRefresh()">REFRESH</button>
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick="wlEmergency()">ER</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>
+        <button class="btn btn-sm" onclick="openManualInput()">Manual Input</button>
+        <button class="btn btn-sm" onclick="toggleSearchOptions()">Search Options</button>
+        <span style="flex:1"></span>
+        <span style="font-size:10px;color:var(--text-dim)">Auto Refresh: <select id="wlRefreshCycle" style="padding:2px;background:#0a0a12;border:1px solid var(--border);color:var(--text);font-size:10px;border-radius:3px"><option>OFF</option><option>30s</option><option>60s</option><option>5min</option></select></span>
+      </div>
+      <!-- Search Options (collapsible) -->
+      <div class="wl-search" id="wlSearchPanel" style="display:none">
+        <label>Patient ID:</label><input id="searchPID" placeholder="ID" oninput="filterWorklist()">
+        <label>Name:</label><input id="searchName" placeholder="Name" oninput="filterWorklist()">
+        <label>Acc. No.:</label><input id="searchAcc" placeholder="Accession">
+        <label>Schedule:</label><select id="searchSchedule"><option value="">All</option><option>Today</option><option>Yesterday</option><option>This Week</option></select>
+        <label>Modality:</label><select id="searchModality" onchange="filterWorklist()"><option value="">All</option><option value="ct">CT</option><option value="mri">MRI</option><option value="xr">DR/XR</option></select>
+      </div>
+      <!-- Status Filter (All / R / X / Y) -->
+      <div class="wl-filter-bar">
+        <button class="wl-filter-btn active" data-filter="all" onclick="setWlFilter('all')">All</button>
+        <button class="wl-filter-btn" data-filter="R" onclick="setWlFilter('R')">R (Not Examined)</button>
+        <button class="wl-filter-btn" data-filter="X" onclick="setWlFilter('X')">X (Reserved)</button>
+        <button class="wl-filter-btn" data-filter="Y" onclick="setWlFilter('Y')">Y (Examined)</button>
+      </div>
+      <!-- Table -->
+      <div style="flex:1;overflow-y:auto">
+        <table class="tbl"><thead><tr>
+          <th style="width:50px">Priority</th><th>Accession</th><th>Patient ID</th><th>Name</th><th>Sex/Age</th>
+          <th>Protocol</th><th>Body Part</th><th>Requesting</th><th>Status</th><th>Scheduled</th><th style="width:60px">Action</th>
+        </tr></thead><tbody id="wlBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ─── TAB: BROWSER ─── -->
+    <div id="tab-browser" class="browser-layout" style="display:none">
+      <div class="browser-sidebar">
+        <h5>Patient List</h5>
+        <div class="browser-list" id="browserPatientList"></div>
+        <h5>Study List</h5>
+        <div class="browser-list" id="browserStudyList" style="max-height:150px"></div>
+        <h5>Series</h5>
+        <div class="browser-list" id="browserSeriesList" style="max-height:100px"></div>
+      </div>
+      <div class="browser-main">
+        <div class="browser-toolbar">
+          <button class="btn btn-sm btn-orange" onclick="browserOpen()">OPEN</button>
+          <button class="btn btn-sm" onclick="browserExposure()">EXPOSURE</button>
+          <button class="btn btn-sm" onclick="browserMerge()">MERGE</button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>
+          <button class="btn btn-sm btn-blue" onclick="browserSend()">Send to PACS</button>
+          <button class="btn btn-sm" onclick="browserPrint()">Print</button>
+          <button class="btn btn-sm" onclick="browserExport()">File Export</button>
+          <button class="btn btn-sm" onclick="browserBackup()">Backup</button>
+          <button class="btn btn-sm" onclick="browserRestore()">Restore</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-sm" onclick="browserEditPatient()">Edit</button>
+          <button class="btn btn-sm btn-red" onclick="browserDeletePatient()">Delete</button>
+        </div>
+        <div class="browser-thumbs" id="browserThumbs">
+          <div style="color:var(--text-dim);font-size:11px;padding:20px">Select a patient/study from the left panel to view images.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── TAB: CONSOLE (Review / Exposure) ─── -->
+    <div id="tab-console" class="console-layout" style="display:none">
+      <div class="console-main">
+        <!-- Image Area -->
+        <div class="console-preview">
+          <canvas id="conCanvas" width="800" height="500"></canvas>
+          <div class="scout-overlay" id="scoutInfo"></div>
+          <!-- WW/WL overlay -->
+          <div style="position:absolute;bottom:8px;right:8px;color:var(--text-dim);font-size:9px;font-family:monospace" id="wwwlDisplay">WW:--- WL:---</div>
+        </div>
+        <!-- Image Tools Toolbar (feel-DRCS Review tools) -->
+        <div class="image-toolbar">
+          <button class="tool-btn" onclick="toolAction('layout1x1')" title="Layout 1x1">1&times;1</button>
+          <button class="tool-btn" onclick="toolAction('layout1x2')" title="Layout 1x2">1&times;2</button>
+          <button class="tool-btn" onclick="toolAction('layout2x2')" title="Layout 2x2">2&times;2</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('wlreset')" title="WL Reset">WL Reset</button>
+          <button class="tool-btn" onclick="toolAction('imgreset')" title="Image Reset">Img Reset</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('pan')" title="Pan">Pan</button>
+          <button class="tool-btn" onclick="toolAction('zoom')" title="Zoom">Zoom</button>
+          <button class="tool-btn" onclick="toolAction('magnify')" title="Magnify Glass">Magnify</button>
+          <button class="tool-btn" onclick="toolAction('fitimage')" title="Fit Image">Fit</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('roiellipse')" title="ROI Ellipse">ROI &#x25CB;</button>
+          <button class="tool-btn" onclick="toolAction('roirect')" title="ROI Rectangle">ROI &#x25A1;</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('mirror')" title="Mirror">Mirror</button>
+          <button class="tool-btn" onclick="toolAction('flip')" title="Flip">Flip</button>
+          <button class="tool-btn" onclick="toolAction('rotateccw')" title="Rotate CCW">&#x21BA;</button>
+          <button class="tool-btn" onclick="toolAction('rotatecw')" title="Rotate CW">&#x21BB;</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('measure')" title="Measure Line">Measure</button>
+          <button class="tool-btn" onclick="toolAction('angle')" title="Measure Angle">Angle</button>
+          <button class="tool-btn" onclick="toolAction('histogram')" title="Histogram">Histogram</button>
+          <button class="tool-btn" onclick="toolAction('invert')" title="Invert">Invert</button>
+          <span class="sep"></span>
+          <button class="tool-btn" onclick="toolAction('marker')" title="R/L Marker">R/L</button>
+          <button class="tool-btn" onclick="toolAction('text')" title="Text Annotation">Text</button>
+        </div>
+        <!-- Action Buttons -->
+        <div class="console-actions">
+          <button class="btn btn-dim" onclick="acquireScout()">Scout / Topogram</button>
+          <button class="btn btn-orange" onclick="startScan()">&#x25B6; Start Scan</button>
+          <button class="btn btn-red" onclick="abortScan()">&#x25A0; Abort</button>
+          <button class="btn btn-dim" onclick="pauseScan()">&#x23F8; Pause</button>
+          <button class="btn btn-green" onclick="completeScan()">&#x2713; Complete</button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>
+          <button class="btn btn-dim" onclick="reExposure()">Re-exposure</button>
+          <button class="btn btn-dim" onclick="saveImage()">Save</button>
+          <button class="btn btn-blue btn-sm" onclick="saveAndSend()">Save &amp; Send</button>
+          <button class="btn btn-sm" onclick="closeStudy()">Close Study</button>
+        </div>
+      </div>
+      <!-- Right Control Panel -->
+      <div class="ctrl-side">
+        <div class="ctrl-tabs">
+          <button class="ctrl-tab active" data-ctab="patient" onclick="switchCtrlTab('patient')">Patient</button>
+          <button class="ctrl-tab" data-ctab="generator" onclick="switchCtrlTab('generator')">Generator</button>
+          <button class="ctrl-tab" data-ctab="process" onclick="switchCtrlTab('process')">Process</button>
+        </div>
+        <div class="ctrl-panel" id="ctrlPanelArea">
+          <!-- Patient Tab -->
+          <div id="ctrlTab-patient">
+            <div class="cp">
+              <h4>Patient Information</h4>
+              <div id="conPtInfo" style="font-size:11px;line-height:1.6"></div>
+            </div>
+            <div class="cp">
+              <h4>Protocol</h4>
+              <select id="protocolSelect" onchange="selectProtocol(this.value)"></select>
+            </div>
+            <div class="cp">
+              <h4>Sequence List</h4>
+              <div class="seq-list" id="seqList"></div>
+              <div style="display:flex;gap:4px;margin-top:6px">
+                <button class="btn btn-sm btn-dim" onclick="addSequence()">+ Add</button>
+                <button class="btn btn-sm btn-dim" onclick="removeSequence()">&#x2212; Remove</button>
+                <button class="btn btn-sm" onclick="moveSeqUp()">&#x25B2;</button>
+                <button class="btn btn-sm" onclick="moveSeqDown()">&#x25BC;</button>
+              </div>
+            </div>
+            <div class="cp">
+              <h4>Scan Progress</h4>
+              <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+              <div id="progressText" style="font-size:10px;color:var(--text-dim)">Ready</div>
+            </div>
+          </div>
+
+          <!-- Generator Tab -->
+          <div id="ctrlTab-generator" style="display:none">
+            <!-- Examined Part / View Position -->
+            <div class="cp">
+              <h4>Examined Part</h4>
+              <div class="param-row"><label>Exam Type</label><select id="examType" onchange="updateExamPart()"><option>STAND</option><option>TABLE</option><option>UNIVERSAL</option></select></div>
+              <div class="param-row"><label>Body Part</label><select id="bodyPartSelect"></select></div>
+              <div style="display:flex;gap:4px;margin-top:4px">
+                <button class="btn btn-sm" onclick="addBodyPart()">Add</button>
+                <button class="btn btn-sm" onclick="editBodyPart()">Edit</button>
+                <button class="btn btn-sm btn-red btn-sm" onclick="deleteBodyPart()">Delete</button>
+              </div>
+            </div>
+            <div class="cp">
+              <h4>View Position</h4>
+              <div class="vp-grid" id="vpGrid"></div>
+              <div class="param-row"><label>SID (cm)</label><input type="number" id="vpSID" value="100" onchange="updateScanParam('sid',this.value)"></div>
+              <div class="param-row"><label>Marker</label><select id="vpMarker"><option>None</option><option>R</option><option>L</option><option>R/L</option></select></div>
+              <div class="param-row"><label>Annotation</label><select id="vpAnnotation"><option>None</option><option>A/P</option><option>AP/PA</option><option>LAT</option></select></div>
+              <div class="param-row"><label>Flip Horz</label><select id="vpFlipH"><option>Off</option><option>On</option></select></div>
+              <div class="param-row"><label>Flip Vert</label><select id="vpFlipV"><option>Off</option><option>On</option></select></div>
+              <div class="param-row"><label>Rotate</label><select id="vpRotate"><option>0</option><option>90</option><option>180</option><option>270</option></select></div>
+            </div>
+            <!-- CT Parameters -->
+            <div class="cp" id="ctParams">
+              <h4>CT Parameters</h4>
+              <div class="param-group">
+                <div class="param-group-title">X-Ray Conditions</div>
+                <div class="param-row"><label>kVp</label><select id="pKvp" onchange="updateScanParam('kvp',this.value)"><option>80</option><option>100</option><option selected>120</option><option>140</option></select></div>
+                <div class="param-row"><label>mA</label><input type="number" id="pMa" value="200" onchange="updateScanParam('ma',this.value)"></div>
+                <div class="param-row"><label>mAs</label><input type="number" id="pMas" value="100" onchange="updateScanParam('mas',this.value)"></div>
+                <div class="param-row"><label>Focal Spot</label><select id="pFocal" onchange="updateScanParam('focal',this.value)"><option>Large</option><option>Small</option></select></div>
+                <div class="param-row"><label>Mode</label><select id="pMode" onchange="updateScanParam('mode',this.value)"><option>mA/ms</option><option>mAs</option><option>AEC</option></select></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Scan Geometry</div>
+                <div class="param-row"><label>Rotation (s)</label><select id="pRot" onchange="updateScanParam('rotation',this.value)"><option>0.35</option><option selected>0.5</option><option>0.75</option><option>1.0</option></select></div>
+                <div class="param-row"><label>Slice (mm)</label><select id="pSlice" onchange="updateScanParam('slice',this.value)"><option>0.625</option><option>1.25</option><option selected>2.5</option><option>5</option></select></div>
+                <div class="param-row"><label>Pitch</label><input type="number" id="pPitch" value="1.0" step="0.1" onchange="updateScanParam('pitch',this.value)"></div>
+                <div class="param-row"><label>AEC</label><select id="pAec" onchange="updateScanParam('aec',this.value)"><option>On</option><option>Off</option></select></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Contrast</div>
+                <div class="param-row"><label>Contrast</label><select id="pContrast" onchange="updateScanParam('contrast',this.value)"><option>None</option><option>IV</option><option>Oral</option><option>IV+Oral</option></select></div>
+                <div class="param-row"><label>Phase</label><select id="pPhase"><option>Single</option><option>Arterial</option><option>Portal</option><option>Delayed</option><option>3-Phase</option></select></div>
+              </div>
+            </div>
+            <!-- MRI Parameters -->
+            <div class="cp" id="mriParams" style="display:none">
+              <h4>MRI Parameters</h4>
+              <div class="param-group">
+                <div class="param-group-title">Sequence</div>
+                <div class="param-row"><label>Sequence</label><select id="mSeq" onchange="updateScanParam('seq',this.value)"><option>T1W</option><option>T2W</option><option>FLAIR</option><option>DWI</option><option>SWI</option><option>T1W+C</option><option>MRA</option><option>STIR</option></select></div>
+                <div class="param-row"><label>TR (ms)</label><input type="number" id="mTR" value="500" onchange="updateScanParam('tr',this.value)"></div>
+                <div class="param-row"><label>TE (ms)</label><input type="number" id="mTE" value="15" onchange="updateScanParam('te',this.value)"></div>
+                <div class="param-row"><label>TI (ms)</label><input type="number" id="mTI" value="0" onchange="updateScanParam('ti',this.value)"></div>
+                <div class="param-row"><label>Flip Angle</label><input type="number" id="mFA" value="90" onchange="updateScanParam('fa',this.value)"></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Geometry</div>
+                <div class="param-row"><label>Slice (mm)</label><input type="number" id="mSlice" value="3" onchange="updateScanParam('mslice',this.value)"></div>
+                <div class="param-row"><label>Gap (mm)</label><input type="number" id="mGap" value="0.5" step="0.1" onchange="updateScanParam('gap',this.value)"></div>
+                <div class="param-row"><label>FOV (mm)</label><input type="number" id="mFOV" value="240" onchange="updateScanParam('fov',this.value)"></div>
+                <div class="param-row"><label>Matrix</label><select id="mMatrix" onchange="updateScanParam('matrix',this.value)"><option>256&times;256</option><option>512&times;512</option><option>384&times;384</option></select></div>
+                <div class="param-row"><label>NEX</label><select id="mNEX"><option>1</option><option>2</option><option>4</option></select></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Contrast</div>
+                <div class="param-row"><label>Contrast</label><select id="mContrast" onchange="updateScanParam('mcontrast',this.value)"><option>None</option><option>Gd-DTPA</option><option>Gd-BOPTA</option></select></div>
+              </div>
+            </div>
+            <!-- XR Parameters -->
+            <div class="cp" id="xrParams" style="display:none">
+              <h4>X-Ray Parameters</h4>
+              <div class="param-group">
+                <div class="param-group-title">Exposure Conditions</div>
+                <div class="param-row"><label>kVp</label><input type="number" id="xKvp" value="70" onchange="updateScanParam('xkvp',this.value)"></div>
+                <div class="param-row"><label>mA</label><input type="number" id="xMa" value="200" onchange="updateScanParam('xma',this.value)"></div>
+                <div class="param-row"><label>mAs</label><input type="number" id="xMas" value="10" onchange="updateScanParam('xmas',this.value)"></div>
+                <div class="param-row"><label>Focal Spot</label><select id="xFocal"><option>Large</option><option>Small</option></select></div>
+                <div class="param-row"><label>Mode</label><select id="xMode"><option>mA/ms</option><option>mAs</option><option>AEC</option></select></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Geometry</div>
+                <div class="param-row"><label>SID (cm)</label><input type="number" id="xSID" value="100" onchange="updateScanParam('sid',this.value)"></div>
+                <div class="param-row"><label>Grid</label><select id="xGrid" onchange="updateScanParam('grid',this.value)"><option>Yes</option><option>No</option></select></div>
+                <div class="param-row"><label>Collimation</label><select id="xColl" onchange="updateScanParam('coll',this.value)"><option>Auto</option><option>Manual</option></select></div>
+              </div>
+              <div class="param-group">
+                <div class="param-group-title">Patient Size</div>
+                <div class="param-row"><label>Size</label><select id="xSize"><option>Small (S)</option><option>Medium (M)</option><option selected>Large (L)</option><option>X-Large (XL)</option></select></div>
+                <div class="param-row"><label>Shutter</label><select id="xShutter"><option>14x17</option><option>10x12</option><option>8x10</option><option>Custom</option></select></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Process Tab -->
+          <div id="ctrlTab-process" style="display:none">
+            <div class="cp">
+              <h4>Image Processing Parameters</h4>
+              <div class="param-row"><label>PAR File</label><select id="parFile"><option>Default</option><option>Chest_Adult</option><option>Abdomen_Adult</option><option>Spine_Adult</option><option>Extremity</option></select></div>
+              <div style="display:flex;gap:4px;margin-top:4px;margin-bottom:8px">
+                <button class="btn btn-sm" onclick="selectPar('P')">P</button>
+                <button class="btn btn-sm" onclick="selectPar('S')">S</button>
+                <button class="btn btn-sm" onclick="selectPar('M')">M</button>
+                <button class="btn btn-sm" onclick="selectPar('L')">L</button>
+              </div>
+            </div>
+            <div class="cp">
+              <h4>Edge Enhancement</h4>
+              <div class="slider-row"><label>Level</label><input type="range" id="edgeSlider" min="0" max="10" value="3" oninput="updateProcessing()"><span class="val" id="edgeVal">3</span></div>
+            </div>
+            <div class="cp">
+              <h4>Contrast Enhancement</h4>
+              <div class="slider-row"><label>Level</label><input type="range" id="contrastSlider" min="0" max="10" value="5" oninput="updateProcessing()"><span class="val" id="contrastVal">5</span></div>
+            </div>
+            <div class="cp">
+              <h4>Latitude</h4>
+              <div class="slider-row"><label>Level</label><input type="range" id="latitudeSlider" min="0" max="10" value="5" oninput="updateProcessing()"><span class="val" id="latitudeVal">5</span></div>
+            </div>
+            <div class="cp">
+              <h4>Window Width / Level</h4>
+              <div class="slider-row"><label>WW</label><input type="range" id="wwSlider" min="1" max="4096" value="2000" oninput="updateWWWL()"><span class="val" id="wwVal">2000</span></div>
+              <div class="slider-row"><label>WL</label><input type="range" id="wlSlider" min="-1024" max="3072" value="400" oninput="updateWWWL()"><span class="val" id="wlVal">400</span></div>
+            </div>
+            <div class="cp">
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-orange" onclick="executeProcessing()">Execute</button>
+                <button class="btn btn-sm" onclick="saveProcessingParams()">Save Params</button>
+                <button class="btn btn-sm" onclick="resetProcessing()">Reset</button>
+                <button class="btn btn-sm" onclick="saveLUT()">Save LUT</button>
+                <button class="btn btn-sm" onclick="rawImage()">Raw Data</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── TAB: QC / DOSE ─── -->
+    <div id="tab-dose" style="overflow-y:auto;height:100%;padding:16px;display:none">
+      <h3 style="color:var(--accent);margin-bottom:12px">QC &amp; Dose Report</h3>
+      <div id="dosePanel"></div>
+      <h4 style="color:var(--accent);margin-top:16px;margin-bottom:8px">Dose Records</h4>
+      <div id="doseRecordTable"></div>
+      <h4 style="color:var(--accent);margin-top:16px;margin-bottom:8px">Daily QC Log</h4>
+      <div id="qcLog" style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:12px"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn btn-orange" onclick="runQC()">Run QC Check</button>
+        <button class="btn btn-dim" onclick="exportDoseReport()">Export Dose Report</button>
+        <button class="btn btn-dim" onclick="viewSendStatus()">Send Status</button>
+        <button class="btn btn-dim" onclick="viewPrintStatus()">Print Status</button>
+        <button class="btn btn-dim" onclick="checkExposureCount()">Check Exposure Count</button>
+      </div>
+    </div>
+
+    <!-- ─── TAB: CONFIGURATION ─── -->
+    <div id="tab-config" class="config-layout" style="display:none">
+      <div class="config-sidebar">
+        <div class="config-item active" data-cfg="default" onclick="switchConfigTab('default')">Default Setting</div>
+        <div class="config-item" data-cfg="storage" onclick="switchConfigTab('storage')">Storage Setting</div>
+        <div class="config-item" data-cfg="annotation" onclick="switchConfigTab('annotation')">Annotation Mgmt</div>
+        <div class="config-item" data-cfg="worklist" onclick="switchConfigTab('worklist')">Worklist Items</div>
+        <div class="config-item" data-cfg="dicommwl" onclick="switchConfigTab('dicommwl')">DICOM MWL</div>
+        <div class="config-item" data-cfg="dicomstorage" onclick="switchConfigTab('dicomstorage')">DICOM Storage</div>
+        <div class="config-item" data-cfg="dicomprint" onclick="switchConfigTab('dicomprint')">DICOM Print</div>
+      </div>
+      <div class="config-main" id="configMainArea">
+        <div id="cfg-default">
+          <div class="config-section">
+            <h4>Operator List</h4>
+            <div id="operatorList" style="border:1px solid var(--border);border-radius:4px;max-height:200px;overflow-y:auto;margin-bottom:8px"></div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="newOperatorName" placeholder="New operator name" style="padding:5px;background:#0a0a12;border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;flex:1">
+              <button class="btn btn-sm btn-orange" onclick="addOperator()">Add</button>
+              <button class="btn btn-sm" onclick="modifyOperator()">Modify</button>
+              <button class="btn btn-sm btn-red" onclick="deleteOperator()">Delete</button>
+            </div>
+          </div>
+          <div class="config-section">
+            <h4>Hospital Information</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Hospital Name</label><input id="cfgHospital" value="General Hospital Medical Center"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Station Name</label><input id="cfgStation" value="DR-Room-1"></div>
+          </div>
+          <div class="config-section">
+            <h4>Date Format</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Format</label><select id="cfgDateFmt"><option>YYYY-MM-DD</option><option>MM/DD/YYYY</option><option>DD.MM.YYYY</option></select></div>
+          </div>
+          <div class="config-section">
+            <h4>Modality / Equipment</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Type</label><select id="cfgModType"><option>Stand</option><option>Table</option><option selected>Full (Stand+Table)</option></select></div>
+          </div>
+        </div>
+        <div id="cfg-storage" style="display:none">
+          <div class="config-section">
+            <h4>Image Save Path</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Save Path</label><input id="cfgSavePath" value="D:\\DRCS_DATA\\Images"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Backup Path</label><input id="cfgBackupPath" value="E:\\DRCS_BACKUP"></div>
+          </div>
+          <div class="config-section">
+            <h4>DICOM Save Option</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Modality</label><select><option>CR</option><option selected>DX</option><option>CT</option></select></div>
+            <div class="param-row"><label style="flex:0 0 120px">Bit Depth</label><select><option>12-bit</option><option selected>16-bit</option></select></div>
+          </div>
+          <div class="config-section">
+            <h4>Image Auto Delete</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Delete by Space</label><select><option>Off</option><option>10%</option><option>20%</option><option selected>30%</option></select></div>
+            <div class="param-row"><label style="flex:0 0 120px">Delete by Date</label><select><option>Off</option><option>30 days</option><option>60 days</option><option selected>90 days</option></select></div>
+          </div>
+        </div>
+        <div id="cfg-annotation" style="display:none"><div class="config-section"><h4>Annotation Management</h4><p style="color:var(--text-dim);font-size:11px">Manage laterality markers, view position labels, and patient direction annotations for each body part.</p></div></div>
+        <div id="cfg-worklist" style="display:none"><div class="config-section"><h4>Worklist Item Management</h4><p style="color:var(--text-dim);font-size:11px">Configure displayed columns and default filter conditions for the worklist.</p></div></div>
+        <div id="cfg-dicommwl" style="display:none">
+          <div class="config-section">
+            <h4>DICOM Modality Worklist (MWL)</h4>
+            <div class="param-row"><label style="flex:0 0 120px">AE Title</label><input value="DRCS_MWL"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Server IP</label><input value="192.168.1.100"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Port</label><input value="104"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Called AE</label><input value="PACS_SRV"></div>
+          </div>
+        </div>
+        <div id="cfg-dicomstorage" style="display:none">
+          <div class="config-section">
+            <h4>DICOM Storage</h4>
+            <div class="param-row"><label style="flex:0 0 120px">AE Title</label><input value="DRCS_SCU"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Server IP</label><input value="192.168.1.100"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Port</label><input value="104"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Called AE</label><input value="PACS_SRV"></div>
+            <button class="btn btn-sm btn-blue" style="margin-top:8px">Test Connection</button>
+          </div>
+        </div>
+        <div id="cfg-dicomprint" style="display:none">
+          <div class="config-section">
+            <h4>DICOM Print</h4>
+            <div class="param-row"><label style="flex:0 0 120px">Printer AE</label><input value="DICOM_PRINT"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Server IP</label><input value="192.168.1.200"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Port</label><input value="104"></div>
+            <div class="param-row"><label style="flex:0 0 120px">Film Size</label><select><option>8x10</option><option>10x12</option><option selected>14x17</option></select></div>
+            <div class="param-row"><label style="flex:0 0 120px">Film Orient.</label><select><option selected>Portrait</option><option>Landscape</option></select></div>
+            <div class="param-row"><label style="flex:0 0 120px">Layout</label><select><option selected>1x1</option><option>1x2</option><option>2x2</option></select></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span><span class="indicator indicator-green" id="tubeIndicator"></span>Tube/Magnet: OK</span>
+    <span><span class="indicator indicator-green" id="coolIndicator"></span>Cooling: Normal</span>
+    <span><span class="indicator indicator-green" id="commIndicator"></span>PACS: Connected</span>
+    <span id="diskSpace">Disk: 847 GB free (78%)</span>
+    <span id="scanStatus">Status: IDLE</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MODALS ═══════════════════════ -->
+<!-- Manual Input Dialog -->
+<div class="modal-overlay" id="manualInputModal">
+  <div class="modal">
+    <h3>Manual Patient Input</h3>
+    <div class="form-row"><label>Patient ID *</label><input id="miPatientId" placeholder="Required"></div>
+    <div class="form-row"><label>Name *</label><input id="miName" placeholder="Required"></div>
+    <div class="form-row"><label>Acc. No.</label><input id="miAccNo"></div>
+    <div class="form-row"><label>Sex</label><select id="miSex"><option>M</option><option>F</option><option>O</option></select></div>
+    <div class="form-row"><label>Date of Birth</label><input type="text" id="miDOB" placeholder="YYYY-MM-DD"></div>
+    <div class="form-row"><label>Age</label><input type="number" id="miAge" placeholder="Years"></div>
+    <div class="form-row"><label>Weight (kg)</label><input type="number" id="miWeight"></div>
+    <div class="form-row"><label>Body Part</label><select id="miBodyPart"><option>Chest</option><option>Abdomen</option><option>Head</option><option>Spine</option><option>Pelvis</option><option>Knee</option><option>Hand</option><option>Ankle</option><option>Shoulder</option></select></div>
+    <div class="form-row"><label>Protocol</label><select id="miProtocol"></select></div>
+    <div class="form-row"><label>Priority</label><select id="miPriority"><option value="routine">Routine</option><option value="stat">STAT</option></select></div>
+    <div class="form-row"><label>Allergies</label><input id="miAllergies" placeholder="None"></div>
+    <div class="form-row"><label>Pregnant</label><select id="miPregnant"><option value="false">No</option><option value="true">Yes</option></select></div>
+    <div class="form-row"><label>Creatinine</label><input type="number" id="miCreatinine" step="0.1" placeholder="mg/dL"></div>
+    <div class="modal-actions">
+      <button class="btn btn-dim" onclick="closeManualInput()">CANCEL</button>
+      <button class="btn btn-orange" onclick="submitManualInput()">ADD TO STUDY LIST</button>
+    </div>
+  </div>
+</div>
+
+<!-- Close Study Dialog -->
+<div class="modal-overlay" id="closeStudyModal">
+  <div class="modal" style="min-width:360px">
+    <h3>Close Study</h3>
+    <div style="margin-bottom:12px">
+      <label style="display:block;padding:6px 0;font-size:12px;cursor:pointer"><input type="radio" name="closeOpt" value="save" checked> Save image</label>
+      <label style="display:block;padding:6px 0;font-size:12px;cursor:pointer"><input type="radio" name="closeOpt" value="savesend"> Save and send image</label>
+      <label style="display:block;padding:6px 0;font-size:12px;cursor:pointer"><input type="radio" name="closeOpt" value="saveall"> Save image and send all images</label>
+      <label style="display:block;padding:6px 0;font-size:12px;cursor:pointer"><input type="radio" name="closeOpt" value="sendonly"> Only send images (no storage)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-dim" onclick="document.getElementById('closeStudyModal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-orange" onclick="confirmCloseStudy()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-menu-item" onclick="ctxAction('reserve')">Reserve (X)</div>
+  <div class="ctx-menu-sep"></div>
+  <div class="ctx-menu-item" onclick="ctxAction('showAll')">Show &mdash; All</div>
+  <div class="ctx-menu-item" onclick="ctxAction('showR')">Show &mdash; R (Not Examined)</div>
+  <div class="ctx-menu-item" onclick="ctxAction('showX')">Show &mdash; X (Reserved)</div>
+  <div class="ctx-menu-item" onclick="ctxAction('showY')">Show &mdash; Y (Examined)</div>
+  <div class="ctx-menu-sep"></div>
+  <div class="ctx-menu-item" onclick="ctxAction('searchOption')">Search Option</div>
+  <div class="ctx-menu-item" onclick="ctxAction('codeManager')">Code Manager</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   STATE — preserved for checker compatibility
+   ═══════════════════════════════════════════════════════════════ */
+window._taskState={initialized:false,loggedIn:false,currentUser:null,currentTab:'worklist',modality:'ct',
+  orders:[],selectedOrder:null,scanState:'idle',scanProgress:0,
+  protocols:{},selectedProtocol:null,sequences:[],activeSequenceIdx:-1,
+  scanParams:{ct:{kvp:120,ma:200,mas:100,rotation:0.5,slice:2.5,pitch:1,aec:'On',contrast:'None',focal:'Large',mode:'mAs'},
+    mri:{seq:'T1W',tr:500,te:15,ti:0,fa:90,mslice:3,gap:0.5,fov:240,matrix:'256×256',mcontrast:'None'},
+    xr:{xkvp:70,xma:200,xmas:10,sid:100,grid:'Yes',coll:'Auto'}},
+  doseRecords:[],qcLog:[],completedScans:[],abortedScans:[],
+  scoutAcquired:false,safetyChecks:{},currentPatientInScanner:null,
+  sendQueue:[],printQueue:[],exposureCount:0,
+  browserSelectedPatient:null,browserSelectedStudy:null,
+  operators:['admin','tech1','tech2'],wlFilter:'all',
+  imageProcessing:{edge:3,contrast:5,latitude:5,ww:2000,wl:400},
+  activeTool:null};
+
+const CT_PROTOCOLS=['Head Routine','Head CTA','Chest Routine','Chest HRCT','Chest PE','Abdomen Routine','Abdomen 3-Phase','Spine Lumbar','Spine Cervical','Cardiac CTA','Pelvis Routine'];
+const MRI_PROTOCOLS=['Brain Routine','Brain Stroke','Brain Tumor','C-Spine','L-Spine','Knee','Shoulder','Abdomen MRI','MR Angiography','Breast MRI','Cardiac MRI'];
+const XR_PROTOCOLS=['Chest PA/LAT','Abdomen AP','Spine Cervical','Spine Lumbar','Pelvis AP','Hand AP/Oblique','Knee AP/LAT','Ankle AP/LAT','Shoulder AP','Skull AP/LAT'];
+
+const BODY_PARTS={
+  STAND:['Chest','Abdomen','Pelvis','Skull','C-Spine','T-Spine','L-Spine','Shoulder','Hand','Foot'],
+  TABLE:['Abdomen','Pelvis','L-Spine','T-Spine','Femur','Knee','Ankle'],
+  UNIVERSAL:['Chest','Abdomen','Pelvis','Skull','C-Spine','T-Spine','L-Spine','Shoulder','Hand','Foot','Femur','Knee','Ankle']
+};
+
+const VIEW_POSITIONS={
+  Chest:['PA','LAT','AP','Lordotic'],
+  Abdomen:['AP','Supine','Upright','Decubitus'],
+  Head:['Axial','Coronal','Sagittal'],
+  Skull:['AP','LAT','Towne','Caldwell'],
+  'C-Spine':['AP','LAT','Oblique','Odontoid'],
+  'L-Spine':['AP','LAT','Oblique','Flexion','Extension'],
+  Knee:['AP','LAT','Sunrise','Tunnel'],
+  Hand:['AP','Oblique','LAT'],
+  Shoulder:['AP','Axillary','Y-View']
+};
+
+const BASE_ORDERS=[
+  {id:'IMG001',pid:'PT1001',name:'James Wilson',sex:'M',age:65,modality:'ct',protocol:'Chest Routine',bodyPart:'Chest',
+   requesting:'Pulmonary',priority:'routine',status:'pending',weight:70,creatinine:0.9,allergies:'None',pregnant:false,scheduledTime:'08:30',referringPhysician:'Dr. Smith'},
+  {id:'IMG002',pid:'PT1002',name:'Maria Garcia',sex:'F',age:42,modality:'ct',protocol:'Abdomen 3-Phase',bodyPart:'Abdomen',
+   requesting:'GI',priority:'stat',status:'pending',weight:55,creatinine:1.1,allergies:'Iodine',pregnant:false,scheduledTime:'08:15',referringPhysician:'Dr. Johnson'},
+  {id:'IMG003',pid:'PT1003',name:'Robert Chen',sex:'M',age:70,modality:'mri',protocol:'Brain Stroke',bodyPart:'Head',
+   requesting:'Neurology',priority:'stat',status:'pending',weight:75,creatinine:1.5,allergies:'None',pregnant:false,scheduledTime:'08:00',referringPhysician:'Dr. Lee'},
+  {id:'IMG004',pid:'PT1004',name:'Sarah Thompson',sex:'F',age:28,modality:'mri',protocol:'Knee',bodyPart:'Knee',
+   requesting:'Orthopedics',priority:'routine',status:'pending',weight:58,creatinine:0.7,allergies:'None',pregnant:true,scheduledTime:'09:00',referringPhysician:'Dr. Patel'},
+  {id:'IMG005',pid:'PT1005',name:'David Brown',sex:'M',age:55,modality:'xr',protocol:'Chest PA/LAT',bodyPart:'Chest',
+   requesting:'ER',priority:'stat',status:'pending',weight:80,creatinine:0.8,allergies:'None',pregnant:false,scheduledTime:'07:45',referringPhysician:'Dr. Davis'},
+  {id:'IMG006',pid:'PT1006',name:'Emily Rodriguez',sex:'F',age:35,modality:'ct',protocol:'Head CTA',bodyPart:'Head',
+   requesting:'Neurosurgery',priority:'stat',status:'pending',weight:60,creatinine:0.8,allergies:'None',pregnant:false,scheduledTime:'08:10',referringPhysician:'Dr. Kim'},
+  {id:'IMG007',pid:'PT1007',name:'Michael Chang',sex:'M',age:48,modality:'mri',protocol:'L-Spine',bodyPart:'Spine',
+   requesting:'Orthopedics',priority:'routine',status:'pending',weight:85,creatinine:0.9,allergies:'None',pregnant:false,scheduledTime:'09:30',referringPhysician:'Dr. Nguyen'},
+  {id:'IMG008',pid:'PT1008',name:'Lisa Anderson',sex:'F',age:60,modality:'xr',protocol:'Abdomen AP',bodyPart:'Abdomen',
+   requesting:'Surgery',priority:'routine',status:'pending',weight:65,creatinine:1.0,allergies:'None',pregnant:false,scheduledTime:'09:15',referringPhysician:'Dr. White'},
+  {id:'IMG009',pid:'PT1009',name:'Thomas Miller',sex:'M',age:72,modality:'ct',protocol:'Chest PE',bodyPart:'Chest',
+   requesting:'ER',priority:'stat',status:'pending',weight:90,creatinine:1.3,allergies:'Shellfish',pregnant:false,scheduledTime:'07:55',referringPhysician:'Dr. Taylor'},
+  {id:'IMG010',pid:'PT1010',name:'Jennifer Park',sex:'F',age:45,modality:'xr',protocol:'Knee AP/LAT',bodyPart:'Knee',
+   requesting:'Orthopedics',priority:'routine',status:'pending',weight:62,creatinine:0.6,allergies:'None',pregnant:false,scheduledTime:'10:00',referringPhysician:'Dr. Martinez'},
+];
+
+let _rng;function _seededRandom(s){return function(){s=(s*16807+0)%2147483647;return(s-1)/2147483646}}
+
+/* ═══════════════ INIT ═══════════════ */
+function _medgym_init(seed=42){
+  _rng=_seededRandom(seed);const S=window._taskState;
+  S.initialized=true;S.loggedIn=false;
+  S.orders=JSON.parse(JSON.stringify(BASE_ORDERS));S.selectedOrder=null;
+  S.scanState='idle';S.scanProgress=0;S.selectedProtocol=null;S.sequences=[];S.activeSequenceIdx=-1;
+  S.scanParams={ct:{kvp:120,ma:200,mas:100,rotation:0.5,slice:2.5,pitch:1,aec:'On',contrast:'None',focal:'Large',mode:'mAs'},
+    mri:{seq:'T1W',tr:500,te:15,ti:0,fa:90,mslice:3,gap:0.5,fov:240,matrix:'256×256',mcontrast:'None'},
+    xr:{xkvp:70,xma:200,xmas:10,sid:100,grid:'Yes',coll:'Auto'}};
+  S.doseRecords=[];S.qcLog=[];S.completedScans=[];S.abortedScans=[];
+  S.scoutAcquired=false;S.safetyChecks={};S.currentPatientInScanner=null;S.modality='ct';
+  S.sendQueue=[];S.printQueue=[];S.exposureCount=0;
+  S.operators=['admin','tech1','tech2'];S.wlFilter='all';
+  S.imageProcessing={edge:3,contrast:5,latitude:5,ww:2000,wl:400};S.activeTool=null;
+}
+window._medgym_init=_medgym_init;
+window._medgym_navigate=function(h){if(h)switchTab(h)};
+
+/* ═══════════════ CLOCK ═══════════════ */
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clockDisplay').textContent=n.toISOString().slice(0,19).replace('T',' ');
+}
+setInterval(updateClock,1000);
+
+/* ═══════════════ LOGIN ═══════════════ */
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  if(!u||u==='fail')return;
+  const S=window._taskState;S.loggedIn=true;S.currentUser=u;
+  const role=document.getElementById('loginRole').value;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('userInfo').textContent=role.charAt(0).toUpperCase()+role.slice(1)+': '+u;
+  if(!S.initialized)_medgym_init(42);
+  updateModalityUI();renderWorklist();renderOperatorList();updateClock();
+}
+
+/* ═══════════════ TABS ═══════════════ */
+function switchTab(tab){
+  const S=window._taskState;S.currentTab=tab;
+  document.querySelectorAll('#contentArea > div').forEach(d=>d.style.display='none');
+  const el=document.getElementById('tab-'+tab);
+  if(el){
+    if(tab==='console')el.style.display='flex';
+    else if(tab==='browser'||tab==='config')el.style.display='flex';
+    else el.style.display='flex';
+  }
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='worklist')renderWorklist();
+  if(tab==='console')renderConsole();
+  if(tab==='dose')renderDose();
+  if(tab==='browser')renderBrowser();
+}
+
+/* ═══════════════ MODALITY ═══════════════ */
+function setModality(m){
+  window._taskState.modality=m;
+  document.querySelectorAll('.mod-btn').forEach(b=>b.classList.toggle('active',b.dataset.mod===m));
+  updateModalityUI();renderWorklist();
+  const info={ct:'Equipment: SOMATOM Definition &mdash; Detector: 128-slice',mri:'Equipment: MAGNETOM Skyra 3T &mdash; Coils: Head/Body/Knee',xr:'Equipment: Stand + Table &mdash; Detector: Flat Panel 17&times;17'};
+  document.getElementById('equipInfo').innerHTML=info[m]||'';
+}
+function updateModalityUI(){
+  const m=window._taskState.modality;
+  document.getElementById('ctParams').style.display=m==='ct'?'':'none';
+  document.getElementById('mriParams').style.display=m==='mri'?'':'none';
+  document.getElementById('xrParams').style.display=m==='xr'?'':'none';
+  const protos=m==='ct'?CT_PROTOCOLS:m==='mri'?MRI_PROTOCOLS:XR_PROTOCOLS;
+  document.getElementById('protocolSelect').innerHTML=protos.map(p=>`<option>${p}</option>`).join('');
+  updateExamPart();
+}
+
+/* ═══════════════ WORKLIST ═══════════════ */
+function renderWorklist(){
+  const S=window._taskState;const m=S.modality;
+  const nameFilter=(document.getElementById('searchName')?.value||'').toLowerCase();
+  const pidFilter=(document.getElementById('searchPID')?.value||'').toLowerCase();
+  const wlFilter=S.wlFilter;
+  let orders=S.orders.filter(o=>{
+    if(o.modality!==m)return false;
+    if(nameFilter&&!o.name.toLowerCase().includes(nameFilter))return false;
+    if(pidFilter&&!o.pid.toLowerCase().includes(pidFilter))return false;
+    if(wlFilter==='R')return o.status==='pending';
+    if(wlFilter==='X')return o.status==='reserved';
+    if(wlFilter==='Y')return o.status==='complete';
+    return true;
+  });
+  // Sort: STAT first, then by scheduled time
+  orders.sort((a,b)=>{if(a.priority==='stat'&&b.priority!=='stat')return-1;if(b.priority==='stat'&&a.priority!=='stat')return 1;return(a.scheduledTime||'').localeCompare(b.scheduledTime||'')});
+
+  document.getElementById('wlBody').innerHTML=orders.map(o=>{
+    const pri=o.priority==='stat'?'<span class="badge badge-stat">STAT</span>':'<span class="badge" style="color:var(--text-dim)">Routine</span>';
+    const stMap={complete:'<span class="badge badge-complete">Done (Y)</span>',scanning:'<span class="badge badge-scanning">Scanning</span>',pending:'<span class="badge badge-pending">Pending (R)</span>',reserved:'<span class="badge badge-reserve">Reserved (X)</span>'};
+    const st=stMap[o.status]||'<span class="badge badge-pending">'+o.status+'</span>';
+    const warn=[];if(o.allergies&&o.allergies!=='None')warn.push('<span style="color:var(--danger)" title="Allergy: '+o.allergies+'">&#x26A0; Allergy</span>');
+    if(o.pregnant)warn.push('<span style="color:var(--danger)" title="Pregnant">&#x26A0; Pregnant</span>');
+    if(o.creatinine>1.2)warn.push('<span style="color:var(--warning)" title="Creatinine: '+o.creatinine+'">&#x26A0; eGFR</span>');
+    return`<tr ondblclick="loadOrder('${o.id}')" oncontextmenu="showCtxMenu(event,'${o.id}')"><td>${pri}</td><td>${o.id}</td><td>${o.pid}</td>
+      <td>${o.name}${warn.length?'<br>'+warn.join(' '):''}  </td>
+      <td>${o.sex}/${o.age}y</td><td>${o.protocol}</td><td>${o.bodyPart}</td><td>${o.requesting||''}</td>
+      <td>${st}</td><td>${o.scheduledTime||''}</td>
+      <td><button class="btn btn-orange btn-sm" onclick="event.stopPropagation();loadOrder('${o.id}')">Load</button></td></tr>`;
+  }).join('');
+}
+function filterWorklist(){renderWorklist()}
+function setWlFilter(f){
+  window._taskState.wlFilter=f;
+  document.querySelectorAll('.wl-filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+  renderWorklist();
+}
+function wlExam(){const S=window._taskState;if(S.selectedOrder)switchTab('console');}
+function wlDelete(){/* no-op for mock */}
+function wlRefresh(){renderWorklist();}
+function wlEmergency(){openManualInput();document.getElementById('miPriority').value='stat';}
+function toggleSearchOptions(){const p=document.getElementById('wlSearchPanel');p.style.display=p.style.display==='none'?'flex':'none';}
+
+/* ═══════════════ CONTEXT MENU ═══════════════ */
+let _ctxOrderId=null;
+function showCtxMenu(e,oid){
+  e.preventDefault();_ctxOrderId=oid;
+  const m=document.getElementById('ctxMenu');m.style.display='block';m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
+}
+document.addEventListener('click',()=>{document.getElementById('ctxMenu').style.display='none';});
+function ctxAction(action){
+  const S=window._taskState;
+  if(action==='reserve'&&_ctxOrderId){const o=S.orders.find(x=>x.id===_ctxOrderId);if(o)o.status='reserved';renderWorklist();}
+  if(action==='showAll')setWlFilter('all');
+  if(action==='showR')setWlFilter('R');
+  if(action==='showX')setWlFilter('X');
+  if(action==='showY')setWlFilter('Y');
+  if(action==='searchOption')toggleSearchOptions();
+}
+
+/* ═══════════════ MANUAL INPUT ═══════════════ */
+function openManualInput(){
+  document.getElementById('manualInputModal').classList.add('show');
+  const m=window._taskState.modality;
+  const protos=m==='ct'?CT_PROTOCOLS:m==='mri'?MRI_PROTOCOLS:XR_PROTOCOLS;
+  document.getElementById('miProtocol').innerHTML=protos.map(p=>`<option>${p}</option>`).join('');
+}
+function closeManualInput(){document.getElementById('manualInputModal').classList.remove('show');}
+function submitManualInput(){
+  const S=window._taskState;
+  const pid=document.getElementById('miPatientId').value.trim();
+  const name=document.getElementById('miName').value.trim();
+  if(!pid||!name)return;
+  const newOrder={
+    id:'IMG'+String(S.orders.length+1).padStart(3,'0'),pid:pid,name:name,
+    sex:document.getElementById('miSex').value,age:parseInt(document.getElementById('miAge').value)||0,
+    modality:S.modality,protocol:document.getElementById('miProtocol').value,
+    bodyPart:document.getElementById('miBodyPart').value,requesting:'Manual',
+    priority:document.getElementById('miPriority').value,status:'pending',
+    weight:parseInt(document.getElementById('miWeight').value)||70,
+    creatinine:parseFloat(document.getElementById('miCreatinine').value)||0.9,
+    allergies:document.getElementById('miAllergies').value||'None',
+    pregnant:document.getElementById('miPregnant').value==='true',
+    scheduledTime:new Date().toTimeString().slice(0,5),referringPhysician:'Manual'
+  };
+  S.orders.push(newOrder);closeManualInput();renderWorklist();
+}
+
+/* ═══════════════ LOAD ORDER ═══════════════ */
+function loadOrder(oid){
+  const S=window._taskState;S.selectedOrder=oid;S.scoutAcquired=false;S.scanProgress=0;S.scanState='loaded';
+  const o=S.orders.find(x=>x.id===oid);
+  if(o){
+    S.currentPatientInScanner=o.pid;
+    S.safetyChecks={contrastAllergy:o.allergies!=='None'&&o.allergies,pregnancyRisk:o.pregnant,renalRisk:o.creatinine>1.2};
+  }
+  switchTab('console');
+}
+
+/* ═══════════════ CONSOLE ═══════════════ */
+function renderConsole(){
+  const S=window._taskState;const oid=S.selectedOrder;if(!oid)return;
+  const o=S.orders.find(x=>x.id===oid);if(!o)return;
+  const warn=[];
+  if(o.allergies&&o.allergies!=='None')warn.push(`<span style="color:var(--danger);font-weight:700">&#x26A0; ALLERGY: ${o.allergies}</span>`);
+  if(o.pregnant)warn.push('<span style="color:var(--danger);font-weight:700">&#x26A0; PREGNANT</span>');
+  if(o.creatinine>1.2)warn.push(`<span style="color:var(--warning)">&#x26A0; Creatinine: ${o.creatinine} mg/dL &mdash; Check eGFR</span>`);
+  document.getElementById('conPtInfo').innerHTML=
+    `<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px">
+      <span style="color:var(--text-dim)">Name:</span><span style="font-weight:700">${o.name}</span>
+      <span style="color:var(--text-dim)">Patient ID:</span><span>${o.pid}</span>
+      <span style="color:var(--text-dim)">Accession:</span><span>${o.id}</span>
+      <span style="color:var(--text-dim)">Sex / Age:</span><span>${o.sex} / ${o.age}y</span>
+      <span style="color:var(--text-dim)">Weight:</span><span>${o.weight} kg</span>
+      <span style="color:var(--text-dim)">Protocol:</span><span>${o.protocol}</span>
+      <span style="color:var(--text-dim)">Body Part:</span><span>${o.bodyPart}</span>
+      <span style="color:var(--text-dim)">Requesting:</span><span>${o.requesting}</span>
+      <span style="color:var(--text-dim)">Ref. Physician:</span><span>${o.referringPhysician||''}</span>
+    </div>${warn.length?'<div style="margin-top:6px;padding:6px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:4px">'+warn.join('<br>')+'</div>':''}`;
+  document.getElementById('protocolSelect').value=o.protocol;selectProtocol(o.protocol);
+  drawConsolePreview(o);updateProgress();
+}
+function selectProtocol(p){
+  const S=window._taskState;S.selectedProtocol=p;const m=S.modality;
+  const seqMap={
+    ct:['Scout','Pre-contrast Helical','Post-contrast Helical','Delayed Phase'],
+    mri:['Localizer','T1W Axial','T2W Axial','FLAIR Axial','DWI','T1W+C Axial','T1W Sagittal'],
+    xr:['Exposure 1','Exposure 2']
+  };
+  const seqs=seqMap[m]||['Exposure 1'];
+  S.sequences=seqs.map((s,i)=>({name:s,status:'pending',idx:i,duration:m==='mri'?Math.round(60+_rng()*180)+'s':'--'}));
+  renderSequenceList();
+}
+function renderSequenceList(){
+  const S=window._taskState;
+  document.getElementById('seqList').innerHTML=S.sequences.map((s,i)=>{
+    const stClass=s.status==='complete'?'badge-complete':s.status==='active'?'badge-scanning':'badge-pending';
+    return`<div class="seq-item ${i===S.activeSequenceIdx?'active':''}" onclick="selectSequence(${i})">
+      <span>${s.name}</span><span class="seq-time">${s.duration||''}</span>
+      <span class="badge ${stClass}" style="font-size:8px">${s.status}</span></div>`;
+  }).join('');
+}
+function selectSequence(idx){window._taskState.activeSequenceIdx=idx;renderSequenceList();}
+function addSequence(){const S=window._taskState;S.sequences.push({name:'Custom_'+S.sequences.length,status:'pending',idx:S.sequences.length,duration:'--'});renderSequenceList();}
+function removeSequence(){const S=window._taskState;if(S.sequences.length>0){S.sequences.pop();renderSequenceList();}}
+function moveSeqUp(){const S=window._taskState;const i=S.activeSequenceIdx;if(i>0){[S.sequences[i-1],S.sequences[i]]=[S.sequences[i],S.sequences[i-1]];S.activeSequenceIdx=i-1;renderSequenceList();}}
+function moveSeqDown(){const S=window._taskState;const i=S.activeSequenceIdx;if(i>=0&&i<S.sequences.length-1){[S.sequences[i],S.sequences[i+1]]=[S.sequences[i+1],S.sequences[i]];S.activeSequenceIdx=i+1;renderSequenceList();}}
+
+/* ═══════════════ CONSOLE PREVIEW ═══════════════ */
+function drawConsolePreview(o){
+  const c=document.getElementById('conCanvas');const ctx=c.getContext('2d');
+  const w=c.width=c.parentElement.offsetWidth||800;const h=c.height=c.parentElement.offsetHeight||500;
+  ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);
+  const S=window._taskState;
+  if(S.scoutAcquired){
+    // Draw simulated scout/topogram
+    const sx=Math.floor(w*0.05),sy=20,sw=Math.floor(w*0.25),sh=h-40;
+    ctx.fillStyle='#1a1a1a';ctx.fillRect(sx,sy,sw,sh);
+    for(let y=sy;y<sy+sh;y+=3){for(let x=sx;x<sx+sw;x+=3){
+      const v=15+Math.floor(_rng()*65);ctx.fillStyle=`rgb(${v},${v},${v})`;ctx.fillRect(x,y,3,3);}}
+    // Slice position lines
+    ctx.strokeStyle='rgba(230,126,34,0.5)';ctx.lineWidth=1;
+    for(let y=sy+20;y<sy+sh-20;y+=18){ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(sx+sw,y);ctx.stroke();}
+    // Preview area
+    const px=sx+sw+40;const pw=w-px-20;
+    if(S.scanState==='scanning'||S.scanState==='complete'||S.scanState==='acquired'){
+      for(let y=sy;y<sy+sh;y+=2){for(let x=px;x<px+pw;x+=2){
+        const v=8+Math.floor(_rng()*85);ctx.fillStyle=`rgb(${v},${v},${v})`;ctx.fillRect(x,y,2,2);}}
+      // DICOM overlay text
+      ctx.fillStyle='rgba(200,200,200,0.6)';ctx.font='10px monospace';ctx.textAlign='left';
+      ctx.fillText(o.name,px+4,sy+14);ctx.fillText(o.pid+' | '+o.sex+'/'+o.age+'y',px+4,sy+26);
+      ctx.fillText(o.protocol+' | '+o.bodyPart,px+4,sy+38);
+      ctx.textAlign='right';ctx.fillText('W:'+S.imageProcessing.ww+' L:'+S.imageProcessing.wl,px+pw-4,sy+14);
+      ctx.fillText('Img: 1/'+Math.floor(20+_rng()*80),px+pw-4,sy+26);
+    }else{
+      ctx.fillStyle='#1a1a1a';ctx.fillRect(px,sy,pw,sh);
+      ctx.fillStyle='#333';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Preview Area',px+pw/2,sy+sh/2);
+    }
+  }else{
+    ctx.fillStyle='#181818';ctx.font='16px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Acquire Scout / Topogram First',w/2,h/2-10);
+    ctx.fillStyle='#333';ctx.font='12px sans-serif';
+    ctx.fillText('Patient loaded: '+(o?o.name:'--'),w/2,h/2+14);
+  }
+  document.getElementById('scoutInfo').innerHTML=o?`${o.name} | ${o.pid}<br>${o.protocol} | ${o.bodyPart}<br>${S.scanState.toUpperCase()}`:'';
+}
+
+/* ═══════════════ CTRL TABS ═══════════════ */
+function switchCtrlTab(tab){
+  document.querySelectorAll('.ctrl-tab').forEach(b=>b.classList.toggle('active',b.dataset.ctab===tab));
+  ['patient','generator','process'].forEach(t=>{
+    const el=document.getElementById('ctrlTab-'+t);if(el)el.style.display=t===tab?'':'none';
+  });
+}
+
+/* ═══════════════ EXAM PART / VIEW POS ═══════════════ */
+function updateExamPart(){
+  const type=document.getElementById('examType').value;
+  const parts=BODY_PARTS[type]||BODY_PARTS.UNIVERSAL;
+  document.getElementById('bodyPartSelect').innerHTML=parts.map(p=>`<option>${p}</option>`).join('');
+  updateViewPositions();
+}
+function updateViewPositions(){
+  const bp=document.getElementById('bodyPartSelect').value;
+  const vps=VIEW_POSITIONS[bp]||['AP','LAT'];
+  document.getElementById('vpGrid').innerHTML=vps.map((v,i)=>`<div class="vp-item ${i===0?'active':''}" onclick="selectViewPos(this)">${v}</div>`).join('');
+}
+document.getElementById('bodyPartSelect')?.addEventListener('change',updateViewPositions);
+function selectViewPos(el){document.querySelectorAll('.vp-item').forEach(v=>v.classList.remove('active'));el.classList.add('active');}
+function addBodyPart(){}
+function editBodyPart(){}
+function deleteBodyPart(){}
+
+/* ═══════════════ SCAN PARAMS ═══════════════ */
+function updateScanParam(k,v){const m=window._taskState.modality;
+  if(window._taskState.scanParams[m])window._taskState.scanParams[m][k]=isNaN(+v)?v:+v;}
+
+/* ═══════════════ SCAN OPERATIONS ═══════════════ */
+function acquireScout(){
+  const S=window._taskState;S.scoutAcquired=true;S.scanState='scout';
+  const o=S.orders.find(x=>x.id===S.selectedOrder);if(o)drawConsolePreview(o);
+  document.getElementById('scanStatus').textContent='Status: SCOUT ACQUIRED';
+}
+function startScan(){
+  const S=window._taskState;
+  if(!S.scoutAcquired)return;
+  S.scanState='scanning';S.scanProgress=0;S.exposureCount++;
+  document.getElementById('exposureCount').textContent=S.exposureCount;
+  const o=S.orders.find(x=>x.id===S.selectedOrder);if(o)o.status='scanning';
+  document.getElementById('scanStatus').textContent='Status: SCANNING...';
+  simulateScanProgress();
+}
+function simulateScanProgress(){
+  const S=window._taskState;if(S.scanState!=='scanning')return;
+  S.scanProgress=Math.min(100,S.scanProgress+10);updateProgress();
+  // Update sequence statuses
+  const totalSeq=S.sequences.length;const doneSeq=Math.floor(S.scanProgress/100*totalSeq);
+  S.sequences.forEach((seq,i)=>{seq.status=i<doneSeq?'complete':i===doneSeq?'active':'pending';});
+  S.activeSequenceIdx=doneSeq<totalSeq?doneSeq:totalSeq-1;
+  renderSequenceList();
+  const o=S.orders.find(x=>x.id===S.selectedOrder);if(o)drawConsolePreview(o);
+  if(S.scanProgress<100){setTimeout(simulateScanProgress,500);}
+  else{S.scanState='acquired';S.sequences.forEach(s=>s.status='complete');renderSequenceList();
+    document.getElementById('scanStatus').textContent='Status: ACQUIRED — Review images';}
+}
+function updateProgress(){
+  const S=window._taskState;
+  document.getElementById('progressBar').style.width=S.scanProgress+'%';
+  const labels={scanning:`Scanning... ${S.scanProgress}%`,complete:'Complete — Sent to PACS',acquired:'Acquisition Complete — Review',paused:'PAUSED',aborted:'ABORTED',idle:'Ready',loaded:'Patient Loaded',scout:'Scout Acquired'};
+  document.getElementById('progressText').textContent=labels[S.scanState]||'Ready';
+}
+function abortScan(){
+  const S=window._taskState;const oid=S.selectedOrder;
+  S.scanState='aborted';S.scanProgress=0;
+  if(oid)S.abortedScans.push({orderId:oid,ts:new Date().toISOString()});
+  const o=S.orders.find(x=>x.id===oid);if(o)o.status='pending';
+  document.getElementById('scanStatus').textContent='Status: ABORTED';updateProgress();
+}
+function pauseScan(){if(window._taskState.scanState==='scanning'){window._taskState.scanState='paused';document.getElementById('scanStatus').textContent='Status: PAUSED';}}
+function completeScan(){
+  const S=window._taskState;const oid=S.selectedOrder;if(!oid)return;
+  const o=S.orders.find(x=>x.id===oid);if(o)o.status='complete';
+  S.scanState='complete';
+  const m=S.modality;const params=S.scanParams[m];
+  const dose={orderId:oid,patientName:o?o.name:'',modality:m,protocol:S.selectedProtocol,params:{...params},ts:new Date().toISOString()};
+  if(m==='ct'){dose.ctdi=Math.round(params.kvp*params.ma*0.005*10)/10;dose.dlp=Math.round(dose.ctdi*30*10)/10;}
+  else if(m==='xr'){dose.dap=Math.round(params.xkvp*params.xmas*0.01*10)/10;}
+  S.doseRecords.push(dose);S.completedScans.push(dose);
+  // Add to send queue
+  S.sendQueue.push({id:oid,status:'pending',ts:dose.ts});
+  document.getElementById('scanStatus').textContent='Status: COMPLETE — Sent to PACS';updateProgress();
+}
+
+/* ═══════════════ REVIEW TOOLS ═══════════════ */
+function toolAction(tool){
+  const S=window._taskState;S.activeTool=tool;
+  document.querySelectorAll('.image-toolbar .tool-btn').forEach(b=>b.classList.remove('active'));
+  // no-op for simulation; visual feedback only
+}
+function reExposure(){/* Re-exposure stub */}
+function saveImage(){/* Save stub */}
+function saveAndSend(){
+  const S=window._taskState;if(S.selectedOrder){
+    S.sendQueue.push({id:S.selectedOrder,status:'sending',ts:new Date().toISOString()});
+    setTimeout(()=>{const q=S.sendQueue.find(x=>x.id===S.selectedOrder&&x.status==='sending');if(q)q.status='sent';},2000);
+  }
+}
+function closeStudy(){document.getElementById('closeStudyModal').classList.add('show');}
+function confirmCloseStudy(){
+  document.getElementById('closeStudyModal').classList.remove('show');
+  const opt=document.querySelector('input[name="closeOpt"]:checked')?.value;
+  if(opt==='savesend'||opt==='saveall')saveAndSend();
+  switchTab('worklist');
+}
+
+/* ═══════════════ IMAGE PROCESSING ═══════════════ */
+function updateProcessing(){
+  const S=window._taskState;
+  S.imageProcessing.edge=+document.getElementById('edgeSlider').value;
+  S.imageProcessing.contrast=+document.getElementById('contrastSlider').value;
+  S.imageProcessing.latitude=+document.getElementById('latitudeSlider').value;
+  document.getElementById('edgeVal').textContent=S.imageProcessing.edge;
+  document.getElementById('contrastVal').textContent=S.imageProcessing.contrast;
+  document.getElementById('latitudeVal').textContent=S.imageProcessing.latitude;
+}
+function updateWWWL(){
+  const S=window._taskState;
+  S.imageProcessing.ww=+document.getElementById('wwSlider').value;
+  S.imageProcessing.wl=+document.getElementById('wlSlider').value;
+  document.getElementById('wwVal').textContent=S.imageProcessing.ww;
+  document.getElementById('wlVal').textContent=S.imageProcessing.wl;
+  document.getElementById('wwwlDisplay').textContent='WW:'+S.imageProcessing.ww+' WL:'+S.imageProcessing.wl;
+}
+function executeProcessing(){/* stub */}
+function saveProcessingParams(){/* stub */}
+function resetProcessing(){
+  document.getElementById('edgeSlider').value=3;document.getElementById('contrastSlider').value=5;document.getElementById('latitudeSlider').value=5;
+  updateProcessing();
+}
+function saveLUT(){/* stub */}
+function rawImage(){/* stub */}
+function selectPar(size){/* stub - P/S/M/L patient size presets */}
+
+/* ═══════════════ BROWSER ═══════════════ */
+function renderBrowser(){
+  const S=window._taskState;
+  // Build unique patients from completed scans + all orders
+  const patients={};S.orders.forEach(o=>{patients[o.pid]={pid:o.pid,name:o.name,sex:o.sex,age:o.age,studies:[]};});
+  S.completedScans.forEach(cs=>{const o=S.orders.find(x=>x.id===cs.orderId);if(o&&patients[o.pid]){patients[o.pid].studies.push({accession:cs.orderId,protocol:cs.protocol,ts:cs.ts});}});
+  const plist=document.getElementById('browserPatientList');
+  plist.innerHTML=Object.values(patients).map(p=>`<div class="browser-list-item" onclick="browserSelectPatient('${p.pid}')">${p.name}<span style="color:var(--text-dim)">${p.pid}</span></div>`).join('')||'<div style="padding:8px;color:var(--text-dim);font-size:10px">No patients.</div>';
+}
+function browserSelectPatient(pid){
+  const S=window._taskState;S.browserSelectedPatient=pid;
+  document.querySelectorAll('#browserPatientList .browser-list-item').forEach(el=>{el.classList.toggle('selected',el.textContent.includes(pid))});
+  const studies=S.completedScans.filter(cs=>{const o=S.orders.find(x=>x.id===cs.orderId);return o&&o.pid===pid;});
+  document.getElementById('browserStudyList').innerHTML=studies.map(s=>`<div class="browser-list-item" onclick="browserSelectStudy('${s.orderId}')">${s.orderId}<span style="color:var(--text-dim)">${s.protocol}</span></div>`).join('')||'<div style="padding:8px;color:var(--text-dim);font-size:10px">No studies.</div>';
+  // Thumbnails
+  const thumbs=document.getElementById('browserThumbs');
+  if(studies.length){
+    let html='';
+    studies.forEach(s=>{for(let i=0;i<3;i++){html+=`<div class="thumb-card" onclick="this.classList.toggle('selected')"><div class="thumb-img">Image ${i+1}</div><div class="thumb-label">${s.protocol} #${i+1}</div></div>`;}});
+    thumbs.innerHTML=html;
+  }else{thumbs.innerHTML='<div style="color:var(--text-dim);font-size:11px;padding:20px">No images available. Complete a scan first.</div>';}
+}
+function browserSelectStudy(oid){window._taskState.browserSelectedStudy=oid;}
+function browserOpen(){/* stub */}
+function browserExposure(){/* stub - re-examination */}
+function browserMerge(){/* stub */}
+function browserSend(){const S=window._taskState;if(S.browserSelectedStudy)S.sendQueue.push({id:S.browserSelectedStudy,status:'sending',ts:new Date().toISOString()});}
+function browserPrint(){const S=window._taskState;if(S.browserSelectedStudy)S.printQueue.push({id:S.browserSelectedStudy,status:'printing',ts:new Date().toISOString()});}
+function browserExport(){/* stub */}
+function browserBackup(){/* stub */}
+function browserRestore(){/* stub */}
+function browserEditPatient(){/* stub */}
+function browserDeletePatient(){/* stub */}
+
+/* ═══════════════ DOSE / QC ═══════════════ */
+function renderDose(){
+  const S=window._taskState;const records=S.doseRecords;
+  const totalCtdi=records.filter(r=>r.ctdi).reduce((a,b)=>a+b.ctdi,0);
+  const totalDlp=records.filter(r=>r.dlp).reduce((a,b)=>a+b.dlp,0);
+  const totalDap=records.filter(r=>r.dap).reduce((a,b)=>a+b.dap,0);
+  document.getElementById('dosePanel').innerHTML=`<div class="dose-bar">
+    <div class="dose-item"><div class="val">${records.length}</div><div class="label">Scans Today</div></div>
+    <div class="dose-item"><div class="val">${totalCtdi.toFixed(1)}</div><div class="label">Total CTDIvol (mGy)</div></div>
+    <div class="dose-item"><div class="val">${totalDlp.toFixed(1)}</div><div class="label">Total DLP (mGy&middot;cm)</div></div>
+    <div class="dose-item"><div class="val">${totalDap.toFixed(1)}</div><div class="label">Total DAP</div></div>
+    <div class="dose-item"><div class="val">${S.exposureCount}</div><div class="label">Exposure Count</div></div></div>`;
+  document.getElementById('doseRecordTable').innerHTML=records.length?
+    `<table class="dose-table"><thead><tr><th>Accession</th><th>Patient</th><th>Modality</th><th>Protocol</th><th>CTDIvol</th><th>DLP</th><th>DAP</th><th>Time</th></tr></thead><tbody>`+
+    records.map(r=>`<tr><td>${r.orderId}</td><td>${r.patientName||''}</td><td>${r.modality.toUpperCase()}</td><td>${r.protocol}</td><td>${r.ctdi?r.ctdi+' mGy':'--'}</td><td>${r.dlp?r.dlp+' mGy·cm':'--'}</td><td>${r.dap?r.dap:'--'}</td><td>${r.ts.slice(11,19)}</td></tr>`).join('')+
+    '</tbody></table>':'<div style="color:var(--text-dim);font-size:11px">No dose records today.</div>';
+  document.getElementById('qcLog').innerHTML=S.qcLog.map(q=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>${q.result}</span><span style="color:var(--text-dim)">${q.ts.slice(11,19)}</span></div>`).join('')||'<div style="color:var(--text-dim)">No QC records today.</div>';
+}
+function runQC(){
+  const S=window._taskState;
+  S.qcLog.push({ts:new Date().toISOString(),result:'All parameters within tolerance — PASS',modality:S.modality});
+  renderDose();
+}
+function exportDoseReport(){/* stub */}
+function viewSendStatus(){/* stub */}
+function viewPrintStatus(){/* stub */}
+function checkExposureCount(){alert('Total exposure count since installation: '+window._taskState.exposureCount);}
+
+/* ═══════════════ CONFIGURATION ═══════════════ */
+function switchConfigTab(tab){
+  document.querySelectorAll('.config-item').forEach(i=>i.classList.toggle('active',i.dataset.cfg===tab));
+  ['default','storage','annotation','worklist','dicommwl','dicomstorage','dicomprint'].forEach(t=>{
+    const el=document.getElementById('cfg-'+t);if(el)el.style.display=t===tab?'':'none';
+  });
+}
+function renderOperatorList(){
+  const S=window._taskState;
+  document.getElementById('operatorList').innerHTML=S.operators.map(o=>`<div style="padding:5px 8px;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer" onclick="this.classList.toggle('selected');this.style.background=this.classList.contains('selected')?'var(--row-selected)':''">${o}</div>`).join('');
+}
+function addOperator(){const n=document.getElementById('newOperatorName').value.trim();if(n){window._taskState.operators.push(n);renderOperatorList();document.getElementById('newOperatorName').value='';}}
+function modifyOperator(){/* stub */}
+function deleteOperator(){/* stub */}
+
+/* ═══════════════ BOOT ═══════════════ */
+document.addEventListener('DOMContentLoaded',()=>{_medgym_init(42);});
+</script>
+</body>
+</html>

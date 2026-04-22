@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<!--
+  MedGym: Outpatient Pharmacy — reconstructed from PhIS (Pharmacy Information System) v2.3.1
+  Workflow: Acknowledgement → Screening/Verification → Preparation → Dispensing
+  DUR alerts, drug labels, batch allocation, counseling
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PhIS — Pharmacy Information System</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;background:#f0f5f2;color:#212121}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 12px;text-align:left}
+.hidden{display:none!important}
+:root{--bg:#f0f5f2;--surface:#fff;--hdr:#1b5e3b;--hdr-t:#e8f5e9;--pri:#2e7d4f;--pri-d:#1b5e3b;--pri-l:#4caf6a;--acc:#e65100;--suc:#2e7d32;--warn:#f57f17;--err:#c62828;--txt:#212121;--txt2:#616161;--bdr:#c8d5cc;--bdr-l:#e0e8e2;--row-h:#e8f5e9;--dur-bg:#fff8e1;--dur-bdr:#ffa000;--crit-bg:#fce4ec;--crit-t:#b71c1c;--rad:6px;--font-mono:Consolas,'Courier New',monospace}
+/* Header */
+.header{background:var(--hdr);color:var(--hdr-t);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.header .t{font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.header .r{display:flex;align-items:center;gap:14px;font-size:11px}
+.header .r .clk{font-family:var(--font-mono);font-size:12px}
+/* Login */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1b5e3b,#2e7d4f)}
+.login-box{background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:40px 36px;width:420px}
+.login-box .logo{text-align:center;margin-bottom:24px}
+.login-box .logo .title{font-size:22px;font-weight:700;color:var(--pri-d)}
+.login-box .logo .sub{font-size:11px;color:var(--txt2);margin-top:4px}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.fc{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--rad);outline:none;font-size:13px;background:#fafcfa}
+.fc:focus{border-color:var(--pri);box-shadow:0 0 0 2px rgba(46,125,79,.2)}
+.err{color:var(--err);font-size:12px;margin-top:6px;display:none}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;border:1px solid transparent;border-radius:var(--rad);font-size:12px;font-weight:600;transition:.15s}
+.btn-p{background:var(--pri);color:#fff}.btn-p:hover{background:var(--pri-d)}
+.btn-s{background:var(--suc);color:#fff}.btn-s:hover{background:#256e36}
+.btn-w{background:var(--warn);color:#fff}.btn-w:hover{background:#e68a00}
+.btn-d{background:var(--err);color:#fff}.btn-d:hover{background:#b91c2e}
+.btn-out{background:#fff;border:1px solid var(--bdr);color:var(--txt)}.btn-out:hover{background:var(--bg)}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 24px;font-size:14px}.btn-block{width:100%}
+/* Toast */
+.toast-container{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:var(--rad);font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15);animation:slideIn .3s ease;color:#fff}
+.toast-success{background:var(--suc)}.toast-error{background:var(--err)}.toast-info{background:#0071bc}.toast-warn{background:var(--warn)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:8px;width:600px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal-header{padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;background:var(--hdr);color:#fff;border-radius:8px 8px 0 0}
+.modal-header .close-btn{background:none;border:none;color:rgba(255,255,255,.8);font-size:18px;cursor:pointer}
+.modal-body{padding:20px}
+/* App shell */
+#app{display:flex;flex-direction:column;min-height:100vh}
+.main-layout{display:flex;flex:1;overflow:hidden}
+/* Sidebar */
+.sidebar{width:220px;background:#fff;border-right:1px solid var(--bdr-l);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar .hdr{padding:14px 16px;font-size:13px;font-weight:700;color:var(--pri-d);border-bottom:1px solid var(--bdr-l)}
+.nav-item{padding:10px 16px;font-size:12px;font-weight:600;color:var(--txt2);cursor:pointer;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:.15s}
+.nav-item:hover{background:var(--row-h);color:var(--txt)}
+.nav-item.active{background:var(--row-h);color:var(--pri-d);border-left-color:var(--pri)}
+.nav-item .badge{margin-left:auto;background:var(--acc);color:#fff;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700}
+/* Content */
+.content{flex:1;overflow-y:auto;padding:16px 20px}
+/* Card */
+.card{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:12px}
+.card-h{padding:12px 16px;font-size:13px;font-weight:700;color:var(--pri-d);border-bottom:1px solid var(--bdr-l);display:flex;align-items:center;justify-content:space-between}
+.card-b{padding:16px}
+/* Table */
+.dt{width:100%;font-size:12px}
+.dt thead th{background:var(--row-h);color:var(--pri-d);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:2px solid var(--pri);white-space:nowrap}
+.dt tbody tr{border-bottom:1px solid var(--bdr-l);transition:.15s}
+.dt tbody tr:hover{background:var(--row-h)}
+.dt tbody td{padding:7px 12px}
+/* Status badges */
+.st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
+.st-pending{background:#e3f2fd;color:#1565c0}.st-review{background:#fff3e0;color:#e65100}.st-prepared{background:#e8f5e9;color:#2e7d32}
+.st-dispensed{background:#f3e5f5;color:#6a1b9a}.st-rejected{background:var(--crit-bg);color:var(--crit-t)}
+/* DUR Alert */
+.dur{background:var(--dur-bg);border:1px solid var(--dur-bdr);border-radius:var(--rad);padding:12px 16px;margin-bottom:10px}
+.dur .dur-t{font-size:12px;font-weight:700;color:var(--acc);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.dur .dur-d{font-size:11px;color:var(--txt2)}
+.dur-crit{background:var(--crit-bg);border-color:#ef9a9a}
+.dur-crit .dur-t{color:var(--crit-t)}
+/* Patient banner */
+.pt-banner{background:linear-gradient(135deg,#e8f5e9,#f0f5f2);border:1px solid var(--bdr-l);border-radius:var(--rad);padding:12px 16px;margin-bottom:12px}
+.pt-banner .nm{font-size:15px;font-weight:700;color:var(--pri-d)}
+.pt-banner .dt2{font-size:11px;color:var(--txt2);margin-top:2px}
+/* Drug label */
+.drug-label{border:2px dashed var(--bdr);border-radius:var(--rad);padding:12px 16px;background:#fff;font-size:11px;margin-bottom:8px}
+.drug-label .dl-nm{font-size:13px;font-weight:700}
+.drug-label .dl-dose{font-size:12px;color:var(--pri-d);font-weight:600}
+/* Checklist */
+.chk-item{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--bdr-l);font-size:12px}
+.chk-item:hover{background:var(--row-h)}
+.chk-item input[type=checkbox]{width:16px;height:16px}
+/* Flex */
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}
+.text-center{text-align:center}.text-muted{color:var(--txt2)}
+</style>
+</head>
+<body>
+<!-- Login -->
+<div id="page-login" class="login-page">
+  <div class="login-box">
+    <div class="logo"><div class="title">&#x1F48A; PhIS</div><div class="sub">Pharmacy Information System v2.3.1</div></div>
+    <div style="background:var(--bg);border:1px solid var(--bdr-l);border-radius:var(--rad);padding:10px 14px;margin-bottom:20px;font-size:11px;color:var(--txt2)">
+      <div><strong>Outpatient Pharmacy Module</strong></div>
+      <div>Clinical Pharmacy System (CPS) Integration</div>
+      <div style="margin-top:4px;font-style:italic">Authorized pharmacy staff only.</div>
+    </div>
+    <form id="login-form" onsubmit="return false">
+      <div class="fg"><label>Username</label><input class="fc" id="login-username" placeholder="Enter username" autocomplete="off"></div>
+      <div class="fg"><label>Password</label><input type="password" class="fc" id="login-password" placeholder="Enter password"></div>
+      <div class="err" id="login-error">Invalid credentials.</div>
+      <button type="submit" class="btn btn-p btn-block btn-lg" id="btn-login">Sign In</button>
+    </form>
+  </div>
+</div>
+<!-- App Shell -->
+<div id="app-shell" class="hidden">
+  <div class="header">
+    <div class="t"><span>&#x1F48A;</span> PhIS — Outpatient Pharmacy</div>
+    <div class="r"><span>&#x1F464; <strong id="hdr-user">pharmacist</strong> | RPh</span><span class="clk" id="header-clock">--:--:--</span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" id="btn-logout">Sign Out</button></div>
+  </div>
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="hdr">Navigation</div>
+      <div class="nav-item active" data-page="queue" onclick="showPage('queue')">&#x1F4CB; Acknowledgement <span class="badge" id="nav-q-badge">0</span></div>
+      <div class="nav-item" data-page="screening" onclick="showPage('screening')">&#x1F50D; Screening &amp; Verification</div>
+      <div class="nav-item" data-page="preparation" onclick="showPage('preparation')">&#x1F3ED; Preparation</div>
+      <div class="nav-item" data-page="dispensing" onclick="showPage('dispensing')">&#x1F4E6; Dispensing</div>
+      <div class="nav-item" data-page="counseling" onclick="showPage('counseling')">&#x1F5E3; Medication Counseling</div>
+      <div class="nav-item" data-page="log" onclick="showPage('log')">&#x1F4C1; Dispensing Log</div>
+      <div class="nav-item" data-page="inventory" onclick="showPage('inventory')">&#x26A0; Inventory Alerts</div>
+    </div>
+    <div class="content" id="content-area"></div>
+  </div>
+</div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+// ── Seeded RNG ──
+var _rng;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function rng(){return _rng();}
+function rI(a,b){return Math.floor(rng()*(b-a+1))+a;}
+function rP(a){return a[Math.floor(rng()*a.length)];}
+function rS(a){var r=a.slice();for(var i=r.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var t=r[i];r[i]=r[j];r[j]=t;}return r;}
+
+// ── UI Helpers ──
+function toast(m,t){t=t||'info';var c=document.getElementById('toasts'),d=document.createElement('div');d.className='toast toast-'+t;d.textContent=m;c.appendChild(d);setTimeout(function(){d.remove();},4000);}
+function openModal(t,h){var m=document.getElementById('modalContent');m.innerHTML='<div class="modal-header"><span>'+t+'</span><button class="close-btn" onclick="closeModal()">&times;</button></div><div class="modal-body">'+h+'</div>';document.getElementById('modalOverlay').classList.add('show');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+window.closeModal=closeModal;
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+function updateClock(){var n=new Date(),el=document.getElementById('header-clock');if(el)el.textContent=n.toLocaleTimeString('en-US',{hour12:false});}
+setInterval(updateClock,1000);updateClock();
+
+// ══════════════════════════════════════════════════════════════════════
+// Data Templates (PhIS reference)
+// ══════════════════════════════════════════════════════════════════════
+var PATIENT_POOL = [
+  {name:'Zhang Wei',age:62,sex:'M',allergies:[],medHistory:'Hypertension, Type 2 DM',mrn:'MRN-0001'},
+  {name:'Li Fang',age:45,sex:'F',allergies:['Penicillin'],medHistory:'Migraine',mrn:'MRN-0002'},
+  {name:'Wang Qiang',age:55,sex:'M',allergies:[],medHistory:'Type 2 DM, Hyperlipidemia',mrn:'MRN-0003'},
+  {name:'Chen Jing',age:38,sex:'F',allergies:[],medHistory:'Anxiety',mrn:'MRN-0004'},
+  {name:'Liu Yang',age:5,sex:'M',allergies:[],medHistory:'',isPediatric:true,weight:20,mrn:'MRN-0005'},
+  {name:'Zhao Min',age:70,sex:'F',allergies:['Sulfa'],medHistory:'AF, CHF',mrn:'MRN-0006'},
+  {name:'Huang Lei',age:48,sex:'M',allergies:[],medHistory:'GERD, Hypertension',mrn:'MRN-0007'},
+  {name:'Zhou Ting',age:32,sex:'F',allergies:[],medHistory:'Hypothyroidism',mrn:'MRN-0008'}
+];
+
+var DRUG_DB = {
+  warfarin:     {drugId:'D001',name:'Warfarin',genericName:'Warfarin Sodium',spec:'2.5mg',route:'PO',shelf:'A-03-02',highRisk:true},
+  aspirin:      {drugId:'D002',name:'Aspirin',genericName:'Aspirin',spec:'100mg',route:'PO',shelf:'A-01-05',highRisk:false},
+  metformin:    {drugId:'D003',name:'Metformin',genericName:'Metformin HCl',spec:'500mg',route:'PO',shelf:'B-02-01',highRisk:false},
+  amoxicillin:  {drugId:'D004',name:'Amoxicillin',genericName:'Amoxicillin',spec:'250mg',route:'PO',shelf:'C-01-03',highRisk:false},
+  lisinopril:   {drugId:'D005',name:'Lisinopril',genericName:'Lisinopril',spec:'10mg',route:'PO',shelf:'A-02-01',highRisk:false},
+  atorvastatin: {drugId:'D006',name:'Atorvastatin',genericName:'Atorvastatin Ca',spec:'20mg',route:'PO',shelf:'B-01-04',highRisk:false},
+  sertraline:   {drugId:'D007',name:'Sertraline',genericName:'Sertraline HCl',spec:'50mg',route:'PO',shelf:'C-02-02',highRisk:false},
+  escitalopram: {drugId:'D008',name:'Escitalopram',genericName:'Escitalopram',spec:'10mg',route:'PO',shelf:'C-02-03',highRisk:false},
+  levothyroxine:{drugId:'D009',name:'Levothyroxine',genericName:'Levothyroxine Na',spec:'50\u03BCg',route:'PO',shelf:'D-01-01',highRisk:false},
+  omeprazole:   {drugId:'D010',name:'Omeprazole',genericName:'Omeprazole',spec:'20mg',route:'PO',shelf:'B-03-02',highRisk:false},
+  furosemide:   {drugId:'D011',name:'Furosemide',genericName:'Furosemide',spec:'20mg',route:'PO',shelf:'A-04-01',highRisk:false},
+  digoxin:      {drugId:'D012',name:'Digoxin',genericName:'Digoxin',spec:'0.25mg',route:'PO',shelf:'A-03-04',highRisk:true},
+  ibuprofen:    {drugId:'D013',name:'Ibuprofen',genericName:'Ibuprofen',spec:'100mg/5ml',route:'PO',shelf:'E-01-01',highRisk:false},
+  amlodipine:   {drugId:'D014',name:'Amlodipine',genericName:'Amlodipine',spec:'5mg',route:'PO',shelf:'A-02-03',highRisk:false}
+};
+
+var COUNSELING_POINTS = [
+  {id:'indication',label:'Indication / Purpose of medication'},
+  {id:'dosage',label:'Dosage and administration schedule'},
+  {id:'route',label:'Route of administration'},
+  {id:'side_effects',label:'Common side effects'},
+  {id:'interactions',label:'Drug-drug and drug-food interactions'},
+  {id:'storage',label:'Storage requirements'},
+  {id:'missed_dose',label:'Missed dose instructions'},
+  {id:'precautions',label:'Precautions and warnings'},
+  {id:'followup',label:'Follow-up and refill information'}
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// Lot Generation
+// ══════════════════════════════════════════════════════════════════════
+function generateLots(drugId) {
+  var now = new Date(), lots = [];
+  var prefixes = {D001:'WF',D002:'AS',D003:'MF',D004:'AX',D005:'LS',D006:'AT',D007:'SR',D008:'ES',D009:'LT',D010:'OM',D011:'FU',D012:'DG',D013:'IB',D014:'AM'};
+  var pfx = prefixes[drugId] || 'XX';
+  lots.push({lotNumber:pfx+'2024'+String(rI(1000,9999)),expiryDate:new Date(now.getFullYear()+1,rI(0,11),15).toISOString().slice(0,10),expired:false,stock:rI(50,300)});
+  lots.push({lotNumber:pfx+'2023'+String(rI(1000,9999)),expiryDate:new Date(now.getFullYear()-1,rI(0,5),15).toISOString().slice(0,10),expired:true,stock:rI(10,50)});
+  lots.push({lotNumber:pfx+'2024'+String(rI(1000,9999)),expiryDate:new Date(now.getFullYear(),now.getMonth()+rI(1,3),15).toISOString().slice(0,10),expired:false,stock:rI(20,100)});
+  return lots;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Prescription Generation
+// ══════════════════════════════════════════════════════════════════════
+function generatePrescriptions(seed) {
+  var prescriptions = [];
+  var hours = [], mins = [];
+  for (var i = 0; i < 10; i++) { hours.push(rI(8,11)); mins.push(rI(0,55)); }
+
+  function cp(d) { return {drugId:d.drugId,name:d.name,genericName:d.genericName,spec:d.spec,route:d.route,shelf:d.shelf,highRisk:d.highRisk}; }
+
+  // Rx1: HTN — lisinopril + atorvastatin
+  prescriptions.push({rxId:'RX-2024-0001',patientIdx:0,drugs:[
+    Object.assign(cp(DRUG_DB.lisinopril),{dose:'10mg',frequency:'QD',quantity:30,duration:'30'}),
+    Object.assign(cp(DRUG_DB.atorvastatin),{dose:'20mg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[0]).padStart(2,'0')+':'+String(mins[0]).padStart(2,'0'),durFlags:[],prescriber:'Dr. Wang',dept:'Cardiology'});
+
+  // Rx2: DM — metformin
+  prescriptions.push({rxId:'RX-2024-0002',patientIdx:2,drugs:[
+    Object.assign(cp(DRUG_DB.metformin),{dose:'500mg',frequency:'BID',quantity:60,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[1]).padStart(2,'0')+':'+String(mins[1]).padStart(2,'0'),durFlags:[],prescriber:'Dr. Li',dept:'Endocrinology'});
+
+  // Rx3: DUR drug_interaction — warfarin + aspirin
+  prescriptions.push({rxId:'RX-2024-0003',patientIdx:0,drugs:[
+    Object.assign(cp(DRUG_DB.warfarin),{dose:'2.5mg',frequency:'QD',quantity:28,duration:'28'}),
+    Object.assign(cp(DRUG_DB.aspirin),{dose:'100mg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[2]).padStart(2,'0')+':'+String(mins[2]).padStart(2,'0'),durFlags:['drug_interaction'],prescriber:'Dr. Wang',dept:'Cardiology'});
+
+  // Rx4: DUR allergy_conflict — patient allergic to Penicillin, amoxicillin prescribed
+  prescriptions.push({rxId:'RX-2024-0004',patientIdx:1,drugs:[
+    Object.assign(cp(DRUG_DB.amoxicillin),{dose:'500mg',frequency:'TID',quantity:21,duration:'7'})
+  ],priority:'urgent',status:'pending',time:String(hours[3]).padStart(2,'0')+':'+String(mins[3]).padStart(2,'0'),durFlags:['allergy_conflict'],prescriber:'Dr. Chen',dept:'General Practice'});
+
+  // Rx5: warfarin + furosemide + digoxin
+  prescriptions.push({rxId:'RX-2024-0005',patientIdx:5,drugs:[
+    Object.assign(cp(DRUG_DB.warfarin),{dose:'3mg',frequency:'QD',quantity:28,duration:'28'}),
+    Object.assign(cp(DRUG_DB.furosemide),{dose:'20mg',frequency:'QD',quantity:30,duration:'30'}),
+    Object.assign(cp(DRUG_DB.digoxin),{dose:'0.125mg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[4]).padStart(2,'0')+':'+String(mins[4]).padStart(2,'0'),durFlags:[],prescriber:'Dr. Li',dept:'Cardiology'});
+
+  // Rx6: DUR dose_exceeded — metformin 3000mg/day
+  prescriptions.push({rxId:'RX-2024-0006',patientIdx:2,drugs:[
+    Object.assign(cp(DRUG_DB.metformin),{dose:'1000mg',frequency:'TID',quantity:90,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[5]).padStart(2,'0')+':'+String(mins[5]).padStart(2,'0'),durFlags:['dose_exceeded'],prescriber:'Dr. Liu',dept:'Endocrinology'});
+
+  // Rx7: DUR therapeutic_duplication — two SSRIs
+  prescriptions.push({rxId:'RX-2024-0007',patientIdx:3,drugs:[
+    Object.assign(cp(DRUG_DB.sertraline),{dose:'50mg',frequency:'QD',quantity:30,duration:'30'}),
+    Object.assign(cp(DRUG_DB.escitalopram),{dose:'10mg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[6]).padStart(2,'0')+':'+String(mins[6]).padStart(2,'0'),durFlags:['therapeutic_duplication'],prescriber:'Dr. Zhao',dept:'Psychiatry'});
+
+  // Rx8: DUR pediatric_dose — child 20kg, amoxicillin 500mg TID
+  prescriptions.push({rxId:'RX-2024-0008',patientIdx:4,drugs:[
+    Object.assign(cp(DRUG_DB.amoxicillin),{dose:'500mg',frequency:'TID',quantity:21,duration:'7'}),
+    Object.assign(cp(DRUG_DB.ibuprofen),{dose:'200mg',frequency:'Q6H PRN',quantity:20,duration:'5'})
+  ],priority:'urgent',status:'pending',time:String(hours[7]).padStart(2,'0')+':'+String(mins[7]).padStart(2,'0'),durFlags:['pediatric_dose'],prescriber:'Dr. Sun',dept:'Pediatrics',isPediatric:true});
+
+  // Rx9: clean — amlodipine + omeprazole
+  prescriptions.push({rxId:'RX-2024-0009',patientIdx:6,drugs:[
+    Object.assign(cp(DRUG_DB.amlodipine),{dose:'5mg',frequency:'QD',quantity:30,duration:'30'}),
+    Object.assign(cp(DRUG_DB.omeprazole),{dose:'20mg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[8]).padStart(2,'0')+':'+String(mins[8]).padStart(2,'0'),durFlags:[],prescriber:'Dr. Wang',dept:'General'});
+
+  // Rx10: clean — levothyroxine
+  prescriptions.push({rxId:'RX-2024-0010',patientIdx:7,drugs:[
+    Object.assign(cp(DRUG_DB.levothyroxine),{dose:'50\u03BCg',frequency:'QD',quantity:30,duration:'30'})
+  ],priority:'normal',status:'pending',time:String(hours[9]).padStart(2,'0')+':'+String(mins[9]).padStart(2,'0'),durFlags:[],prescriber:'Dr. Li',dept:'Endocrinology'});
+
+  return prescriptions;
+}
+
+function generateDurAlerts(prescriptions) {
+  var alerts = [];
+  alerts.push({alertId:'DUR-001',rxId:'RX-2024-0003',type:'drug_interaction',severity:'high',title:'Drug-Drug Interaction',detail:'Warfarin + Aspirin: Significantly increased bleeding risk. Aspirin enhances warfarin anticoagulation effect.',drugs:['Warfarin','Aspirin']});
+  alerts.push({alertId:'DUR-002',rxId:'RX-2024-0004',type:'allergy_conflict',severity:'critical',title:'Allergy Conflict',detail:'Patient has Penicillin allergy. Amoxicillin is a penicillin-class antibiotic — risk of anaphylaxis.',drugs:['Amoxicillin']});
+  alerts.push({alertId:'DUR-003',rxId:'RX-2024-0006',type:'dose_exceeded',severity:'high',title:'Maximum Dose Exceeded',detail:'Metformin 1000mg TID = 3000mg/day, exceeds max recommended 2550mg/day. Lactic acidosis risk.',drugs:['Metformin']});
+  alerts.push({alertId:'DUR-004',rxId:'RX-2024-0007',type:'therapeutic_duplication',severity:'high',title:'Therapeutic Duplication',detail:'Sertraline + Escitalopram: Two SSRIs prescribed concurrently. Risk of serotonin syndrome.',drugs:['Sertraline','Escitalopram']});
+  alerts.push({alertId:'DUR-005',rxId:'RX-2024-0008',type:'pediatric_dose',severity:'high',title:'Pediatric Dose Error',detail:'Child 20kg: Amoxicillin 500mg TID = 75mg/kg/day, exceeds max pediatric dose 45mg/kg/day.',drugs:['Amoxicillin'],pediatricInfo:{weight:20,maxDosePerKg:45,currentDosePerKg:75}});
+  return alerts;
+}
+
+function generateInventoryAlerts() {
+  return [
+    {drugId:'D001',name:'Warfarin 2.5mg',currentStock:15,reorderLevel:50,critical:true},
+    {drugId:'D004',name:'Amoxicillin 250mg',currentStock:28,reorderLevel:100,critical:false},
+    {drugId:'D011',name:'Furosemide 20mg',currentStock:8,reorderLevel:30,critical:true},
+    {drugId:'D012',name:'Digoxin 0.25mg',currentStock:22,reorderLevel:40,critical:false},
+    {drugId:'D013',name:'Ibuprofen 100mg/5ml',currentStock:10,reorderLevel:25,critical:true}
+  ];
+}
+
+function preDispensePrescriptions(prescriptions) {
+  var preDisp = ['RX-2024-0009','RX-2024-0010'];
+  var dispensed = {}, reviewed = {}, counseled = {};
+  preDisp.forEach(function(rxId) {
+    var rx = prescriptions.find(function(r){return r.rxId === rxId;});
+    if (!rx) return;
+    rx.status = 'dispensed';
+    reviewed[rxId] = {approved:true,flagged:false,modified:false,notes:'Auto-approved',timestamp:rx.time};
+    var dDrugs = rx.drugs.map(function(d) {
+      var lots = generateLots(d.drugId);
+      return {drugId:d.drugId,name:d.name,quantity:d.quantity,lotNumber:lots[0].lotNumber,expiryDate:lots[0].expiryDate,expired:false,scanned:true};
+    });
+    dispensed[rxId] = {drugs:dDrugs,quantities:rx.drugs.map(function(d){return d.quantity;}),timestamp:rx.time};
+    counseled[rxId] = {points:COUNSELING_POINTS.map(function(p){return p.id;}),timestamp:rx.time};
+  });
+  return {dispensed:dispensed,reviewed:reviewed,counseled:counseled,preDispensedRxIds:preDisp};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// _medgym_init
+// ══════════════════════════════════════════════════════════════════════
+window._medgym_init = function(seed) {
+  seed = seed || 42;
+  _rng = mulberry32(seed);
+  var prescriptions = generatePrescriptions(seed);
+  var durAlerts = generateDurAlerts(prescriptions);
+  var inventoryAlerts = generateInventoryAlerts();
+  var pre = preDispensePrescriptions(prescriptions);
+  var lotDB = {};
+  Object.keys(DRUG_DB).forEach(function(k) { lotDB[DRUG_DB[k].drugId] = generateLots(DRUG_DB[k].drugId); });
+
+  window._taskState = {
+    loggedIn: false,
+    currentPage: 'login',
+    prescriptions: prescriptions,
+    reviewedPrescriptions: pre.reviewed,
+    dispensedPrescriptions: pre.dispensed,
+    counselingCompleted: pre.counseled,
+    durAlerts: durAlerts,
+    durAlertsHandled: {},
+    inventoryAlerts: inventoryAlerts,
+    lotDB: lotDB,
+    currentReview: null,
+    currentDispense: null,
+    currentCounsel: null,
+    preDispensedRxIds: pre.preDispensedRxIds,
+    dispenseScanned: {},
+    dispenseQuantities: {},
+    dispenseLots: {}
+  };
+  renderLoginPage();
+};
+
+window._medgym_navigate = function(hash) {
+  if (hash === 'login') showPage('login');
+  else if (hash === 'queue') showPage('queue');
+  else if (hash === 'log') showPage('log');
+  else if (hash === 'inventory') showPage('inventory');
+  else if (hash === 'screening') showPage('screening');
+  else if (hash === 'preparation') showPage('preparation');
+  else if (hash === 'dispensing') showPage('dispensing');
+  else if (hash === 'counseling') showPage('counseling');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Login
+// ══════════════════════════════════════════════════════════════════════
+function renderLoginPage() {
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  window._taskState.currentPage = 'login';
+}
+document.getElementById('login-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var u = document.getElementById('login-username').value.trim();
+  var p = document.getElementById('login-password').value.trim();
+  document.getElementById('login-error').style.display = 'none';
+  if (!u || !p) return;
+  if (u === 'pharmacist' && p === 'pharma123') {
+    window._taskState.loggedIn = true;
+    document.getElementById('hdr-user').textContent = u;
+    document.getElementById('page-login').classList.add('hidden');
+    document.getElementById('app-shell').classList.remove('hidden');
+    showPage('queue');
+    toast('Welcome to PhIS Outpatient Pharmacy.', 'success');
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+});
+document.getElementById('btn-logout').addEventListener('click', function() {
+  window._taskState.loggedIn = false;
+  renderLoginPage();
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Page Navigation
+// ══════════════════════════════════════════════════════════════════════
+var curPage = 'queue';
+function showPage(pid) {
+  curPage = pid;
+  if (window._taskState) window._taskState.currentPage = pid;
+  var items = document.querySelectorAll('.nav-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.toggle('active', items[i].dataset.page === pid);
+  renderPage(pid);
+}
+window.showPage = showPage;
+
+function renderPage(pid) {
+  var C = document.getElementById('content-area');
+  if (pid === 'queue') C.innerHTML = renQueue();
+  else if (pid === 'screening') C.innerHTML = renScreening();
+  else if (pid === 'preparation') C.innerHTML = renPreparation();
+  else if (pid === 'dispensing') C.innerHTML = renDispensing();
+  else if (pid === 'counseling') C.innerHTML = renCounseling();
+  else if (pid === 'log') C.innerHTML = renLog();
+  else if (pid === 'inventory') C.innerHTML = renInventory();
+  else C.innerHTML = renQueue();
+  updateBadges();
+}
+
+function updateBadges() {
+  var st = window._taskState;
+  var pending = st.prescriptions.filter(function(r){return r.status === 'pending';}).length;
+  var el = document.getElementById('nav-q-badge');
+  if (el) el.textContent = pending;
+}
+
+function ptName(rx) { return PATIENT_POOL[rx.patientIdx] ? PATIENT_POOL[rx.patientIdx].name : 'Unknown'; }
+function ptInfo(idx) { return PATIENT_POOL[idx] || {}; }
+
+// ══════════════════════════════════════════════════════════════════════
+// Acknowledgement Queue (PhIS §3.1)
+// ══════════════════════════════════════════════════════════════════════
+function renQueue() {
+  var st = window._taskState, rxs = st.prescriptions;
+  var pending = rxs.filter(function(r){return r.status === 'pending';});
+  var h = '<div class="flex-between mb-16"><h2>Pharmacy Acknowledgement</h2><span class="text-muted">' + pending.length + ' awaiting</span></div>';
+  // Search/filter bar
+  h += '<div class="card"><div class="card-b"><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end">';
+  h += '<div class="fg" style="margin:0"><label>MRN</label><input class="fc" id="q-mrn" placeholder="Search MRN"></div>';
+  h += '<div class="fg" style="margin:0"><label>Patient Name</label><input class="fc" id="q-name" placeholder="Search name"></div>';
+  h += '<div class="fg" style="margin:0"><label>Order Status</label><select class="fc"><option>All</option><option>Pending</option><option>Reviewed</option><option>Dispensed</option></select></div>';
+  h += '<button class="btn btn-p" onclick="showPage(\'queue\')">Search</button>';
+  h += '</div></div></div>';
+  // Prescription list
+  h += '<div class="card"><div class="card-h">Prescription Queue</div><div style="overflow-x:auto"><table class="dt"><thead><tr>';
+  h += '<th>MRN</th><th>Patient</th><th>Rx#</th><th>Drugs</th><th>Prescriber</th><th>Dept</th><th>Priority</th><th>Time</th><th>Status</th><th>DUR</th><th>Actions</th>';
+  h += '</tr></thead><tbody>';
+  for (var i = 0; i < rxs.length; i++) {
+    var rx = rxs[i], pt = ptInfo(rx.patientIdx);
+    var sc = rx.status === 'pending' ? 'st-pending' : rx.status === 'reviewed' ? 'st-review' : rx.status === 'prepared' ? 'st-prepared' : rx.status === 'dispensed' ? 'st-dispensed' : 'st-rejected';
+    var sl = rx.status.charAt(0).toUpperCase() + rx.status.slice(1);
+    var dStr = rx.drugs.map(function(d){return d.name + ' ' + d.dose;}).join(', ');
+    var dur = rx.durFlags.length > 0 ? '<span style="color:var(--err);font-weight:700">&#x26A0; ' + rx.durFlags.length + '</span>' : '<span style="color:var(--suc)">&#x2713;</span>';
+    var pri = rx.priority === 'urgent' ? '<span style="color:var(--err);font-weight:700">URGENT</span>' : 'Normal';
+    h += '<tr><td style="font-family:var(--font-mono);font-size:11px">' + (pt.mrn || '') + '</td>';
+    h += '<td><b>' + ptName(rx) + '</b>';
+    if (pt.allergies && pt.allergies.length) h += ' <span style="color:var(--err);font-size:10px" title="Allergies: ' + pt.allergies.join(', ') + '">&#x2605;</span>';
+    h += '</td>';
+    h += '<td style="font-family:var(--font-mono)">' + rx.rxId + '</td>';
+    h += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + dStr + '">' + dStr + '</td>';
+    h += '<td>' + rx.prescriber + '</td><td>' + rx.dept + '</td><td>' + pri + '</td>';
+    h += '<td style="font-family:var(--font-mono)">' + rx.time + '</td>';
+    h += '<td><span class="st ' + sc + '">' + sl + '</span></td>';
+    h += '<td>' + dur + '</td>';
+    h += '<td>';
+    if (rx.status === 'pending') h += '<button class="btn btn-p btn-sm" onclick="ackRx(\'' + rx.rxId + '\')">Acknowledge</button>';
+    else if (rx.status === 'reviewed') h += '<button class="btn btn-out btn-sm" onclick="viewRxDetail(\'' + rx.rxId + '\')">View</button>';
+    h += '</td></tr>';
+  }
+  h += '</tbody></table></div></div>';
+  return h;
+}
+
+window.ackRx = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  // Check for DUR alerts
+  var alerts = st.durAlerts.filter(function(a){return a.rxId === rxId;});
+  if (alerts.length > 0) {
+    // Show DUR alert modal
+    var h = '<p style="font-size:12px;color:var(--txt2);margin-bottom:12px">DUR alerts detected for ' + rx.rxId + '. Review and handle each alert before proceeding.</p>';
+    for (var i = 0; i < alerts.length; i++) {
+      var a = alerts[i];
+      var cls = a.severity === 'critical' ? 'dur-crit' : '';
+      h += '<div class="dur ' + cls + '"><div class="dur-t">&#x26A0; ' + a.title + ' (' + a.severity.toUpperCase() + ')</div><div class="dur-d">' + a.detail + '</div>';
+      h += '<div style="margin-top:8px"><select class="fc" id="dur-act-' + a.alertId + '" style="width:auto;display:inline-block;margin-right:8px"><option value="">-- Action --</option><option value="modify">Modify Prescription</option><option value="reject">Reject Prescription</option><option value="override">Override Alert</option></select>';
+      h += '<input class="fc" id="dur-rsn-' + a.alertId + '" style="width:250px;display:inline-block" placeholder="Clinical reason"></div></div>';
+    }
+    h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="submitDurActions(\'' + rxId + '\')">Submit</button></div>';
+    openModal('DUR Review — ' + rxId, h);
+    return;
+  }
+  // No DUR — direct acknowledge
+  rx.status = 'reviewed';
+  st.reviewedPrescriptions[rxId] = {approved:true,flagged:false,modified:false,notes:'',timestamp:new Date().toLocaleTimeString('en-US',{hour12:false})};
+  toast('Prescription ' + rxId + ' acknowledged and verified.', 'success');
+  showPage('queue');
+};
+
+window.submitDurActions = function(rxId) {
+  var st = window._taskState;
+  var alerts = st.durAlerts.filter(function(a){return a.rxId === rxId;});
+  var allHandled = true, anyReject = false, anyModify = false;
+  for (var i = 0; i < alerts.length; i++) {
+    var a = alerts[i];
+    var actEl = document.getElementById('dur-act-' + a.alertId);
+    var rsnEl = document.getElementById('dur-rsn-' + a.alertId);
+    var act = actEl ? actEl.value : '';
+    var rsn = rsnEl ? rsnEl.value : '';
+    if (!act) { allHandled = false; continue; }
+    st.durAlertsHandled[a.alertId] = {action:act,reason:rsn,timestamp:new Date().toISOString()};
+    if (act === 'reject') anyReject = true;
+    if (act === 'modify') anyModify = true;
+  }
+  if (!allHandled) { toast('Handle all DUR alerts before proceeding.', 'error'); return; }
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (anyReject) {
+    rx.status = 'rejected';
+    st.reviewedPrescriptions[rxId] = {approved:false,flagged:true,modified:false,notes:'Rejected due to DUR alert',timestamp:new Date().toLocaleTimeString('en-US',{hour12:false})};
+    toast('Prescription ' + rxId + ' rejected.', 'warn');
+  } else {
+    rx.status = 'reviewed';
+    st.reviewedPrescriptions[rxId] = {approved:true,flagged:anyModify,modified:anyModify,notes:anyModify?'Modified after DUR review':'DUR alerts overridden',timestamp:new Date().toLocaleTimeString('en-US',{hour12:false})};
+    toast('Prescription ' + rxId + ' verified with DUR review.', 'success');
+  }
+  closeModal(); showPage('queue');
+};
+
+window.viewRxDetail = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  var pt = ptInfo(rx.patientIdx);
+  var h = '<div class="pt-banner"><div class="nm">' + pt.name + '</div><div class="dt2">' + pt.mrn + ' | ' + pt.sex + ' | Age ' + pt.age + ' | Allergies: ' + (pt.allergies && pt.allergies.length ? pt.allergies.join(', ') : 'NKDA') + '</div></div>';
+  h += '<table class="dt"><thead><tr><th>Drug</th><th>Dose</th><th>Freq</th><th>Qty</th><th>Route</th></tr></thead><tbody>';
+  for (var i = 0; i < rx.drugs.length; i++) {
+    var d = rx.drugs[i];
+    h += '<tr><td><b>' + d.name + '</b> (' + d.genericName + ')<br><span style="font-size:10px;color:var(--txt2)">' + d.spec + ' | Shelf: ' + d.shelf + '</span></td><td>' + d.dose + '</td><td>' + d.frequency + '</td><td>' + d.quantity + '</td><td>' + d.route + '</td></tr>';
+  }
+  h += '</tbody></table>';
+  var rev = st.reviewedPrescriptions[rxId];
+  if (rev) h += '<div style="margin-top:12px;font-size:11px;color:var(--txt2)">Reviewed: ' + (rev.timestamp || '') + ' | ' + (rev.approved ? 'Approved' : 'Rejected') + (rev.modified ? ' (Modified)' : '') + '</div>';
+  openModal('Prescription Detail — ' + rxId, h);
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Screening & Verification (PhIS §3.2)
+// ══════════════════════════════════════════════════════════════════════
+function renScreening() {
+  var st = window._taskState;
+  var pending = st.prescriptions.filter(function(r){return r.status === 'pending';});
+  var dur = st.durAlerts.filter(function(a){return !st.durAlertsHandled[a.alertId];});
+  var h = '<div class="flex-between mb-16"><h2>Screening &amp; Verification</h2></div>';
+  // DUR alerts summary
+  if (dur.length > 0) {
+    h += '<div class="card"><div class="card-h" style="color:var(--err)">&#x26A0; Unresolved DUR Alerts (' + dur.length + ')</div><div class="card-b">';
+    for (var i = 0; i < dur.length; i++) {
+      var a = dur[i], cls = a.severity === 'critical' ? 'dur-crit' : '';
+      h += '<div class="dur ' + cls + '"><div class="dur-t">&#x26A0; ' + a.title + '</div><div class="dur-d">' + a.detail + '</div>';
+      h += '<div style="margin-top:6px;font-size:11px;color:var(--txt2)">Rx: ' + a.rxId + ' | Severity: ' + a.severity + ' | Drugs: ' + a.drugs.join(', ') + '</div>';
+      h += '<div style="margin-top:6px"><button class="btn btn-w btn-sm" onclick="ackRx(\'' + a.rxId + '\')">Review &amp; Handle</button></div></div>';
+    }
+    h += '</div></div>';
+  }
+  // Pending prescriptions for verification
+  h += '<div class="card"><div class="card-h">Pending Verification (' + pending.length + ')</div>';
+  if (pending.length === 0) h += '<div class="card-b text-center text-muted" style="padding:30px">All prescriptions verified.</div>';
+  else {
+    h += '<div style="overflow-x:auto"><table class="dt"><thead><tr><th>Rx#</th><th>Patient</th><th>Drugs</th><th>DUR</th><th>Actions</th></tr></thead><tbody>';
+    for (var j = 0; j < pending.length; j++) {
+      var rx = pending[j];
+      var hasDur = rx.durFlags.length > 0;
+      h += '<tr' + (hasDur ? ' style="background:var(--dur-bg)"' : '') + '><td>' + rx.rxId + '</td><td>' + ptName(rx) + '</td>';
+      h += '<td>' + rx.drugs.map(function(d){return d.name + ' ' + d.dose;}).join(', ') + '</td>';
+      h += '<td>' + (hasDur ? '<span style="color:var(--err)">&#x26A0; ' + rx.durFlags.join(', ') + '</span>' : '&#x2713;') + '</td>';
+      h += '<td><button class="btn btn-p btn-sm" onclick="ackRx(\'' + rx.rxId + '\')">Verify</button></td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Preparation (PhIS §3.3 — Batch allocation, drug labels)
+// ══════════════════════════════════════════════════════════════════════
+function renPreparation() {
+  var st = window._taskState;
+  var reviewed = st.prescriptions.filter(function(r){return r.status === 'reviewed';});
+  var h = '<div class="flex-between mb-16"><h2>Preparation</h2></div>';
+  if (reviewed.length === 0) {
+    h += '<div class="card"><div class="card-b text-center text-muted" style="padding:30px">No verified prescriptions awaiting preparation.</div></div>';
+    return h;
+  }
+  h += '<div class="card"><div class="card-h">Ready for Preparation (' + reviewed.length + ')</div>';
+  h += '<table class="dt"><thead><tr><th>Rx#</th><th>Patient</th><th>Drugs</th><th>Actions</th></tr></thead><tbody>';
+  for (var i = 0; i < reviewed.length; i++) {
+    var rx = reviewed[i];
+    h += '<tr><td>' + rx.rxId + '</td><td>' + ptName(rx) + '</td>';
+    h += '<td>' + rx.drugs.map(function(d){return d.name + ' ' + d.dose + ' x' + d.quantity;}).join(', ') + '</td>';
+    h += '<td><button class="btn btn-p btn-sm" onclick="prepareRx(\'' + rx.rxId + '\')">Prepare</button></td></tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+window.prepareRx = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  var pt = ptInfo(rx.patientIdx);
+  var h = '<div class="pt-banner"><div class="nm">' + pt.name + '</div><div class="dt2">' + pt.mrn + ' | ' + rx.rxId + '</div></div>';
+  h += '<h4 style="font-size:13px;margin-bottom:8px">Batch Allocation &amp; Drug Labels</h4>';
+  for (var i = 0; i < rx.drugs.length; i++) {
+    var d = rx.drugs[i];
+    var lots = st.lotDB[d.drugId] || [];
+    var validLots = lots.filter(function(l){return !l.expired;});
+    h += '<div class="drug-label"><div class="dl-nm">' + d.name + ' (' + d.genericName + ') ' + d.spec + '</div>';
+    h += '<div class="dl-dose">' + d.dose + ' ' + d.frequency + ' | Route: ' + d.route + ' | Qty: ' + d.quantity + '</div>';
+    h += '<div style="margin-top:6px;font-size:11px;color:var(--txt2)">Shelf: ' + d.shelf + '</div>';
+    h += '<div style="margin-top:8px"><label style="font-size:11px;font-weight:600">Select Lot:</label><select class="fc" id="lot-' + rxId + '-' + d.drugId + '" style="width:auto;margin-left:6px">';
+    for (var j = 0; j < lots.length; j++) {
+      var l = lots[j];
+      h += '<option value="' + l.lotNumber + '"' + (l.expired ? ' style="color:var(--err)"' : '') + '>' + l.lotNumber + ' (Exp: ' + l.expiryDate + ', Stock: ' + l.stock + ')' + (l.expired ? ' [EXPIRED]' : '') + '</option>';
+    }
+    h += '</select></div>';
+    h += '<div style="margin-top:4px"><label style="font-size:11px;font-weight:600">Quantity:</label><input class="fc" type="number" id="qty-' + rxId + '-' + d.drugId + '" value="' + d.quantity + '" style="width:80px;margin-left:6px"></div></div>';
+  }
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-s" onclick="completePrepare(\'' + rxId + '\')">Complete Preparation</button></div>';
+  openModal('Prepare — ' + rxId, h);
+};
+
+window.completePrepare = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  // Record lot selections
+  for (var i = 0; i < rx.drugs.length; i++) {
+    var d = rx.drugs[i];
+    var lotEl = document.getElementById('lot-' + rxId + '-' + d.drugId);
+    var qtyEl = document.getElementById('qty-' + rxId + '-' + d.drugId);
+    if (lotEl) {
+      if (!st.dispenseLots[rxId]) st.dispenseLots[rxId] = {};
+      st.dispenseLots[rxId][d.drugId] = lotEl.value;
+    }
+    if (qtyEl) {
+      if (!st.dispenseQuantities[rxId]) st.dispenseQuantities[rxId] = {};
+      st.dispenseQuantities[rxId][d.drugId] = parseInt(qtyEl.value);
+    }
+  }
+  rx.status = 'prepared';
+  toast('Prescription ' + rxId + ' prepared. Ready for dispensing.', 'success');
+  closeModal(); showPage('preparation');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Dispensing (PhIS §3.4)
+// ══════════════════════════════════════════════════════════════════════
+function renDispensing() {
+  var st = window._taskState;
+  var prepared = st.prescriptions.filter(function(r){return r.status === 'prepared' || r.status === 'reviewed';});
+  var h = '<div class="flex-between mb-16"><h2>Dispensing</h2></div>';
+  if (prepared.length === 0) {
+    h += '<div class="card"><div class="card-b text-center text-muted" style="padding:30px">No prescriptions ready for dispensing.</div></div>';
+    return h;
+  }
+  h += '<div class="card"><div class="card-h">Ready for Dispensing (' + prepared.length + ')</div>';
+  h += '<table class="dt"><thead><tr><th>Rx#</th><th>Patient</th><th>Drugs</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  for (var i = 0; i < prepared.length; i++) {
+    var rx = prepared[i];
+    h += '<tr><td>' + rx.rxId + '</td><td>' + ptName(rx) + '</td>';
+    h += '<td>' + rx.drugs.map(function(d){return d.name + ' ' + d.dose;}).join(', ') + '</td>';
+    h += '<td><span class="st ' + (rx.status === 'prepared' ? 'st-prepared' : 'st-review') + '">' + rx.status + '</span></td>';
+    h += '<td><button class="btn btn-s btn-sm" onclick="dispenseRx(\'' + rx.rxId + '\')">Dispense</button></td></tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+window.dispenseRx = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  var pt = ptInfo(rx.patientIdx);
+  var h = '<div class="pt-banner"><div class="nm">' + pt.name + '</div><div class="dt2">' + pt.mrn + ' | ' + rx.rxId + ' | Verify patient identity before dispensing</div></div>';
+  h += '<h4 style="font-size:13px;margin-bottom:8px">Drug Verification &amp; Scanning</h4>';
+  for (var i = 0; i < rx.drugs.length; i++) {
+    var d = rx.drugs[i];
+    var lot = (st.dispenseLots[rxId] && st.dispenseLots[rxId][d.drugId]) || 'N/A';
+    var qty = (st.dispenseQuantities[rxId] && st.dispenseQuantities[rxId][d.drugId]) || d.quantity;
+    var scanned = st.dispenseScanned[rxId] && st.dispenseScanned[rxId][d.drugId];
+    h += '<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--bdr-l);border-radius:var(--rad);margin-bottom:6px;background:' + (scanned ? 'var(--row-h)' : '#fff') + '">';
+    h += '<div style="flex:1"><b>' + d.name + '</b> ' + d.dose + ' ' + d.frequency + '<br><span style="font-size:10px;color:var(--txt2)">Lot: ' + lot + ' | Qty: ' + qty + '</span></div>';
+    h += '<button class="btn btn-sm ' + (scanned ? 'btn-s' : 'btn-out') + '" onclick="scanDrug(\'' + rxId + '\',\'' + d.drugId + '\')">' + (scanned ? '&#x2713; Scanned' : 'Scan') + '</button>';
+    if (d.highRisk) h += '<span style="background:var(--err);color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700">HIGH RISK</span>';
+    h += '</div>';
+  }
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-s" onclick="completeDispense(\'' + rxId + '\')">Complete Dispensing</button></div>';
+  openModal('Dispense — ' + rxId, h);
+};
+
+window.scanDrug = function(rxId, drugId) {
+  var st = window._taskState;
+  if (!st.dispenseScanned[rxId]) st.dispenseScanned[rxId] = {};
+  st.dispenseScanned[rxId][drugId] = true;
+  // Check for expired lot
+  var lots = st.dispenseLots[rxId];
+  if (lots && lots[drugId]) {
+    var allLots = st.lotDB[drugId] || [];
+    var sel = allLots.find(function(l){return l.lotNumber === lots[drugId];});
+    if (sel && sel.expired) {
+      toast('WARNING: Selected lot is EXPIRED! Replace immediately.', 'error');
+      return;
+    }
+  }
+  toast('Drug scanned successfully.', 'success');
+  // Re-render modal
+  dispenseRx(rxId);
+};
+
+window.completeDispense = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  // Build dispensed record
+  var dDrugs = rx.drugs.map(function(d) {
+    var lot = (st.dispenseLots[rxId] && st.dispenseLots[rxId][d.drugId]) || '';
+    var qty = (st.dispenseQuantities[rxId] && st.dispenseQuantities[rxId][d.drugId]) || d.quantity;
+    var allLots = st.lotDB[d.drugId] || [];
+    var selLot = allLots.find(function(l){return l.lotNumber === lot;});
+    return {drugId:d.drugId,name:d.name,quantity:qty,lotNumber:lot,expiryDate:selLot ? selLot.expiryDate : '',expired:selLot ? selLot.expired : false,scanned:!!(st.dispenseScanned[rxId] && st.dispenseScanned[rxId][d.drugId])};
+  });
+  st.dispensedPrescriptions[rxId] = {drugs:dDrugs,quantities:rx.drugs.map(function(d){return (st.dispenseQuantities[rxId] && st.dispenseQuantities[rxId][d.drugId]) || d.quantity;}),timestamp:new Date().toLocaleTimeString('en-US',{hour12:false})};
+  rx.status = 'dispensed';
+  st.currentDispense = rxId;
+  toast('Prescription ' + rxId + ' dispensed. Proceed to counseling.', 'success');
+  closeModal(); showPage('dispensing');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Medication Counseling (PhIS §3.5)
+// ══════════════════════════════════════════════════════════════════════
+function renCounseling() {
+  var st = window._taskState;
+  var dispensed = st.prescriptions.filter(function(r){return r.status === 'dispensed' && !st.counselingCompleted[r.rxId];});
+  var h = '<div class="flex-between mb-16"><h2>Medication Counseling</h2></div>';
+  if (dispensed.length === 0) {
+    h += '<div class="card"><div class="card-b text-center text-muted" style="padding:30px">No prescriptions awaiting counseling.</div></div>';
+    return h;
+  }
+  h += '<div class="card"><div class="card-h">Awaiting Counseling (' + dispensed.length + ')</div>';
+  for (var i = 0; i < dispensed.length; i++) {
+    var rx = dispensed[i], pt = ptInfo(rx.patientIdx);
+    h += '<div style="padding:12px 16px;border-bottom:1px solid var(--bdr-l);display:flex;align-items:center;justify-content:space-between">';
+    h += '<div><b>' + pt.name + '</b> — ' + rx.rxId + '<br><span style="font-size:11px;color:var(--txt2)">' + rx.drugs.map(function(d){return d.name;}).join(', ') + '</span></div>';
+    h += '<button class="btn btn-p btn-sm" onclick="startCounseling(\'' + rx.rxId + '\')">Start Counseling</button></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+window.startCounseling = function(rxId) {
+  var st = window._taskState;
+  var rx = st.prescriptions.find(function(r){return r.rxId === rxId;});
+  if (!rx) return;
+  var pt = ptInfo(rx.patientIdx);
+  st.currentCounsel = rxId;
+  var h = '<div class="pt-banner"><div class="nm">' + pt.name + '</div><div class="dt2">' + rx.rxId + ' — ' + rx.drugs.map(function(d){return d.name + ' ' + d.dose;}).join(', ') + '</div></div>';
+  h += '<h4 style="font-size:13px;margin-bottom:8px">Counseling Checklist</h4>';
+  for (var i = 0; i < COUNSELING_POINTS.length; i++) {
+    var cp = COUNSELING_POINTS[i];
+    h += '<div class="chk-item"><input type="checkbox" id="chk-' + cp.id + '"><label for="chk-' + cp.id + '">' + cp.label + '</label></div>';
+  }
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-out" onclick="closeModal()">Cancel</button><button class="btn btn-s" onclick="completeCounseling(\'' + rxId + '\')">Complete Counseling</button></div>';
+  openModal('Medication Counseling — ' + rxId, h);
+};
+
+window.completeCounseling = function(rxId) {
+  var st = window._taskState;
+  var checked = [];
+  for (var i = 0; i < COUNSELING_POINTS.length; i++) {
+    var el = document.getElementById('chk-' + COUNSELING_POINTS[i].id);
+    if (el && el.checked) checked.push(COUNSELING_POINTS[i].id);
+  }
+  st.counselingCompleted[rxId] = {points:checked,timestamp:new Date().toLocaleTimeString('en-US',{hour12:false})};
+  toast('Counseling completed for ' + rxId + '.', 'success');
+  closeModal(); showPage('counseling');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Dispensing Log
+// ══════════════════════════════════════════════════════════════════════
+function renLog() {
+  var st = window._taskState;
+  var dispensed = st.prescriptions.filter(function(r){return r.status === 'dispensed';});
+  var h = '<div class="flex-between mb-16"><h2>Dispensing Log</h2><span class="text-muted">' + dispensed.length + ' records</span></div>';
+  h += '<div class="card"><table class="dt"><thead><tr><th>#</th><th>Rx#</th><th>Patient</th><th>Drugs</th><th>Time</th><th>Counseled</th><th>Status</th></tr></thead><tbody>';
+  if (dispensed.length === 0) {
+    h += '<tr><td colspan="7" class="text-center text-muted" style="padding:20px">No records yet.</td></tr>';
+  } else {
+    for (var i = 0; i < dispensed.length; i++) {
+      var rx = dispensed[i];
+      var disp = st.dispensedPrescriptions[rx.rxId];
+      var coun = st.counselingCompleted[rx.rxId];
+      h += '<tr><td>' + (i+1) + '</td><td>' + rx.rxId + '</td><td>' + ptName(rx) + '</td>';
+      h += '<td>' + rx.drugs.map(function(d){return d.name;}).join(', ') + '</td>';
+      h += '<td>' + (disp ? disp.timestamp : rx.time) + '</td>';
+      h += '<td>' + (coun ? '<span style="color:var(--suc)">&#x2713; Yes</span>' : '<span style="color:var(--warn)">Pending</span>') + '</td>';
+      h += '<td><span class="st st-dispensed">Dispensed</span></td></tr>';
+    }
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Inventory Alerts
+// ══════════════════════════════════════════════════════════════════════
+function renInventory() {
+  var st = window._taskState;
+  var alerts = st.inventoryAlerts || [];
+  var h = '<div class="flex-between mb-16"><h2>Inventory Alerts</h2></div>';
+  h += '<div class="card"><table class="dt"><thead><tr><th>Drug ID</th><th>Drug Name</th><th>Current Stock</th><th>Reorder Level</th><th>Status</th></tr></thead><tbody>';
+  for (var i = 0; i < alerts.length; i++) {
+    var a = alerts[i];
+    h += '<tr' + (a.critical ? ' style="background:var(--crit-bg)"' : '') + '><td>' + a.drugId + '</td><td>' + a.name + '</td>';
+    h += '<td style="font-weight:700;color:' + (a.critical ? 'var(--err)' : 'var(--warn)') + '">' + a.currentStock + '</td>';
+    h += '<td>' + a.reorderLevel + '</td>';
+    h += '<td>' + (a.critical ? '<span style="color:var(--err);font-weight:700">CRITICAL</span>' : '<span style="color:var(--warn)">Low</span>') + '</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', function(e){if(e.key==='Escape')closeModal();});
+
+// ── Default init ──
+if (!window._medgym_init_called) { window._medgym_init(42); window._medgym_init_called = true; }
+})();
+</script>
+</body>
+</html>

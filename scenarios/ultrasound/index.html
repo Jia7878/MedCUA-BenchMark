@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Ultrasound Workstation (SonoSite-inspired)
+
+  References:
+  - SonoSite Edge II Quick Reference Guide
+  - GE LOGIQ / Philips EPIQ workflow conventions
+  - ACR BI-RADS / TI-RADS structured reporting
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ultrasound Workstation</title>
+<style>
+:root {
+  --bg: #090b12;
+  --panel: #141927;
+  --panel-2: #111623;
+  --line: #293247;
+  --text: #dce6f6;
+  --dim: #8fa0be;
+  --accent: #1bc4a2;
+  --accent-2: #4fa3ff;
+  --ok: #30b36a;
+  --warn: #f5a524;
+  --danger: #d94b5b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 10%, #121a2e, #080a12 55%);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+#loginPage {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 420px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #141b2c, #0f1524 70%);
+  padding: 28px;
+}
+
+.login-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.login-title h1 { font-size: 20px; color: var(--accent); }
+.login-title small { color: var(--dim); }
+
+.login-sub { color: var(--dim); margin-bottom: 16px; line-height: 1.4; }
+
+.system-check {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.check-chip {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--dim);
+  background: #0c1220;
+}
+
+.check-chip strong { color: var(--ok); }
+
+.login-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0b1120;
+  color: var(--text);
+}
+
+.login-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-main { background: var(--accent); color: #062820; flex: 1; }
+.btn-alt { background: #1a2337; color: var(--dim); }
+
+.hint {
+  margin-top: 10px;
+  color: var(--dim);
+  font-size: 11px;
+}
+
+#mainApp {
+  display: none;
+  height: 100vh;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: #0b1120;
+}
+
+.brand { color: var(--accent); font-weight: 700; }
+.status { color: var(--dim); }
+.status strong { color: var(--accent-2); }
+
+nav {
+  display: flex;
+  background: #0d1324;
+  border-bottom: 1px solid var(--line);
+}
+
+nav button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+nav button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.content { flex: 1; overflow: hidden; }
+
+/* Worklist */
+#tab-worklist {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.wl-tools {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 220px 140px 140px 1fr;
+  gap: 8px;
+  background: #0e1526;
+}
+
+.wl-tools input,
+.wl-tools select {
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #0a1020;
+  color: var(--text);
+}
+
+.wl-wrap { flex: 1; overflow: auto; }
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wl-table th {
+  position: sticky;
+  top: 0;
+  background: #10172a;
+  color: var(--dim);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-weight: 600;
+  padding: 7px 8px;
+}
+
+.wl-table td {
+  border-bottom: 1px solid #1c2436;
+  padding: 7px 8px;
+}
+
+.wl-table tr:hover { background: rgba(79, 163, 255, 0.08); }
+
+.tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tag-stat { background: rgba(217, 75, 91, 0.2); color: #ff8c9a; }
+.tag-routine { background: rgba(143, 160, 190, 0.2); color: #b8c7de; }
+.tag-pending { background: rgba(245, 165, 36, 0.2); color: #ffc86f; }
+.tag-complete { background: rgba(48, 179, 106, 0.2); color: #80e5aa; }
+
+.scan-btn {
+  border: 1px solid #275d8e;
+  border-radius: 5px;
+  background: #133557;
+  color: #9fd8ff;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+/* Scan layout */
+#tab-scan { height: 100%; display: none; }
+
+.scan-grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 330px;
+}
+
+/* Prevent grid items from expanding past their declared tracks
+   (default min-width: auto lets content push columns wider, which
+   squeezes the viewport and causes the absolutely-positioned
+   .mode-strip / .tool-strip to overlap the side panel buttons). */
+.scan-grid > * { min-width: 0; }
+
+.kbd-panel,
+.right-panel {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+
+.right-panel {
+  border-right: none;
+  border-left: 1px solid var(--line);
+}
+
+.panel-section {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-section h4 {
+  color: var(--accent);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.soft-key {
+  border: 1px solid #32415f;
+  border-radius: 6px;
+  padding: 7px;
+  background: #192139;
+  color: #c4d4ef;
+  cursor: pointer;
+  text-align: center;
+}
+
+.soft-key.mode-active {
+  background: rgba(27, 196, 162, 0.2);
+  border-color: var(--accent);
+  color: #b8ffef;
+}
+
+.viewport {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ovl-left,
+.ovl-right,
+.ovl-bottom {
+  position: absolute;
+  color: #89ff89;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  text-shadow: 0 0 2px #000;
+}
+
+.ovl-left { top: 8px; left: 8px; }
+.ovl-right { top: 8px; right: 10px; text-align: right; }
+.ovl-bottom { bottom: 8px; left: 8px; color: #d9f8ff; }
+
+.mode-strip {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #2f3d58;
+  border-radius: 6px;
+  background: rgba(8, 12, 20, 0.85);
+}
+
+.mode-strip button {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.mode-strip button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(27, 196, 162, 0.16);
+}
+
+.tool-strip {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #2f3d58;
+  border-radius: 6px;
+  background: rgba(8, 12, 20, 0.85);
+}
+
+.tool-strip button {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.tool-strip button.active {
+  color: #9fe1ff;
+  border-color: #4a7ba6;
+  background: rgba(79, 163, 255, 0.18);
+}
+
+.mini {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.kv {
+  margin-top: 6px;
+  display: grid;
+  gap: 5px;
+}
+
+.kv div {
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #0f1524;
+}
+
+.probe-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.probe-btn {
+  border: 1px solid #33415f;
+  border-radius: 999px;
+  background: #162138;
+  color: #c8d6ef;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.probe-btn.active {
+  background: rgba(27, 196, 162, 0.2);
+  border-color: var(--accent);
+  color: #b8ffef;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.param-grid label {
+  color: var(--dim);
+  font-size: 10px;
+}
+
+.param-grid input,
+.param-grid select {
+  width: 100%;
+  margin-top: 3px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0d1424;
+  color: var(--text);
+}
+
+.list {
+  max-height: 145px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f1524;
+}
+
+.list-item {
+  padding: 5px 7px;
+  border-bottom: 1px solid #202a3f;
+  font-size: 11px;
+}
+
+.list-item:last-child { border-bottom: none; }
+
+/* Report */
+#tab-report {
+  display: none;
+  height: 100%;
+  overflow: auto;
+  padding: 14px;
+}
+
+.report-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.report-title {
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.block h5 {
+  color: #9bc5ff;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.field { margin-bottom: 8px; }
+
+.field label {
+  display: block;
+  color: var(--dim);
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #0a1120;
+  color: var(--text);
+  padding: 7px;
+}
+
+.field textarea { min-height: 90px; resize: vertical; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #111a2e;
+  color: #d1def4;
+  cursor: pointer;
+}
+
+.chip.selected {
+  background: rgba(27, 196, 162, 0.2);
+  border-color: var(--accent);
+  color: #b8ffef;
+}
+
+.chip.critical {
+  border-color: #7c3340;
+  color: #ff9baa;
+}
+
+.score-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.score-row button {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #111a2e;
+  color: #d1def4;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.score-row button.active {
+  border-color: var(--accent);
+  background: rgba(27, 196, 162, 0.2);
+  color: #b8ffef;
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-draft { background: #24324f; color: #d1def4; }
+.btn-submit { background: var(--accent); color: #052a22; }
+.btn-urgent { background: var(--danger); color: #fff; }
+
+.rpt-status {
+  margin-top: 8px;
+  min-height: 18px;
+  font-size: 12px;
+}
+.rpt-status.ok { color: #80e5aa; }
+.rpt-status.warn { color: #ffc86f; }
+.rpt-status.err { color: #ff8c9a; }
+</style>
+</head>
+<body>
+  <div id="loginPage">
+    <div class="login-card">
+      <div class="login-title">
+        <h1>Ultrasound Workstation</h1>
+        <small>Edge Series Console</small>
+      </div>
+      <div class="login-sub">
+        Point-of-care ultrasound workflow simulation inspired by SonoSite Edge II quick-reference operations.
+      </div>
+      <div class="system-check">
+        <div class="check-chip">Probe ports: <strong>3 connected</strong></div>
+        <div class="check-chip">Battery/AC: <strong>AC Online</strong></div>
+        <div class="check-chip">Archive sync: <strong>Ready</strong></div>
+        <div class="check-chip">DICOM queue: <strong>No backlog</strong></div>
+      </div>
+      <input class="login-input" id="loginUser" placeholder="Username" />
+      <input class="login-input" id="loginPass" type="password" placeholder="Password" />
+      <div class="login-actions">
+        <button class="btn btn-main" onclick="doLogin()">LOGIN</button>
+        <button class="btn btn-alt" onclick="prefillDemo()">DEMO FILL</button>
+      </div>
+      <div class="hint">Credentials: <strong>admin</strong> / <strong>us123</strong></div>
+    </div>
+  </div>
+
+  <div id="mainApp">
+    <div class="topbar">
+      <span class="brand">US Console</span>
+      <span class="status">Date: 2026-04-21</span>
+      <span class="status">Operator: <strong id="userInfo">-</strong></span>
+      <span class="status">Preset: <strong id="presetInfo">General</strong></span>
+      <span class="status">State: <strong id="stateInfo">Idle</strong></span>
+    </div>
+    <nav>
+      <button data-tab="worklist" class="active" onclick="switchTab('worklist')">Worklist</button>
+      <button data-tab="scan" onclick="switchTab('scan')">Scan</button>
+      <button data-tab="report" onclick="switchTab('report')">Structured Report</button>
+    </nav>
+
+    <div class="content" id="contentArea">
+      <div id="tab-worklist">
+        <div class="wl-tools">
+          <input id="wlSearch" placeholder="Search patient/exam ID" oninput="renderWorklist()" />
+          <select id="wlPriority" onchange="renderWorklist()">
+            <option value="all">All priority</option>
+            <option value="stat">STAT only</option>
+            <option value="routine">Routine only</option>
+          </select>
+          <select id="wlStatus" onchange="renderWorklist()">
+            <option value="all">All status</option>
+            <option value="pending">Pending</option>
+            <option value="reported">Reported</option>
+          </select>
+          <div class="mini" id="wlSummary"></div>
+        </div>
+        <div class="wl-wrap">
+          <table class="wl-table">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Exam ID</th>
+                <th>Patient</th>
+                <th>Sex/Age</th>
+                <th>Exam Type</th>
+                <th>Clinical Indication</th>
+                <th>Requested By</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="wlBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-scan">
+        <div class="scan-grid">
+          <div class="kbd-panel">
+            <div class="panel-section">
+              <h4>System Keys</h4>
+              <div class="keys">
+                <button class="soft-key" onclick="toggleFreeze()">FREEZE</button>
+                <button class="soft-key" onclick="captureImage()">SAVE</button>
+                <button class="soft-key" onclick="captureClip()">CLIP</button>
+                <button class="soft-key" onclick="setTool('caliper')">CALIPER</button>
+                <button class="soft-key" onclick="setTool('trace')">TRACE</button>
+                <button class="soft-key" onclick="setTool('ellipse')">ELLIPSE</button>
+                <button class="soft-key" onclick="setTool('doppler')">DOPPLER</button>
+                <button class="soft-key" onclick="setTool('pan')">PAN</button>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Mode Keys</h4>
+              <div class="keys">
+                <button class="soft-key" data-softmode="2d" onclick="setMode('2d')">2D</button>
+                <button class="soft-key" data-softmode="mmode" onclick="setMode('mmode')">M MODE</button>
+                <button class="soft-key" data-softmode="color" onclick="setMode('color')">COLOR</button>
+                <button class="soft-key" data-softmode="pw" onclick="setMode('pw')">PW DOPPLER</button>
+                <button class="soft-key" data-softmode="cw" onclick="setMode('cw')">CW DOPPLER</button>
+                <button class="soft-key" data-softmode="elastography" onclick="setMode('elastography')">ELASTO</button>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Exam Workflow</h4>
+              <div class="kv" id="workflowInfo"></div>
+            </div>
+          </div>
+
+          <div class="viewport">
+            <canvas id="usCanvas" width="1000" height="680"></canvas>
+            <div class="ovl-left" id="usOverlayL"></div>
+            <div class="ovl-right" id="usOverlayR"></div>
+            <div class="ovl-bottom" id="usOverlayB"></div>
+
+            <div class="mode-strip">
+              <button data-mode="2d" class="active" onclick="setMode('2d')">2D</button>
+              <button data-mode="mmode" onclick="setMode('mmode')">M</button>
+              <button data-mode="color" onclick="setMode('color')">Color</button>
+              <button data-mode="pw" onclick="setMode('pw')">PW</button>
+              <button data-mode="cw" onclick="setMode('cw')">CW</button>
+              <button data-mode="elastography" onclick="setMode('elastography')">Elasto</button>
+            </div>
+
+            <div class="tool-strip">
+              <button data-tool="pan" class="active" onclick="setTool('pan')">Pan</button>
+              <button data-tool="caliper" onclick="setTool('caliper')">Caliper</button>
+              <button data-tool="trace" onclick="setTool('trace')">Trace</button>
+              <button data-tool="ellipse" onclick="setTool('ellipse')">Ellipse</button>
+              <button data-tool="doppler" onclick="setTool('doppler')">Doppler</button>
+              <button onclick="captureImage()">Capture</button>
+              <button onclick="startCine()">Cine</button>
+            </div>
+          </div>
+
+          <div class="right-panel">
+            <div class="panel-section">
+              <h4>Patient / Exam</h4>
+              <div class="kv" id="ptInfo"></div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Transducer Selection</h4>
+              <div class="probe-grid" id="probeOpts"></div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Image Parameters</h4>
+              <div class="param-grid">
+                <div>
+                  <label>Depth (cm)</label>
+                  <input id="paramDepth" type="number" value="12" min="1" max="30" onchange="updateParam('depth', this.value)" />
+                </div>
+                <div>
+                  <label>Gain (dB)</label>
+                  <input id="paramGain" type="number" value="50" min="0" max="100" onchange="updateParam('gain', this.value)" />
+                </div>
+                <div>
+                  <label>Frequency (MHz)</label>
+                  <input id="paramFreq" type="number" step="0.5" value="5" min="1" max="15" onchange="updateParam('freq', this.value)" />
+                </div>
+                <div>
+                  <label>Focus</label>
+                  <select id="paramFocus" onchange="updateParam('focus', this.value)">
+                    <option>Single</option>
+                    <option>Dual</option>
+                    <option>Multi</option>
+                  </select>
+                </div>
+                <div>
+                  <label>TGC</label>
+                  <input id="paramTGC" type="range" value="50" min="0" max="100" onchange="updateParam('tgc', this.value)" />
+                </div>
+                <div>
+                  <label>Dynamic Range</label>
+                  <input id="paramDR" type="number" value="60" min="30" max="90" onchange="updateParam('dr', this.value)" />
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Measurements</h4>
+              <div class="list" id="measList"></div>
+              <div class="actions">
+                <button class="btn btn-alt" onclick="mockMeasurement()">Add Sample</button>
+                <button class="btn btn-alt" onclick="clearMeasurements()">Clear</button>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <h4>Saved Images / Clips</h4>
+              <div class="list" id="savedImages"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-report">
+        <div class="report-shell">
+          <h3 class="report-title">Ultrasound Structured Reporting</h3>
+          <div class="report-grid">
+            <div class="block">
+              <h5>Exam Header</h5>
+              <div class="field"><label>Selected Exam</label><input id="rptExamHeader" readonly /></div>
+              <div class="field"><label>Exam Type</label><input id="rptExamType" readonly /></div>
+              <div class="field"><label>Probe Used</label><input id="rptProbe" readonly /></div>
+              <div class="field"><label>Technique</label><textarea id="rptTechnique" placeholder="e.g., Gray-scale and color Doppler ultrasound was performed..."></textarea></div>
+            </div>
+
+            <div class="block">
+              <h5>Findings Catalog</h5>
+              <div class="chips" id="rptFindingTags"></div>
+              <div class="field" id="rptClasSec" style="margin-top:10px;">
+                <label>Classification</label>
+                <div id="rptClassification"></div>
+              </div>
+            </div>
+
+            <div class="block" style="grid-column: 1 / -1;">
+              <h5>Narrative</h5>
+              <div class="field"><label>Description</label><textarea id="rptDesc" placeholder="Detailed sonographic findings..."></textarea></div>
+              <div class="field"><label>Impression</label><textarea id="rptImpression" placeholder="Diagnostic impression..."></textarea></div>
+              <div class="field"><label>Recommendation</label><textarea id="rptRecommendation" placeholder="Follow-up recommendation..."></textarea></div>
+              <div class="actions">
+                <button class="btn btn-draft" onclick="saveDraft()">Save Draft</button>
+                <button class="btn btn-submit" onclick="submitReport()">Submit Report</button>
+                <button class="btn btn-urgent" onclick="flagUrgent()">Flag Urgent</button>
+              </div>
+              <div id="rptStatus" class="rpt-status" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+window._taskState = {
+  initialized: false,
+  loggedIn: false,
+  currentUser: null,
+  currentTab: 'worklist',
+  exams: [],
+  selectedExam: null,
+  mode: '2d',
+  activeTool: 'pan',
+  probe: 'convex',
+  params: { depth: 12, gain: 50, freq: 5, focus: 'Single', tgc: 50, dr: 60 },
+  measurements: [],
+  savedImages: [],
+  reportsDraft: {},
+  reportsSubmitted: {},
+  urgentAlerts: [],
+  toolUsage: {},
+  captureCount: 0,
+  cineRunning: false
+};
+
+const PROBES = [
+  { id: 'convex', name: 'Convex C5-1', freq: '1-5 MHz', use: 'Abdomen / OB' },
+  { id: 'linear', name: 'Linear L12-5', freq: '5-12 MHz', use: 'Thyroid / Breast / Vascular' },
+  { id: 'phased', name: 'Phased S5-1', freq: '1-5 MHz', use: 'Cardiac' },
+  { id: 'endocavity', name: 'Endocavity EC9-4', freq: '4-9 MHz', use: 'Pelvic / TVUS' },
+  { id: 'hockey', name: 'Hockey Stick L15-7', freq: '7-15 MHz', use: 'MSK / Superficial' }
+];
+
+const US_FINDINGS = [
+  { id: 'normal', text: 'Normal', critical: false },
+  { id: 'cyst', text: 'Simple Cyst', critical: false },
+  { id: 'complex_cyst', text: 'Complex Cyst', critical: false },
+  { id: 'solid_mass', text: 'Solid Mass', critical: true },
+  { id: 'calcification', text: 'Calcification', critical: false },
+  { id: 'microcalc', text: 'Microcalcification', critical: true },
+  { id: 'vascularity', text: 'Increased Vascularity', critical: false },
+  { id: 'fatty_liver', text: 'Fatty Liver', critical: false },
+  { id: 'gallstone', text: 'Gallstone', critical: false },
+  { id: 'hydronephrosis', text: 'Hydronephrosis', critical: false },
+  { id: 'renal_stone', text: 'Renal Stone', critical: false },
+  { id: 'dvt', text: 'DVT', critical: true },
+  { id: 'effusion', text: 'Pleural Effusion', critical: false },
+  { id: 'ascites', text: 'Ascites', critical: false },
+  { id: 'thyroid_nodule', text: 'Thyroid Nodule', critical: false },
+  { id: 'taller_than_wide', text: 'Taller-than-wide', critical: true },
+  { id: 'irregular_margin', text: 'Irregular Margin', critical: true }
+];
+
+const BASE_EXAMS = [
+  {
+    id: 'US001', pid: 'PT001', name: 'Lihua Wang', sex: 'F', age: 45,
+    examType: 'Thyroid Ultrasound', indication: 'Palpable right thyroid nodule', requesting: 'Endocrinology',
+    priority: 'routine', status: 'pending', defaultProbe: 'linear',
+    trueFindings: ['thyroid_nodule', 'microcalc', 'taller_than_wide'], classification: { type: 'TIRADS', score: 4 }, trueCritical: false
+  },
+  {
+    id: 'US002', pid: 'PT002', name: 'Jianguo Zhang', sex: 'M', age: 58,
+    examType: 'Abdominal Ultrasound', indication: 'Abnormal liver enzymes', requesting: 'Gastroenterology',
+    priority: 'routine', status: 'pending', defaultProbe: 'convex',
+    trueFindings: ['fatty_liver', 'gallstone'], classification: null, trueCritical: false
+  },
+  {
+    id: 'US003', pid: 'PT003', name: 'Xiuying Li', sex: 'F', age: 38,
+    examType: 'Breast Ultrasound', indication: 'Palpable upper outer quadrant mass', requesting: 'Breast Surgery',
+    priority: 'stat', status: 'pending', defaultProbe: 'linear',
+    trueFindings: ['solid_mass', 'irregular_margin', 'vascularity'], classification: { type: 'BIRADS', score: 4 }, trueCritical: true
+  },
+  {
+    id: 'US004', pid: 'PT004', name: 'Deming Chen', sex: 'M', age: 72,
+    examType: 'Carotid Duplex', indication: 'TIA follow-up', requesting: 'Neurology',
+    priority: 'routine', status: 'pending', defaultProbe: 'linear',
+    trueFindings: ['calcification'], classification: null, trueCritical: false
+  },
+  {
+    id: 'US005', pid: 'PT005', name: 'Fang Liu', sex: 'F', age: 30,
+    examType: 'Obstetric Ultrasound', indication: 'Second trimester routine check', requesting: 'OB/GYN',
+    priority: 'stat', status: 'pending', defaultProbe: 'convex',
+    trueFindings: ['normal'], classification: null, trueCritical: false
+  },
+  {
+    id: 'US006', pid: 'PT006', name: 'Jianjun Zhou', sex: 'M', age: 65,
+    examType: 'Renal Ultrasound', indication: 'Flank pain and hematuria', requesting: 'Urology',
+    priority: 'routine', status: 'pending', defaultProbe: 'convex',
+    trueFindings: ['hydronephrosis', 'renal_stone'], classification: null, trueCritical: false
+  },
+  {
+    id: 'US007', pid: 'PT007', name: 'Meihua Zhao', sex: 'F', age: 55,
+    examType: 'Lower Limb Venous Duplex', indication: 'Unilateral calf swelling', requesting: 'Vascular Surgery',
+    priority: 'stat', status: 'pending', defaultProbe: 'linear',
+    trueFindings: ['dvt'], classification: null, trueCritical: true
+  },
+  {
+    id: 'US008', pid: 'PT008', name: 'Wei Qian', sex: 'M', age: 60,
+    examType: 'Cardiac Echo', indication: 'Dyspnea evaluation', requesting: 'Cardiology',
+    priority: 'routine', status: 'pending', defaultProbe: 'phased',
+    trueFindings: ['effusion'], classification: null, trueCritical: false
+  }
+];
+
+let _rng;
+function _seededRandom(seed) {
+  return function() {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+}
+
+function _medgym_init(seed = 42) {
+  _rng = _seededRandom(seed);
+  const S = window._taskState;
+  S.initialized = true;
+  S.loggedIn = false;
+  S.currentUser = null;
+  S.currentTab = 'worklist';
+  S.exams = JSON.parse(JSON.stringify(BASE_EXAMS));
+  S.selectedExam = null;
+  S.mode = '2d';
+  S.activeTool = 'pan';
+  S.probe = 'convex';
+  S.params = { depth: 12, gain: 50, freq: 5, focus: 'Single', tgc: 50, dr: 60 };
+  S.measurements = [];
+  S.savedImages = [];
+  S.reportsDraft = {};
+  S.reportsSubmitted = {};
+  S.urgentAlerts = [];
+  S.toolUsage = {};
+  S.captureCount = 0;
+  S.cineRunning = false;
+  refreshTopStatus();
+}
+
+window._medgym_init = _medgym_init;
+window._medgym_navigate = function(hash) {
+  if (hash) switchTab(hash);
+};
+
+function prefillDemo() {
+  document.getElementById('loginUser').value = 'admin';
+  document.getElementById('loginPass').value = 'us123';
+}
+
+function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  if (user !== 'admin' || pass !== 'us123') return;
+
+  if (!window._taskState.initialized) _medgym_init(42);
+  window._taskState.loggedIn = true;
+  window._taskState.currentUser = user;
+
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('userInfo').textContent = `Dr. ${user}`;
+
+  renderWorklist();
+  refreshTopStatus();
+}
+
+function switchTab(tab) {
+  window._taskState.currentTab = tab;
+  document.querySelectorAll('#contentArea > div').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  const target = document.getElementById(`tab-${tab}`);
+  if (target) target.style.display = tab === 'scan' ? 'block' : 'block';
+
+  if (tab === 'worklist') renderWorklist();
+  if (tab === 'scan') renderScan();
+  if (tab === 'report') renderReport();
+  refreshTopStatus();
+}
+
+function renderWorklist() {
+  const search = (document.getElementById('wlSearch')?.value || '').toLowerCase();
+  const pFilter = document.getElementById('wlPriority')?.value || 'all';
+  const sFilter = document.getElementById('wlStatus')?.value || 'all';
+
+  const rows = window._taskState.exams.filter(exam => {
+    const matchedSearch = !search || `${exam.id} ${exam.name} ${exam.examType}`.toLowerCase().includes(search);
+    const matchedPriority = pFilter === 'all' || exam.priority === pFilter;
+    const matchedStatus = sFilter === 'all' || exam.status === sFilter;
+    return matchedSearch && matchedPriority && matchedStatus;
+  });
+
+  const pending = window._taskState.exams.filter(exam => exam.status === 'pending').length;
+  const reported = window._taskState.exams.filter(exam => exam.status === 'reported').length;
+  document.getElementById('wlSummary').textContent = `Pending: ${pending} | Reported: ${reported} | Total: ${window._taskState.exams.length}`;
+
+  document.getElementById('wlBody').innerHTML = rows.map(exam => {
+    const priority = exam.priority === 'stat'
+      ? '<span class="tag tag-stat">STAT</span>'
+      : '<span class="tag tag-routine">ROUTINE</span>';
+    const status = exam.status === 'reported'
+      ? '<span class="tag tag-complete">REPORTED</span>'
+      : '<span class="tag tag-pending">PENDING</span>';
+
+    return `
+      <tr onclick="openExam('${exam.id}')">
+        <td>${priority}</td>
+        <td>${exam.id}</td>
+        <td>${exam.name}</td>
+        <td>${exam.sex}/${exam.age}</td>
+        <td>${exam.examType}</td>
+        <td>${exam.indication}</td>
+        <td>${exam.requesting}</td>
+        <td>${status}</td>
+        <td><button class="scan-btn" onclick="event.stopPropagation();openExam('${exam.id}')">Scan</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openExam(examId) {
+  window._taskState.selectedExam = examId;
+  const exam = getSelectedExam();
+  if (exam) {
+    window._taskState.probe = exam.defaultProbe;
+    document.getElementById('presetInfo').textContent = exam.examType;
+    document.getElementById('stateInfo').textContent = 'Exam Opened';
+  }
+  switchTab('scan');
+}
+
+function renderScan() {
+  const exam = getSelectedExam();
+  if (!exam) return;
+
+  document.getElementById('ptInfo').innerHTML = `
+    <div><strong>${exam.name}</strong> (${exam.pid})</div>
+    <div>Sex/Age: ${exam.sex}/${exam.age}</div>
+    <div>Exam: ${exam.examType}</div>
+    <div>Indication: ${exam.indication}</div>
+    <div>Requested by: ${exam.requesting}</div>
+    <div>Priority: ${exam.priority.toUpperCase()}</div>
+  `;
+
+  document.getElementById('probeOpts').innerHTML = PROBES.map(probe => `
+    <button class="probe-btn ${probe.id === window._taskState.probe ? 'active' : ''}" onclick="setProbe('${probe.id}', this)">
+      ${probe.name}
+    </button>
+  `).join('');
+
+  renderWorkflowPanel();
+  drawUS(exam);
+  renderMeasurements();
+  renderSavedImages();
+  refreshModeButtons();
+  refreshTopStatus();
+}
+
+function drawUS(exam) {
+  const canvas = document.getElementById('usCanvas');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const mode = window._taskState.mode;
+  const params = window._taskState.params;
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, width, height);
+
+  if (mode === '2d' || mode === 'color') {
+    const cx = width / 2;
+    const cy = 20;
+    const r = height - 60;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, -Math.PI * 0.42, Math.PI * 0.42);
+    ctx.closePath();
+    ctx.clip();
+
+    const gainFactor = Math.max(0.1, params.gain / 100);
+    for (let y = cy; y < cy + r; y += 2) {
+      for (let x = cx - r; x < cx + r; x += 2) {
+        const base = Math.floor((18 + _rng() * 46) * gainFactor);
+        ctx.fillStyle = `rgb(${base}, ${Math.min(255, base + 8)}, ${Math.min(255, base + 12)})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    for (let i = 0; i < 7; i++) {
+      const sx = cx + (_rng() - 0.5) * 340;
+      const sy = 140 + _rng() * 420;
+      const rw = 20 + _rng() * 60;
+      const rh = 15 + _rng() * 40;
+      ctx.fillStyle = _rng() > 0.55 ? 'rgba(0,0,0,0.45)' : 'rgba(98,110,130,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, rw, rh, _rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (mode === 'color') {
+      ctx.globalAlpha = 0.45;
+      for (let i = 0; i < 280; i++) {
+        const px = cx + (_rng() - 0.5) * 260;
+        const py = 160 + _rng() * 250;
+        ctx.fillStyle = _rng() > 0.5 ? 'rgb(205,25,40)' : 'rgb(20,80,230)';
+        ctx.fillRect(px, py, 3, 3);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  } else if (mode === 'mmode') {
+    for (let x = 0; x < width; x++) {
+      const baseline = 40 + Math.sin(x * 0.045) * 25;
+      for (let y = 0; y < height; y++) {
+        const value = baseline + Math.sin(y * 0.05 + x * 0.015) * 35 + _rng() * 16;
+        const v = Math.max(0, Math.min(255, Math.floor(value)));
+        ctx.fillStyle = `rgb(${v}, ${v}, ${v})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  } else if (mode === 'pw' || mode === 'cw') {
+    for (let y = 0; y < height / 2; y += 2) {
+      for (let x = 0; x < width; x += 2) {
+        const v = Math.floor(24 + _rng() * 38);
+        ctx.fillStyle = `rgb(${v}, ${v}, ${v})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, height / 2, width, height / 2);
+    ctx.strokeStyle = 'rgba(160,170,180,0.25)';
+    for (let y = height / 2; y < height; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(225,215,85,0.95)';
+    ctx.beginPath();
+    for (let x = 0; x < width; x++) {
+      const amp = Math.sin(x * 0.042) * 58 + Math.sin(x * 0.013) * 26 + _rng() * 7;
+      const y = height * 0.76 - amp;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  } else {
+    for (let y = 0; y < height; y += 4) {
+      for (let x = 0; x < width; x += 4) {
+        const stiffness = _rng();
+        const r = Math.floor(stiffness * 255);
+        const g = Math.floor((1 - stiffness) * 110);
+        const b = Math.floor((1 - stiffness) * 255);
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 4, 4);
+      }
+    }
+  }
+
+  document.getElementById('usOverlayL').innerHTML = [
+    `${exam.name}  ${exam.pid}`,
+    `${exam.sex}/${exam.age}  ${exam.examType}`,
+    `Probe: ${window._taskState.probe}`,
+    `Operator: ${window._taskState.currentUser || '-'}`
+  ].join('<br>');
+
+  document.getElementById('usOverlayR').innerHTML = [
+    `Mode: ${mode.toUpperCase()}`,
+    `Depth: ${params.depth} cm`,
+    `Gain: ${params.gain} dB`,
+    `Freq: ${params.freq} MHz`,
+    `DR: ${params.dr}`
+  ].join('<br>');
+
+  document.getElementById('usOverlayB').textContent =
+    `Freeze: ${window._taskState.cineRunning ? 'OFF' : 'ON'} | Cine: ${window._taskState.cineRunning ? 'RUNNING' : 'STOPPED'} | Tool: ${window._taskState.activeTool}`;
+}
+
+function setMode(mode) {
+  window._taskState.mode = mode;
+  refreshModeButtons();
+  renderWorkflowPanel();
+  const exam = getSelectedExam();
+  if (exam) drawUS(exam);
+  refreshTopStatus();
+}
+
+function setTool(tool) {
+  window._taskState.activeTool = tool;
+  window._taskState.toolUsage[tool] = (window._taskState.toolUsage[tool] || 0) + 1;
+  document.querySelectorAll('.tool-strip button[data-tool]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === tool);
+  });
+  refreshTopStatus();
+}
+
+function setProbe(probeId, buttonEl) {
+  window._taskState.probe = probeId;
+  document.querySelectorAll('.probe-btn').forEach(btn => btn.classList.remove('active'));
+  if (buttonEl) buttonEl.classList.add('active');
+  renderWorkflowPanel();
+  const exam = getSelectedExam();
+  if (exam) drawUS(exam);
+}
+
+function updateParam(key, value) {
+  window._taskState.params[key] = isNaN(+value) ? value : +value;
+  const exam = getSelectedExam();
+  if (exam) drawUS(exam);
+}
+
+function toggleFreeze() {
+  window._taskState.cineRunning = false;
+  refreshTopStatus();
+  const exam = getSelectedExam();
+  if (exam) drawUS(exam);
+}
+
+function startCine() {
+  window._taskState.cineRunning = !window._taskState.cineRunning;
+  refreshTopStatus();
+  const exam = getSelectedExam();
+  if (exam) drawUS(exam);
+}
+
+function captureImage() {
+  const examId = window._taskState.selectedExam;
+  if (!examId) return;
+  window._taskState.captureCount += 1;
+  window._taskState.savedImages.push({
+    id: window._taskState.captureCount,
+    kind: 'image',
+    examId,
+    mode: window._taskState.mode,
+    ts: new Date().toISOString()
+  });
+  renderSavedImages();
+  renderWorkflowPanel();
+}
+
+function captureClip() {
+  const examId = window._taskState.selectedExam;
+  if (!examId) return;
+  const newId = window._taskState.savedImages.length + 1;
+  window._taskState.savedImages.push({
+    id: newId,
+    kind: 'clip',
+    examId,
+    mode: window._taskState.mode,
+    ts: new Date().toISOString()
+  });
+  renderSavedImages();
+}
+
+function mockMeasurement() {
+  const examId = window._taskState.selectedExam;
+  if (!examId) return;
+  const labels = ['Nodule L', 'Nodule W', 'Flow PSV', 'Wall thickness', 'Cyst D'];
+  const label = labels[Math.floor(_rng() * labels.length)];
+  const value = `${(0.4 + _rng() * 3.2).toFixed(2)} cm`;
+  window._taskState.measurements.push({ examId, label, value, ts: new Date().toISOString() });
+  renderMeasurements();
+}
+
+function clearMeasurements() {
+  const examId = window._taskState.selectedExam;
+  window._taskState.measurements = window._taskState.measurements.filter(m => m.examId !== examId);
+  renderMeasurements();
+}
+
+function renderMeasurements() {
+  const examId = window._taskState.selectedExam;
+  const list = window._taskState.measurements.filter(m => m.examId === examId);
+  document.getElementById('measList').innerHTML = list.length
+    ? list.map(item => `<div class="list-item">${item.label}: <strong>${item.value}</strong></div>`).join('')
+    : '<div class="list-item mini">No measurements recorded.</div>';
+}
+
+function renderSavedImages() {
+  const examId = window._taskState.selectedExam;
+  const list = window._taskState.savedImages.filter(i => i.examId === examId);
+  document.getElementById('savedImages').innerHTML = list.length
+    ? list.map(item => `<div class="list-item">#${item.id} ${item.kind.toUpperCase()} | ${item.mode.toUpperCase()} | ${item.ts.slice(11, 19)}</div>`).join('')
+    : '<div class="list-item mini">No captures saved.</div>';
+}
+
+function renderReport() {
+  const exam = getSelectedExam();
+  if (!exam) {
+    setReportStatus('No exam selected. Open an exam from the Worklist first.', 'warn');
+    return;
+  }
+  setReportStatus('', 'ok');
+
+  const examHeader = `${exam.id} | ${exam.name} | ${exam.sex}/${exam.age} | ${exam.examType}`;
+  document.getElementById('rptExamHeader').value = examHeader;
+  document.getElementById('rptExamType').value = exam.examType;
+  document.getElementById('rptProbe').value = PROBES.find(p => p.id === window._taskState.probe)?.name || '';
+
+  const draft = window._taskState.reportsDraft[exam.id] || {};
+  document.getElementById('rptTechnique').value = draft.technique || '';
+  document.getElementById('rptDesc').value = draft.desc || '';
+  document.getElementById('rptImpression').value = draft.impression || '';
+  document.getElementById('rptRecommendation').value = draft.recommendation || '';
+
+  document.getElementById('rptFindingTags').innerHTML = US_FINDINGS.map(find => {
+    const selected = (draft.selectedFindings || []).includes(find.id) ? 'selected' : '';
+    const critical = find.critical ? 'critical' : '';
+    return `<span class="chip ${selected} ${critical}" data-fid="${find.id}" onclick="toggleFinding('${find.id}')">${find.text}</span>`;
+  }).join('');
+
+  const clsContainer = document.getElementById('rptClassification');
+  const clsSection = document.getElementById('rptClasSec');
+  if (exam.classification) {
+    const clsType = exam.classification.type;
+    const scores = clsType === 'TIRADS' ? [1,2,3,4,5] : [1,2,3,'4A','4B','4C',5,6];
+    clsSection.style.display = 'block';
+    clsContainer.innerHTML = `
+      <div class="mini" style="margin-bottom:6px;">${clsType} score</div>
+      <div class="score-row">
+        ${scores.map(score => `<button onclick="setClassification('${clsType}', '${score}', this)">${clsType}-${score}</button>`).join('')}
+      </div>
+    `;
+
+    if (draft.classification) {
+      const active = [...clsContainer.querySelectorAll('button')].find(btn => btn.textContent === `${clsType}-${draft.classification.score}`);
+      if (active) active.classList.add('active');
+    }
+  } else {
+    clsSection.style.display = 'none';
+    clsContainer.innerHTML = '';
+  }
+}
+
+function toggleFinding(findingId) {
+  const examId = window._taskState.selectedExam;
+  if (!examId) return;
+  if (!window._taskState.reportsDraft[examId]) window._taskState.reportsDraft[examId] = { selectedFindings: [] };
+  const draft = window._taskState.reportsDraft[examId];
+  if (!draft.selectedFindings) draft.selectedFindings = [];
+
+  const idx = draft.selectedFindings.indexOf(findingId);
+  if (idx >= 0) draft.selectedFindings.splice(idx, 1);
+  else draft.selectedFindings.push(findingId);
+
+  document.querySelectorAll(`[data-fid="${findingId}"]`).forEach(el => el.classList.toggle('selected'));
+}
+
+function setClassification(type, score, btn) {
+  const examId = window._taskState.selectedExam;
+  if (!examId) return;
+  if (!window._taskState.reportsDraft[examId]) window._taskState.reportsDraft[examId] = { selectedFindings: [] };
+  window._taskState.reportsDraft[examId].classification = { type, score };
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setReportStatus(message, kind = 'ok') {
+  const el = document.getElementById('rptStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `rpt-status ${kind}`;
+}
+
+function saveDraft() {
+  const examId = window._taskState.selectedExam;
+  if (!examId) {
+    setReportStatus('No exam selected. Open an exam from the Worklist first.', 'err');
+    return false;
+  }
+  window._taskState.reportsDraft[examId] = {
+    ...(window._taskState.reportsDraft[examId] || {}),
+    technique: document.getElementById('rptTechnique').value,
+    desc: document.getElementById('rptDesc').value,
+    impression: document.getElementById('rptImpression').value,
+    recommendation: document.getElementById('rptRecommendation').value,
+    savedAt: new Date().toISOString()
+  };
+  setReportStatus(`Draft saved for ${examId} at ${new Date().toLocaleTimeString()}.`, 'ok');
+  return true;
+}
+
+function submitReport() {
+  const examId = window._taskState.selectedExam;
+  if (!examId) {
+    setReportStatus('No exam selected. Open an exam from the Worklist first.', 'err');
+    return false;
+  }
+  if (!saveDraft()) return false;
+  const draft = window._taskState.reportsDraft[examId];
+  if (!draft || !draft.impression || !draft.impression.trim()) {
+    setReportStatus('Impression is required before submitting the report.', 'warn');
+    const imp = document.getElementById('rptImpression');
+    if (imp) imp.focus();
+    return false;
+  }
+
+  window._taskState.reportsSubmitted[examId] = {
+    ...draft,
+    submittedAt: new Date().toISOString(),
+    by: window._taskState.currentUser
+  };
+
+  const exam = getSelectedExam();
+  if (exam) exam.status = 'reported';
+  renderWorklist();
+  refreshTopStatus();
+  setReportStatus(`Report for ${examId} submitted successfully.`, 'ok');
+  return true;
+}
+
+function flagUrgent() {
+  if (!submitReport()) return;
+  const examId = window._taskState.selectedExam;
+  const submitted = window._taskState.reportsSubmitted[examId];
+  if (!submitted) return;
+  submitted.urgency = 'urgent';
+  window._taskState.urgentAlerts.push({ examId, ts: new Date().toISOString() });
+  refreshTopStatus();
+  setReportStatus(`Report for ${examId} submitted and flagged URGENT.`, 'err');
+}
+
+function getSelectedExam() {
+  return window._taskState.exams.find(x => x.id === window._taskState.selectedExam);
+}
+
+function renderWorkflowPanel() {
+  const exam = getSelectedExam();
+  const savedForExam = window._taskState.savedImages.filter(s => s.examId === window._taskState.selectedExam).length;
+  const reportState = window._taskState.reportsSubmitted[window._taskState.selectedExam] ? 'Submitted' : 'In progress';
+  document.getElementById('workflowInfo').innerHTML = exam ? `
+    <div>Selected exam: <strong>${exam.id}</strong></div>
+    <div>Current mode: <strong>${window._taskState.mode.toUpperCase()}</strong></div>
+    <div>Probe: <strong>${window._taskState.probe}</strong></div>
+    <div>Captures: <strong>${savedForExam}</strong></div>
+    <div>Report: <strong>${reportState}</strong></div>
+  ` : '<div class="mini">No exam selected.</div>';
+}
+
+function refreshModeButtons() {
+  const mode = window._taskState.mode;
+  document.querySelectorAll('.mode-strip button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  document.querySelectorAll('.soft-key[data-softmode]').forEach(btn => {
+    btn.classList.toggle('mode-active', btn.dataset.softmode === mode);
+  });
+}
+
+function refreshTopStatus() {
+  const urgentCount = window._taskState.urgentAlerts.length;
+  const state = window._taskState.selectedExam
+    ? `${window._taskState.selectedExam} | ${window._taskState.mode.toUpperCase()}${urgentCount ? ` | Urgent:${urgentCount}` : ''}`
+    : 'Idle';
+  document.getElementById('stateInfo').textContent = state;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  _medgym_init(42);
+});
+</script>
+</body>
+</html>

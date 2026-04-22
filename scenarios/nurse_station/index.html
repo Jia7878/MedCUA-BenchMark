@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Nurse Workstation — PowerChart / Care Compass Style
+
+  REAL-WORLD REFERENCES:
+  1. PowerChart Manual – Task List Tab (May 2023)
+     - Patient Care sub-tab: task status, scheduled dt/tm, description, order details
+     - Specimen Collection sub-tab: nurse-collect specimens
+     - Task statuses: Pending, In Progress, Completed, Overdue
+     - Context menu: Chart Not Done (reason required), Chart Details,
+       Order Information, Order Comment, Task Information, Patient Snapshot
+  2. Care Compass Quick Reference Guide (Oct 2023)
+     - Multi-patient overview dashboard
+     - Columns: Location, Patient, Visit, Care Team, Activities
+     - Establish Relationships workflow
+     - New Orders/Results Review (orange = new, red = STAT/Critical)
+     - Task Activity Viewer: Scheduled/Unscheduled, PRN/Continuous, Patient Info
+     - Activity Timeline (rolling 12-hour view)
+     - Done / Not Done / Document action buttons
+
+  STATE COMPATIBILITY:
+  window._taskState matches the schema consumed by the Python checkers
+  in nurse_station.py — do NOT rename fields.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PowerChart — Nurse Workstation</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;background:#eef2f6;color:#1e293b}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 10px;text-align:left}
+.hidden{display:none!important}
+:root{
+  --bg:#eef2f6;--surface:#fff;
+  --hdr:#1a3a5c;--hdr-t:#dbeafe;
+  --pri:#1565c0;--pri-d:#0d3b66;--pri-l:#42a5f5;--pri-ll:#e3f2fd;
+  --acc:#ef6c00;--suc:#2e7d32;--warn:#f9a825;--err:#c62828;
+  --txt:#1e293b;--txt2:#475569;--txt3:#94a3b8;
+  --bdr:#cbd5e1;--bdr-l:#e2e8f0;
+  --row-h:#e3f2fd;--rad:6px;
+  --crit-bg:#ffebee;--stat-bg:#fff3e0;
+  --overdue-bg:#ffcdd2;--overdue-txt:#b71c1c;
+  --pending-bg:#fff9c4;--pending-txt:#f57f17;
+  --completed-bg:#c8e6c9;--completed-txt:#1b5e20;
+  --inprog-bg:#bbdefb;--inprog-txt:#0d47a1;
+}
+/* Login */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d3b66,#1565c0)}
+.login-box{background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);padding:40px 36px;width:440px}
+.login-box .logo{text-align:center;margin-bottom:22px}
+.login-box .logo .icon{font-size:46px;margin-bottom:8px}
+.login-box .logo .title{font-size:22px;font-weight:700;color:var(--pri-d)}
+.login-box .logo .sub{font-size:11px;color:var(--txt2);margin-top:4px;letter-spacing:.5px}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.fc{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--rad);outline:none;font-size:13px;background:#fafcff}
+.fc:focus{border-color:var(--pri);box-shadow:0 0 0 2px rgba(21,101,192,.18)}
+.err-msg{color:var(--err);font-size:12px;margin-top:6px;display:none}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;border:1px solid transparent;border-radius:var(--rad);font-size:12px;font-weight:600;transition:.15s}
+.btn-p{background:var(--pri);color:#fff}.btn-p:hover{background:var(--pri-d)}
+.btn-s{background:var(--suc);color:#fff}.btn-s:hover{background:#1b5e20}
+.btn-w{background:var(--warn);color:#fff}.btn-w:hover{background:#f57f17}
+.btn-d{background:var(--err);color:#fff}.btn-d:hover{background:#a31515}
+.btn-a{background:var(--acc);color:#fff}.btn-a:hover{background:#bf360c}
+.btn-out{background:#fff;border-color:var(--bdr);color:var(--txt)}.btn-out:hover{background:var(--bg)}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 24px;font-size:14px}.btn-block{width:100%}
+/* Toast & Modal */
+.toast-container{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:var(--rad);font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.18);animation:slideIn .3s;color:#fff}
+.toast-success{background:var(--suc)}.toast-danger{background:var(--err)}.toast-info{background:var(--pri-l)}.toast-warn{background:var(--warn)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:8px;width:640px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--bdr-l);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+.modal-body{padding:16px 20px}
+.modal-foot{padding:12px 20px;border-top:1px solid var(--bdr-l);display:flex;gap:8px;justify-content:flex-end}
+/* Layout */
+.app{display:flex;flex-direction:column;height:100vh}
+.header{background:var(--hdr);color:#fff;padding:0 20px;height:48px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.header-right{display:flex;align-items:center;gap:12px;font-size:11px}
+.header-right .btn{font-size:11px;padding:4px 12px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.content-area{flex:1;display:flex;overflow:hidden}
+.sidebar{width:200px;background:#fff;border-right:1px solid var(--bdr-l);overflow-y:auto;flex-shrink:0}
+.sidebar .nav-header{padding:10px 14px;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px}
+.sidebar .item{padding:9px 14px;cursor:pointer;transition:.12s;font-size:12px;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;color:var(--txt2)}
+.sidebar .item:hover{background:var(--row-h)}
+.sidebar .item.active{background:var(--pri-ll);border-left-color:var(--pri);color:var(--pri);font-weight:700}
+.main{flex:1;overflow-y:auto;padding:16px 20px;background:var(--bg)}
+.status-bar{height:26px;background:#fff;border-top:1px solid var(--bdr-l);padding:0 16px;display:flex;align-items:center;font-size:10px;color:var(--txt3);gap:20px;flex-shrink:0}
+/* Cards & Panels */
+.card{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card-title{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--pri-d)}
+.card-subtitle{font-size:11px;color:var(--txt3);margin-left:auto}
+/* Tables */
+.data-table{border:1px solid var(--bdr-l);border-radius:var(--rad);overflow:hidden}
+.data-table th{background:#f1f5f9;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--bdr)}
+.data-table td{border-bottom:1px solid var(--bdr-l);font-size:12px;vertical-align:middle}
+.data-table tr:hover{background:var(--row-h)}
+.data-table tr.overdue{background:var(--overdue-bg)}
+.data-table tr.stat-row{background:var(--stat-bg)}
+/* Badges */
+.badge{display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.badge-overdue{background:var(--overdue-bg);color:var(--overdue-txt)}
+.badge-pending{background:var(--pending-bg);color:var(--pending-txt)}
+.badge-completed{background:var(--completed-bg);color:var(--completed-txt)}
+.badge-inprog{background:var(--inprog-bg);color:var(--inprog-txt)}
+.badge-stat{background:#ff5722;color:#fff}
+.badge-critical{background:var(--err);color:#fff}
+.badge-routine{background:#e0e0e0;color:var(--txt2)}
+.badge-new{background:var(--acc);color:#fff}
+/* Icons */
+.icon-overdue{color:var(--err);font-weight:700}
+.icon-new-order{color:var(--acc);font-size:16px;cursor:pointer}
+.icon-stat{color:var(--err);font-size:16px;cursor:pointer}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.dot-overdue{background:var(--err)}.dot-pending{background:var(--warn)}.dot-completed{background:var(--suc)}.dot-inprog{background:var(--pri)}
+/* Care Compass specific */
+.cc-table th{position:sticky;top:0;z-index:1}
+.cc-patient-cell{min-width:200px}
+.cc-patient-name{font-weight:700;color:var(--pri);cursor:pointer;text-decoration:underline}
+.cc-patient-name:hover{color:var(--pri-d)}
+.cc-detail{font-size:11px;color:var(--txt2);line-height:1.6}
+.cc-alert{display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-right:4px}
+.cc-alert-iso{background:#e0f2f1;color:#00695c;border:1px solid #80cbc4}
+.cc-alert-risk{background:#ede7f6;color:#4527a0;border:1px solid #b39ddb}
+.cc-alert-allergy{background:#fce4ec;color:#c62828;border:1px solid #ef9a9a}
+.cc-alert-dnr{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
+.cc-activities{display:flex;flex-direction:column;gap:4px}
+.cc-act-count{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;cursor:pointer}
+.cc-act-overdue{background:var(--err);color:#fff}
+.cc-act-pending{background:var(--pri);color:#fff}
+.cc-act-prn{background:#7b1fa2;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer}
+.cc-order-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:12px;cursor:pointer;margin-left:6px}
+.cc-order-new{background:var(--acc);color:#fff}
+.cc-order-stat{background:var(--err);color:#fff;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* Timeline */
+.timeline{display:flex;height:60px;border:1px solid var(--bdr-l);border-radius:var(--rad);overflow:hidden;margin-top:12px}
+.timeline-block{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid var(--bdr-l);font-size:10px;cursor:pointer;transition:.12s}
+.timeline-block:last-child{border-right:none}
+.timeline-block:hover{background:var(--row-h)}
+.timeline-overdue{background:var(--overdue-bg)}
+.timeline-current{background:#e8f5e9}
+.timeline-future{background:#f5f5f5}
+.timeline-count{font-weight:700;font-size:14px}
+/* Context Menu */
+.ctx-menu{position:fixed;background:#fff;border:1px solid var(--bdr);border-radius:var(--rad);box-shadow:0 4px 16px rgba(0,0,0,.18);z-index:3000;min-width:180px;padding:4px 0}
+.ctx-item{padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.ctx-item:hover{background:var(--row-h)}
+.ctx-item.disabled{color:var(--txt3);pointer-events:none}
+.ctx-sep{border-top:1px solid var(--bdr-l);margin:4px 0}
+/* Tabs */
+.tab-bar{display:flex;border-bottom:2px solid var(--bdr-l);margin-bottom:12px}
+.tab{padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;color:var(--txt2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:.12s}
+.tab:hover{color:var(--pri)}
+.tab.active{color:var(--pri);border-bottom-color:var(--pri)}
+/* Relationship panel */
+.rel-patient{display:flex;align-items:center;padding:8px 12px;border:1px solid var(--bdr-l);border-radius:var(--rad);margin-bottom:6px}
+.rel-patient .rel-check{margin-right:10px;width:16px;height:16px}
+.rel-patient .rel-info{flex:1}
+.rel-patient .rel-name{font-weight:600;font-size:12px}
+.rel-patient .rel-bed{font-size:11px;color:var(--txt3)}
+/* Filter chips */
+.filter-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.chip{padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bdr);background:#fff;color:var(--txt2)}
+.chip:hover{border-color:var(--pri);color:var(--pri)}
+.chip.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+<div class="ctx-menu hidden" id="ctxMenu"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ─── RNG ─── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=Math.random;
+
+/* ─── PATIENTS ─── */
+const PATIENTS=[
+  {patientId:"P001",bed:1,bedLabel:"4N-201",name:"John Smith",age:72,gender:"M",
+   dx:"CHF Exacerbation",allergies:["Penicillin"],diet:"Low Sodium 2g",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-15",attendingPhysician:"Dr. Martinez",status:"active"},
+  {patientId:"P002",bed:2,bedLabel:"4N-202",name:"Mary Johnson",age:58,gender:"F",
+   dx:"Type 2 DM with DKA",allergies:["Sulfa"],diet:"Diabetic 1800cal",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-17",attendingPhysician:"Dr. Patel",status:"active"},
+  {patientId:"P003",bed:3,bedLabel:"4N-203",name:"Robert Williams",age:45,gender:"M",
+   dx:"Post-op R Hip Arthroplasty",allergies:[],diet:"Regular",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-16",attendingPhysician:"Dr. Chen",status:"active"},
+  {patientId:"P004",bed:4,bedLabel:"4N-204",name:"Sarah Davis",age:81,gender:"F",
+   dx:"Community-Acquired Pneumonia",allergies:["Codeine","Latex"],diet:"Mechanical Soft",
+   isolation:"Droplet",highRiskAlerts:["Fall Risk","Braden ≤9"],resuscitationStatus:"DNR",
+   admissionDate:"2026-04-14",attendingPhysician:"Dr. Jones",status:"active"},
+  {patientId:"P005",bed:5,bedLabel:"4N-205",name:"James Brown",age:67,gender:"M",
+   dx:"Atrial Fibrillation",allergies:["Aspirin"],diet:"Heart Healthy",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-16",attendingPhysician:"Dr. Martinez",status:"active"},
+  {patientId:"P006",bed:6,bedLabel:"4N-206",name:"Linda Wilson",age:55,gender:"F",
+   dx:"Post-Cholecystectomy",allergies:[],diet:"Clear Liquids",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-17",attendingPhysician:"Dr. Patel",status:"active"},
+  {patientId:"P007",bed:7,bedLabel:"4N-207",name:"Michael Taylor",age:38,gender:"M",
+   dx:"Acute Pancreatitis",allergies:["Morphine"],diet:"NPO",
+   isolation:null,highRiskAlerts:[],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-16",attendingPhysician:"Dr. Chen",status:"active"},
+  {patientId:"P008",bed:8,bedLabel:"4N-208",name:"Patricia Anderson",age:73,gender:"F",
+   dx:"Ischemic Stroke (CVA)",allergies:["Contrast Dye"],diet:"Pureed / Thickened Liquids",
+   isolation:null,highRiskAlerts:["Fall Risk"],resuscitationStatus:"Full Code",
+   admissionDate:"2026-04-15",attendingPhysician:"Dr. Jones",status:"active"}
+];
+
+/* ─── TASKS (Patient Care) ─── */
+const MOCK_TASKS={
+  P001:[
+    {id:"T-1001",description:"Vital Signs",scheduledTime:"07:00",status:"overdue",orderDetails:"q4h",category:"care"},
+    {id:"T-1002",description:"Daily Weight",scheduledTime:"06:00",status:"overdue",orderDetails:"Daily at 0600",category:"assessment"},
+    {id:"T-1003",description:"I&O Assessment",scheduledTime:"08:00",status:"pending",orderDetails:"q shift",category:"assessment"},
+    {id:"T-1004",description:"IV Site Assessment",scheduledTime:"09:00",status:"pending",orderDetails:"q shift",category:"care"}
+  ],
+  P002:[
+    {id:"T-2001",description:"Blood Glucose Check",scheduledTime:"07:00",status:"overdue",orderDetails:"AC + HS",category:"care"},
+    {id:"T-2002",description:"Insulin Administration",scheduledTime:"07:30",status:"pending",orderDetails:"Sliding Scale per protocol",category:"medication"},
+    {id:"T-2003",description:"Wound Assessment",scheduledTime:"09:00",status:"pending",orderDetails:"BID",category:"assessment"}
+  ],
+  P003:[
+    {id:"T-3001",description:"Neurovascular Checks",scheduledTime:"08:00",status:"pending",orderDetails:"q2h",category:"assessment"},
+    {id:"T-3002",description:"Pain Assessment",scheduledTime:"08:00",status:"pending",orderDetails:"q4h, use NRS 0-10",category:"assessment"},
+    {id:"T-3003",description:"Ambulation Assist",scheduledTime:"10:00",status:"pending",orderDetails:"PT to bedside, assist x1",category:"care"}
+  ],
+  P004:[
+    {id:"T-4001",description:"Respiratory Assessment",scheduledTime:"07:00",status:"overdue",orderDetails:"q4h, SpO2 + lung sounds",category:"assessment"},
+    {id:"T-4002",description:"O2 Titration",scheduledTime:"07:00",status:"overdue",orderDetails:"Keep SpO2 >92%",category:"care"},
+    {id:"T-4003",description:"Admission Assessment",scheduledTime:"06:00",status:"overdue",orderDetails:"Complete within 8h of admit",category:"assessment"}
+  ],
+  P005:[
+    {id:"T-5001",description:"Telemetry Monitoring",scheduledTime:"08:00",status:"pending",orderDetails:"Continuous, report rate >110 or <50",category:"care"},
+    {id:"T-5002",description:"INR Check Result Review",scheduledTime:"09:00",status:"pending",orderDetails:"Fasting, hold Warfarin if >3.5",category:"care"}
+  ],
+  P006:[
+    {id:"T-6001",description:"Surgical Wound Assessment",scheduledTime:"08:00",status:"pending",orderDetails:"q shift, check dressing",category:"assessment"},
+    {id:"T-6002",description:"Foley Catheter Output",scheduledTime:"08:00",status:"pending",orderDetails:"q1h x 8h post-op, then q shift",category:"care"},
+    {id:"T-6003",description:"Ambulation Assist",scheduledTime:"10:00",status:"pending",orderDetails:"Dangle at bedside, then ambulate in hall",category:"care"}
+  ],
+  P007:[
+    {id:"T-7001",description:"Pain Assessment",scheduledTime:"07:00",status:"overdue",orderDetails:"q2h, NRS 0-10, avoid Morphine",category:"assessment"},
+    {id:"T-7002",description:"NPO Status Verification",scheduledTime:"08:00",status:"pending",orderDetails:"Strict NPO, verify no oral intake",category:"care"},
+    {id:"T-7003",description:"IV Fluid Rate Check",scheduledTime:"08:00",status:"pending",orderDetails:"LR @ 125 mL/hr, assess site",category:"care"}
+  ],
+  P008:[
+    {id:"T-8001",description:"Neurological Assessment",scheduledTime:"07:00",status:"overdue",orderDetails:"q1h x 24h, NIHSS + GCS",category:"assessment"},
+    {id:"T-8002",description:"Swallow Evaluation",scheduledTime:"09:00",status:"pending",orderDetails:"NPO until speech eval, aspiration risk",category:"assessment"},
+    {id:"T-8003",description:"DVT Prophylaxis",scheduledTime:"08:00",status:"pending",orderDetails:"SCDs bilateral, Heparin 5000U SC q8h",category:"care"}
+  ]
+};
+
+/* ─── SPECIMEN COLLECTION ─── */
+const MOCK_SPECIMENS={
+  P002:[
+    {id:"SC-2001",description:"CBC — Nurse Collect",scheduledTime:"06:00",status:"pending",orderDetails:"STAT"}
+  ],
+  P005:[
+    {id:"SC-5001",description:"PT/INR — Nurse Collect",scheduledTime:"07:00",status:"pending",orderDetails:"Fasting, morning draw"}
+  ]
+};
+
+/* ─── ORDERS TO REVIEW ─── */
+const MOCK_ORDERS={
+  P001:[
+    {id:"OR-1001",description:"Furosemide 40mg IV BID",priority:"routine",type:"new",reviewed:false},
+    {id:"OR-1002",description:"Potassium Chloride 20mEq PO Daily",priority:"routine",type:"new",reviewed:false}
+  ],
+  P002:[
+    {id:"OR-2001",description:"Insulin Drip — rate adjusted per protocol",priority:"routine",type:"modified",reviewed:false}
+  ],
+  P003:[
+    {id:"OR-3001",description:"Morphine PCA 1mg q10min, 30mg lockout",priority:"routine",type:"new",reviewed:false}
+  ],
+  P004:[
+    {id:"OR-4001",description:"Levofloxacin 750mg IV Daily",priority:"stat",type:"new",reviewed:false},
+    {id:"OR-4002",description:"Portable Chest X-Ray",priority:"routine",type:"new",reviewed:false}
+  ],
+  P005:[
+    {id:"OR-5001",description:"Warfarin 5mg PO Daily",priority:"routine",type:"new",reviewed:false}
+  ],
+  P006:[
+    {id:"OR-6001",description:"DC Foley Catheter",priority:"routine",type:"new",reviewed:false}
+  ],
+  P007:[
+    {id:"OR-7001",description:"Hydromorphone 1mg IV q3h PRN severe pain",priority:"routine",type:"new",reviewed:false},
+    {id:"OR-7002",description:"Lipase Level — CRITICAL 1450 U/L",priority:"critical",type:"new",reviewed:false}
+  ],
+  P008:[
+    {id:"OR-8001",description:"Heparin 5000 Units SC q8h",priority:"routine",type:"new",reviewed:false},
+    {id:"OR-8002",description:"Speech Therapy Consult",priority:"routine",type:"new",reviewed:false}
+  ]
+};
+
+/* ─── PRN / Continuous Tasks ─── */
+const MOCK_PRN={
+  P001:[{id:"PRN-1001",description:"Acetaminophen 650mg PO q4h PRN pain",category:"prn"}],
+  P003:[{id:"PRN-3001",description:"Ondansetron 4mg IV q6h PRN nausea",category:"prn"}],
+  P007:[{id:"PRN-7001",description:"Hydromorphone 1mg IV q3h PRN severe pain",category:"prn"},{id:"PRN-7002",description:"Ondansetron 4mg IV q6h PRN nausea",category:"prn"}]
+};
+
+/* ─── State ─── */
+window._taskState={
+  loggedIn:false,
+  currentView:"care_compass",
+  selectedPatient:null,
+  taskListTab:"patient_care",
+  careCompassViewed:false,
+  relationshipsEstablished:[],
+  patients:[],
+  tasks:{},
+  specimenTasks:{},
+  ordersToReview:{},
+  prnTasks:{},
+  completedTasks:{},
+  notDoneTasks:{},
+  reviewedOrders:{},
+  specimenCompleted:{},
+  patientSnapshotViewed:[]
+};
+const S=window._taskState;
+
+const NAV_ITEMS=[
+  {key:"care_compass",label:"Care Compass",icon:"📊"},
+  {key:"task_list",label:"Task List",icon:"📋"},
+  {key:"specimen_collection",label:"Specimen Collection",icon:"🩸"},
+  {key:"order_review",label:"Order Review",icon:"📝"}
+];
+
+/* ─── Init ─── */
+window._medgym_init=function(seed){
+  rng=mulberry32(seed||42);
+  S.loggedIn=false;S.currentView="care_compass";S.selectedPatient=null;S.taskListTab="patient_care";
+  S.careCompassViewed=false;S.relationshipsEstablished=[];
+  S.patients=JSON.parse(JSON.stringify(PATIENTS));
+  S.tasks=JSON.parse(JSON.stringify(MOCK_TASKS));
+  S.specimenTasks=JSON.parse(JSON.stringify(MOCK_SPECIMENS));
+  S.ordersToReview=JSON.parse(JSON.stringify(MOCK_ORDERS));
+  S.prnTasks=JSON.parse(JSON.stringify(MOCK_PRN));
+  S.completedTasks={};S.notDoneTasks={};S.reviewedOrders={};
+  S.specimenCompleted={};S.patientSnapshotViewed=[];
+  render();
+};
+
+/* ─── Helpers ─── */
+function toast(msg,type){let el=document.createElement("div");el.className="toast toast-"+(type||"info");el.textContent=msg;document.getElementById("toasts").appendChild(el);setTimeout(()=>el.remove(),3500)}
+function showModal(html){document.getElementById("modalContent").innerHTML=html;document.getElementById("modalOverlay").classList.add("show")}
+function closeModal(){document.getElementById("modalOverlay").classList.remove("show")}
+window.closeModal=closeModal;
+function hideCtx(){document.getElementById("ctxMenu").classList.add("hidden")}
+document.addEventListener("click",function(e){if(!e.target.closest(".ctx-menu"))hideCtx()});
+
+function daysBetween(a,b){return Math.floor((b-a)/(1000*60*60*24))}
+function getLOS(admDate){return daysBetween(new Date(admDate),new Date())}
+function getOverdueCount(pid){return(S.tasks[pid]||[]).filter(t=>t.status==="overdue").length}
+function getPendingCount(pid){return(S.tasks[pid]||[]).filter(t=>t.status==="pending").length}
+function getNewOrderCount(pid){return(S.ordersToReview[pid]||[]).filter(o=>!o.reviewed).length}
+function hasStatOrder(pid){return(S.ordersToReview[pid]||[]).some(o=>!o.reviewed&&(o.priority==="stat"||o.priority==="critical"))}
+function getTotalNewOrders(){let c=0;for(let pid in S.ordersToReview)c+=S.ordersToReview[pid].filter(o=>!o.reviewed).length;return c}
+
+function render(){
+  let app=document.getElementById("app");
+  if(!S.loggedIn){app.innerHTML=renderLogin();bindLogin();return}
+  app.innerHTML=renderApp();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOGIN
+   ═══════════════════════════════════════════════════════════ */
+function renderLogin(){
+  return`<div class="login-page"><div class="login-box">
+    <div class="logo"><div class="icon">🏥</div>
+      <div class="title">PowerChart</div>
+      <div class="sub">NURSE WORKSTATION — UNIT 4 NORTH</div></div>
+    <div class="fg"><label>Badge ID</label><input class="fc" id="loginU" placeholder="nurse01" autocomplete="off"></div>
+    <div class="fg"><label>Password</label><input class="fc" id="loginP" type="password" placeholder="nurse123"></div>
+    <div class="err-msg" id="loginErr">Invalid credentials. Please try again.</div>
+    <button class="btn btn-p btn-block btn-lg" id="loginBtn">Sign In</button>
+  </div></div>`;
+}
+function bindLogin(){
+  let btn=document.getElementById("loginBtn");if(!btn)return;
+  function go(){
+    let u=(document.getElementById("loginU").value||"").trim();
+    let p=(document.getElementById("loginP").value||"").trim();
+    if(u==="nurse01"&&p==="nurse123"){
+      S.loggedIn=true;render();toast("Welcome, RN Sarah Mitchell — Unit 4N","success");
+    }else{document.getElementById("loginErr").style.display="block"}
+  }
+  btn.onclick=go;document.getElementById("loginP").onkeydown=function(e){if(e.key==="Enter")go()};
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN APP LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+function renderApp(){
+  let sidebar=`<div class="nav-header">Navigation</div>`+
+    NAV_ITEMS.map(n=>{
+      let badge="";
+      if(n.key==="order_review"){let c=getTotalNewOrders();if(c)badge=` <span class="badge badge-new" style="margin-left:auto">${c}</span>`}
+      return`<div class="item ${S.currentView===n.key?"active":""}" onclick="window._nav('${n.key}')">${n.icon} ${n.label}${badge}</div>`;
+    }).join("");
+  let content="";
+  switch(S.currentView){
+    case"care_compass":content=renderCareCompass();break;
+    case"task_list":content=renderTaskList();break;
+    case"specimen_collection":content=renderSpecimenCollection();break;
+    case"order_review":content=renderOrderReview();break;
+  }
+  let selPt=S.selectedPatient?S.patients.find(p=>p.patientId===S.selectedPatient):null;
+  return`<div class="app">
+    <div class="header"><h1>🏥 PowerChart — Unit 4 North</h1>
+      <div class="header-right">
+        ${selPt?`<span>Patient: <b>${selPt.name}</b> (${selPt.bedLabel})</span>`:""}
+        <span>RN: Sarah Mitchell</span>
+        <button class="btn" onclick="window._logout()">Sign Out</button>
+      </div></div>
+    <div class="content-area"><div class="sidebar">${sidebar}</div><div class="main">${content}</div></div>
+    <div class="status-bar"><span>Unit 4 North</span><span>Shift: Day (0700–1900)</span><span>Patients: ${S.patients.filter(p=>p.status==="active").length}</span></div>
+  </div>`;
+}
+window._nav=function(key){S.currentView=key;render()};
+window._logout=function(){S.loggedIn=false;render()};
+
+/* ═══════════════════════════════════════════════════════════
+   CARE COMPASS
+   ═══════════════════════════════════════════════════════════ */
+function renderCareCompass(){
+  S.careCompassViewed=true;
+  let relBtn=S.relationshipsEstablished.length<S.patients.length
+    ?`<button class="btn btn-p btn-sm" onclick="window._showEstablishRel()">Establish Relationships</button>`
+    :`<span class="badge badge-completed">All Relationships Established</span>`;
+  let totalNew=getTotalNewOrders();
+  let orderReviewBtn=totalNew>0
+    ?`<button class="btn btn-a btn-sm" onclick="window._nav('order_review')">🔔 New Orders/Results: ${totalNew}</button>`
+    :`<span style="font-size:11px;color:var(--txt3)">No new orders</span>`;
+
+  let rows=S.patients.filter(p=>p.status==="active").map(p=>{
+    let pid=p.patientId;
+    let los=getLOS(p.admissionDate);
+    let overdue=getOverdueCount(pid);
+    let pending=getPendingCount(pid);
+    let newOrd=getNewOrderCount(pid);
+    let hasStat=hasStatOrder(pid);
+    let hasPrn=(S.prnTasks[pid]||[]).length>0;
+    let relEstablished=S.relationshipsEstablished.includes(pid);
+
+    // Patient column
+    let alerts="";
+    if(p.isolation)alerts+=`<span class="cc-alert cc-alert-iso">🛡️ ${p.isolation}</span>`;
+    if(p.highRiskAlerts.length)p.highRiskAlerts.forEach(a=>{alerts+=`<span class="cc-alert cc-alert-risk">⚠️ ${a}</span>`});
+    if(p.allergies.length)alerts+=`<span class="cc-alert cc-alert-allergy">🚫 ${p.allergies.join(", ")}</span>`;
+    if(p.resuscitationStatus==="DNR")alerts+=`<span class="cc-alert cc-alert-dnr">DNR</span>`;
+
+    // Order review icon
+    let orderIcon="";
+    if(hasStat)orderIcon=`<span class="cc-order-icon cc-order-stat" title="STAT/Critical orders" onclick="event.stopPropagation();window._selectAndGoOrders('${pid}')">!</span>`;
+    else if(newOrd>0)orderIcon=`<span class="cc-order-icon cc-order-new" title="${newOrd} new orders" onclick="event.stopPropagation();window._selectAndGoOrders('${pid}')">${newOrd}</span>`;
+
+    // Activities
+    let actHtml=`<div class="cc-activities">`;
+    if(overdue>0)actHtml+=`<span><span class="cc-act-count cc-act-overdue" onclick="event.stopPropagation();window._selectAndGoTasks('${pid}')" title="${overdue} overdue">${overdue}</span> overdue</span>`;
+    if(pending>0)actHtml+=`<span><span class="cc-act-count cc-act-pending" title="${pending} upcoming">${pending}</span> upcoming</span>`;
+    if(hasPrn)actHtml+=`<span class="cc-act-prn" onclick="event.stopPropagation();window._showPRN('${pid}')">PRN</span>`;
+    actHtml+=`</div>`;
+
+    return`<tr onclick="window._selectPatient('${pid}')" style="cursor:pointer${S.selectedPatient===pid?";background:var(--row-h)":""}">
+      <td style="font-weight:600;white-space:nowrap">${p.bedLabel}${p.isolation?'<br><span style="font-size:10px;color:#00695c">🛡️ Isolation</span>':""}</td>
+      <td class="cc-patient-cell">
+        <span class="cc-patient-name" onclick="event.stopPropagation();window._openTaskList('${pid}')">${p.name}</span>${orderIcon}
+        <div class="cc-detail">${p.age}${p.gender} · ${p.dx}</div>
+        <div style="margin-top:2px">${alerts}</div>
+        <div class="cc-detail">Diet: ${p.diet}${!relEstablished?' · <i style="color:var(--warn)">No Relationship</i>':""}</div>
+      </td>
+      <td style="font-size:11px"><div>${p.dx}</div><div style="color:var(--txt3)">Admitted: ${p.admissionDate}</div><div style="color:var(--txt3)">LOS: Day ${los}</div></td>
+      <td style="font-size:11px">${p.attendingPhysician}<br><span style="color:var(--txt3)">${p.resuscitationStatus}</span></td>
+      <td>${actHtml}</td>
+    </tr>`;
+  }).join("");
+
+  // Activity Timeline (rolling 12 hours)
+  let now=new Date();
+  let currentHour=now.getHours();
+  let timelineBlocks="";
+  for(let h=currentHour-2;h<=currentHour+9;h++){
+    let hr=(h+24)%24;
+    let label=String(hr).padStart(2,"0")+":00";
+    let count=0;
+    for(let pid in S.tasks){
+      (S.tasks[pid]||[]).forEach(t=>{
+        let th=parseInt(t.scheduledTime.split(":")[0]);
+        if(th===hr&&(t.status==="pending"||t.status==="overdue"))count++;
+      });
+    }
+    let cls="timeline-block";
+    if(h<currentHour)cls+=" timeline-overdue";
+    else if(h===currentHour)cls+=" timeline-current";
+    else cls+=" timeline-future";
+    timelineBlocks+=`<div class="${cls}" title="${label}: ${count} tasks"><div style="font-size:9px">${label}</div><div class="timeline-count">${count||""}</div></div>`;
+  }
+
+  return`<div class="card">
+    <div class="card-title">📊 Care Compass <span class="card-subtitle">${relBtn} ${orderReviewBtn}</span></div>
+    <div class="data-table"><table class="cc-table"><thead><tr>
+      <th style="width:80px">Location</th><th>Patient</th><th style="width:160px">Visit</th><th style="width:120px">Care Team</th><th style="width:150px">Activities</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="card" style="margin-top:12px;padding:12px"><div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--txt2)">Activity Timeline (Rolling 12 Hours)</div><div class="timeline">${timelineBlocks}</div></div>
+  </div>`;
+}
+
+window._selectPatient=function(pid){S.selectedPatient=pid;render()};
+window._selectAndGoTasks=function(pid){S.selectedPatient=pid;S.currentView="task_list";render()};
+window._selectAndGoOrders=function(pid){S.selectedPatient=pid;S.currentView="order_review";render()};
+window._openTaskList=function(pid){S.selectedPatient=pid;S.currentView="task_list";render()};
+
+/* ─── Establish Relationships ─── */
+window._showEstablishRel=function(){
+  let items=S.patients.filter(p=>p.status==="active").map(p=>{
+    let checked=S.relationshipsEstablished.includes(p.patientId);
+    return`<div class="rel-patient"><input type="checkbox" class="rel-check" data-pid="${p.patientId}" ${checked?"checked disabled":""}><div class="rel-info"><div class="rel-name">${p.name}</div><div class="rel-bed">${p.bedLabel} · ${p.dx}</div></div></div>`;
+  }).join("");
+  showModal(`<div class="modal-head">Establish Relationships<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><p style="font-size:12px;color:var(--txt2);margin-bottom:12px">Select patients to establish your nurse-patient relationship. This confirms you are the assigned RN for these patients this shift.</p>${items}</div>
+    <div class="modal-foot"><button class="btn btn-p" onclick="window._confirmRel()">Establish</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+window._confirmRel=function(){
+  document.querySelectorAll(".rel-check:checked").forEach(cb=>{
+    let pid=cb.dataset.pid;
+    if(!S.relationshipsEstablished.includes(pid))S.relationshipsEstablished.push(pid);
+  });
+  closeModal();toast(S.relationshipsEstablished.length+" relationships established","success");render();
+};
+
+/* ─── PRN Viewer ─── */
+window._showPRN=function(pid){
+  let pt=S.patients.find(p=>p.patientId===pid);
+  let prn=S.prnTasks[pid]||[];
+  let rows=prn.map(t=>`<tr><td>${t.id}</td><td>${t.description}</td><td><span class="badge badge-pending">PRN</span></td></tr>`).join("")
+    ||`<tr><td colspan="3" style="text-align:center;color:var(--txt3)">No PRN/Continuous tasks</td></tr>`;
+  showModal(`<div class="modal-head">PRN/Continuous — ${pt?pt.name:""}<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><table class="data-table"><thead><tr><th>ID</th><th>Description</th><th>Type</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   TASK LIST (Patient Care)
+   ═══════════════════════════════════════════════════════════ */
+function renderTaskList(){
+  let pid=S.selectedPatient;
+  if(!pid)return`<div class="card"><div class="card-title">📋 Task List</div><p style="color:var(--txt2)">Select a patient from Care Compass first, or click a patient name.</p></div>`;
+  let pt=S.patients.find(p=>p.patientId===pid);
+  let tasks=(S.tasks[pid]||[]).slice();
+
+  // Sort: overdue first, then by time
+  tasks.sort((a,b)=>{
+    if(a.status==="overdue"&&b.status!=="overdue")return-1;
+    if(a.status!=="overdue"&&b.status==="overdue")return 1;
+    return a.scheduledTime.localeCompare(b.scheduledTime);
+  });
+
+  let rows=tasks.map((t,i)=>{
+    let statusBadge="";
+    let rowClass="";
+    switch(t.status){
+      case"overdue":statusBadge=`<span class="badge badge-overdue">Overdue</span>`;rowClass="overdue";break;
+      case"pending":statusBadge=`<span class="badge badge-pending">Pending</span>`;break;
+      case"in_progress":statusBadge=`<span class="badge badge-inprog">In Progress</span>`;break;
+      case"completed":statusBadge=`<span class="badge badge-completed">Completed</span>`;break;
+    }
+    let catIcon={care:"💊",assessment:"📊",medication:"💉"}[t.category]||"📋";
+    let disabled=t.status==="completed";
+    return`<tr class="${rowClass}" oncontextmenu="event.preventDefault();window._showTaskCtx(event,'${pid}',${i})">
+      <td><input type="checkbox" class="task-cb" data-idx="${i}" ${disabled?"disabled":""}></td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">04/18 ${t.scheduledTime}</td>
+      <td>${catIcon} ${t.description}</td>
+      <td style="font-size:11px;color:var(--txt2)">${t.orderDetails}</td>
+    </tr>`;
+  }).join("")||`<tr><td colspan="5" style="text-align:center;color:var(--txt3)">No tasks for this patient</td></tr>`;
+
+  return`<div class="card">
+    <div class="card-title">📋 Task List — ${pt.name} (${pt.bedLabel})
+      <span class="card-subtitle">Clinical Range: No Timeframe Defined &nbsp;|&nbsp; Right-click a task for more options</span></div>
+    <div class="data-table"><table><thead><tr>
+      <th style="width:30px">☑</th><th style="width:80px">Status</th><th style="width:100px">Scheduled Dt/Tm</th><th>Task Description</th><th>Order Details</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="display:flex;gap:8px;margin-top:14px;align-items:center">
+      <button class="btn btn-s" onclick="window._taskDone('${pid}')">✓ Done</button>
+      <button class="btn btn-d btn-sm" onclick="window._taskNotDone('${pid}')">✗ Not Done</button>
+      <button class="btn btn-out btn-sm" onclick="window._taskDocument('${pid}')">📄 Document</button>
+      <span style="flex:1"></span>
+      <span style="font-size:11px;color:var(--txt3)">Select task(s) then click an action button</span>
+    </div>
+  </div>`;
+}
+
+/* ─── Task Actions ─── */
+window._taskDone=function(pid){
+  let cbs=document.querySelectorAll(".task-cb:checked");
+  if(!cbs.length){toast("Select one or more tasks first","warn");return}
+  let tasks=S.tasks[pid]||[];
+  let count=0;
+  cbs.forEach(cb=>{
+    let idx=parseInt(cb.dataset.idx);
+    if(tasks[idx]&&tasks[idx].status!=="completed"){
+      tasks[idx].status="completed";
+      if(!S.completedTasks[pid])S.completedTasks[pid]=[];
+      S.completedTasks[pid].push(tasks[idx].id);
+      count++;
+    }
+  });
+  if(count)toast(count+" task(s) marked as Done","success");
+  render();
+};
+
+window._taskNotDone=function(pid){
+  let cbs=document.querySelectorAll(".task-cb:checked");
+  if(!cbs.length){toast("Select a task first","warn");return}
+  if(cbs.length>1){toast("Select only one task for Not Done","warn");return}
+  let idx=parseInt(cbs[0].dataset.idx);
+  let tasks=S.tasks[pid]||[];
+  let task=tasks[idx];
+  if(!task||task.status==="completed"){toast("Cannot mark completed task as Not Done","warn");return}
+
+  showModal(`<div class="modal-head">Chart Not Done<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px">Task: <b>${task.description}</b> (${task.scheduledTime})</p>
+      <div class="fg"><label>Reason (required)</label>
+        <select class="fc" id="notDoneReason">
+          <option value="">Select reason...</option>
+          <option value="patient_refused">Patient Refused</option>
+          <option value="patient_unavailable">Patient Unavailable (off unit)</option>
+          <option value="patient_asleep">Patient Asleep</option>
+          <option value="clinical_judgment">Clinical Judgment — Not Indicated</option>
+          <option value="equipment_unavailable">Equipment Unavailable</option>
+          <option value="order_discontinued">Order Discontinued</option>
+          <option value="other">Other</option>
+        </select></div>
+      <div class="fg"><label>Comments (optional)</label><textarea class="fc" id="notDoneComment" rows="2"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-d" onclick="window._confirmNotDone('${pid}',${idx})">Confirm Not Done</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+
+window._confirmNotDone=function(pid,idx){
+  let reason=document.getElementById("notDoneReason").value;
+  if(!reason){toast("A reason is required","danger");return}
+  let comment=(document.getElementById("notDoneComment")||{}).value||"";
+  let tasks=S.tasks[pid]||[];
+  if(tasks[idx]){
+    tasks[idx].status="completed";
+    if(!S.notDoneTasks[pid])S.notDoneTasks[pid]=[];
+    S.notDoneTasks[pid].push({taskId:tasks[idx].id,reason:reason,comment:comment});
+    if(!S.completedTasks[pid])S.completedTasks[pid]=[];
+    S.completedTasks[pid].push(tasks[idx].id);
+  }
+  closeModal();toast("Task charted as Not Done: "+reason,"info");render();
+};
+
+window._taskDocument=function(pid){
+  let cbs=document.querySelectorAll(".task-cb:checked");
+  if(!cbs.length){toast("Select a task first","warn");return}
+  let idx=parseInt(cbs[0].dataset.idx);
+  let tasks=S.tasks[pid]||[];
+  let task=tasks[idx];
+  if(!task)return;
+  showModal(`<div class="modal-head">Document — ${task.description}<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">iView documentation form for: <b>${task.description}</b></p>
+      <div class="fg"><label>Assessment Notes</label><textarea class="fc" id="docNotes" rows="4" placeholder="Enter assessment findings..."></textarea></div>
+      <div class="fg"><label>Vitals (if applicable)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div><label style="font-size:10px">BP</label><input class="fc" placeholder="120/80"></div>
+          <div><label style="font-size:10px">HR</label><input class="fc" placeholder="72"></div>
+          <div><label style="font-size:10px">SpO2</label><input class="fc" placeholder="98%"></div>
+        </div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="window._confirmDoc('${pid}',${idx})">Save & Sign</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+
+window._confirmDoc=function(pid,idx){
+  let tasks=S.tasks[pid]||[];
+  if(tasks[idx]&&tasks[idx].status!=="completed"){
+    tasks[idx].status="completed";
+    if(!S.completedTasks[pid])S.completedTasks[pid]=[];
+    S.completedTasks[pid].push(tasks[idx].id);
+  }
+  closeModal();toast("Documentation saved and signed","success");render();
+};
+
+/* ─── Context Menu ─── */
+window._showTaskCtx=function(e,pid,idx){
+  let tasks=S.tasks[pid]||[];
+  let task=tasks[idx];if(!task)return;
+  let menu=document.getElementById("ctxMenu");
+  let pt=S.patients.find(p=>p.patientId===pid);
+  menu.innerHTML=`
+    <div class="ctx-item" onclick="window._ctxChartNotDone('${pid}',${idx})">✗ Chart Not Done</div>
+    <div class="ctx-item" onclick="window._ctxChartDetails('${pid}',${idx})">📄 Chart Details</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="window._ctxOrderInfo('${pid}',${idx})">📋 Order Information</div>
+    <div class="ctx-item" onclick="window._ctxOrderComment('${pid}',${idx})">💬 Order Comment</div>
+    <div class="ctx-item" onclick="window._ctxTaskInfo('${pid}',${idx})">ℹ️ Task Information</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="window._ctxPatientSnapshot('${pid}')">👤 Patient Snapshot</div>`;
+  menu.style.left=e.clientX+"px";menu.style.top=e.clientY+"px";
+  menu.classList.remove("hidden");
+};
+
+window._ctxChartNotDone=function(pid,idx){
+  hideCtx();
+  let tasks=S.tasks[pid]||[];let task=tasks[idx];
+  if(!task||task.status==="completed"){toast("Task already completed","info");return}
+  // Reuse the Not Done modal
+  showModal(`<div class="modal-head">Chart Not Done<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px">Task: <b>${task.description}</b> (${task.scheduledTime})</p>
+      <div class="fg"><label>Reason (required)</label>
+        <select class="fc" id="notDoneReason">
+          <option value="">Select reason...</option>
+          <option value="patient_refused">Patient Refused</option>
+          <option value="patient_unavailable">Patient Unavailable (off unit)</option>
+          <option value="patient_asleep">Patient Asleep</option>
+          <option value="clinical_judgment">Clinical Judgment — Not Indicated</option>
+          <option value="equipment_unavailable">Equipment Unavailable</option>
+          <option value="order_discontinued">Order Discontinued</option>
+          <option value="other">Other</option>
+        </select></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-d" onclick="window._confirmNotDone('${pid}',${idx})">Confirm Not Done</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+
+window._ctxChartDetails=function(pid,idx){
+  hideCtx();
+  let tasks=S.tasks[pid]||[];let task=tasks[idx];if(!task)return;
+  showModal(`<div class="modal-head">Chart Details<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px"><tr><td style="font-weight:600;padding-right:16px">Task:</td><td>${task.description}</td></tr>
+      <tr><td style="font-weight:600">Scheduled:</td><td>04/18/2026 ${task.scheduledTime}</td></tr>
+      <tr><td style="font-weight:600">Status:</td><td>${task.status}</td></tr>
+      <tr><td style="font-weight:600">Order Details:</td><td>${task.orderDetails}</td></tr>
+      <tr><td style="font-weight:600">Category:</td><td>${task.category}</td></tr></table>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+window._ctxOrderInfo=function(pid,idx){
+  hideCtx();
+  let tasks=S.tasks[pid]||[];let task=tasks[idx];if(!task)return;
+  showModal(`<div class="modal-head">Order Information<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px">
+        <tr><td style="font-weight:600;padding-right:16px">Order:</td><td>${task.description}</td></tr>
+        <tr><td style="font-weight:600">Details:</td><td>${task.orderDetails}</td></tr>
+        <tr><td style="font-weight:600">Ordered By:</td><td>${S.patients.find(p=>p.patientId===pid)?.attendingPhysician||"N/A"}</td></tr>
+        <tr><td style="font-weight:600">Order Date:</td><td>${S.patients.find(p=>p.patientId===pid)?.admissionDate||"N/A"}</td></tr>
+      </table>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+window._ctxOrderComment=function(pid,idx){
+  hideCtx();
+  showModal(`<div class="modal-head">Order Comment<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><p style="color:var(--txt3);font-size:12px">No comments attached to this order.</p></div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+window._ctxTaskInfo=function(pid,idx){
+  hideCtx();
+  let tasks=S.tasks[pid]||[];let task=tasks[idx];if(!task)return;
+  showModal(`<div class="modal-head">Task Information<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px">
+        <tr><td style="font-weight:600;padding-right:16px">Task ID:</td><td>${task.id}</td></tr>
+        <tr><td style="font-weight:600">Description:</td><td>${task.description}</td></tr>
+        <tr><td style="font-weight:600">Created:</td><td>${S.patients.find(p=>p.patientId===pid)?.admissionDate||"N/A"}</td></tr>
+        <tr><td style="font-weight:600">Last Actioned By:</td><td>${task.status==="completed"?"RN Sarah Mitchell":"—"}</td></tr>
+      </table>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+/* ─── Patient Snapshot ─── */
+window._ctxPatientSnapshot=function(pid){
+  hideCtx();window._showPatientSnapshot(pid);
+};
+
+window._showPatientSnapshot=function(pid){
+  let pt=S.patients.find(p=>p.patientId===pid);if(!pt)return;
+  if(!S.patientSnapshotViewed.includes(pid))S.patientSnapshotViewed.push(pid);
+  showModal(`<div class="modal-head">Patient Snapshot — ${pt.name}<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px;width:100%">
+        <tr><td style="font-weight:600;width:140px;padding:6px 12px;background:#f8fafc">Name:</td><td style="padding:6px 12px">${pt.name}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Age / Gender:</td><td style="padding:6px 12px">${pt.age} yr / ${pt.gender==="M"?"Male":"Female"}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Location:</td><td style="padding:6px 12px">${pt.bedLabel} — Unit 4 North</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Diagnosis:</td><td style="padding:6px 12px">${pt.dx}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Allergies:</td><td style="padding:6px 12px;${pt.allergies.length?"color:var(--err);font-weight:600":""}">${pt.allergies.length?pt.allergies.join(", "):"No Known Allergies (NKA)"}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Diet:</td><td style="padding:6px 12px">${pt.diet}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Isolation:</td><td style="padding:6px 12px">${pt.isolation||"None"}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">High Risk Alerts:</td><td style="padding:6px 12px;${pt.highRiskAlerts.length?"color:var(--err);font-weight:600":""}">${pt.highRiskAlerts.length?pt.highRiskAlerts.join(", "):"None"}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Resuscitation:</td><td style="padding:6px 12px;${pt.resuscitationStatus==="DNR"?"color:var(--acc);font-weight:700":""}">${pt.resuscitationStatus}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Attending:</td><td style="padding:6px 12px">${pt.attendingPhysician}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Admitted:</td><td style="padding:6px 12px">${pt.admissionDate} (LOS: Day ${getLOS(pt.admissionDate)})</td></tr>
+      </table>
+    </div>
+    <div class="modal-foot"><button class="btn btn-out" onclick="closeModal()">Close</button></div>`);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   SPECIMEN COLLECTION
+   ═══════════════════════════════════════════════════════════ */
+function renderSpecimenCollection(){
+  let pid=S.selectedPatient;
+  if(!pid)return`<div class="card"><div class="card-title">🩸 Specimen Collection</div><p style="color:var(--txt2)">Select a patient from Care Compass first.</p></div>`;
+  let pt=S.patients.find(p=>p.patientId===pid);
+  let specs=(S.specimenTasks[pid]||[]);
+  let rows=specs.map((sp,i)=>{
+    let completed=(S.specimenCompleted[pid]||[]).includes(sp.id);
+    let statusBadge=completed?`<span class="badge badge-completed">Collected</span>`:`<span class="badge badge-pending">${sp.orderDetails}</span>`;
+    return`<tr>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">04/18 ${sp.scheduledTime}</td>
+      <td>${sp.description}</td>
+      <td style="font-size:11px;color:var(--txt2)">${sp.orderDetails}</td>
+      <td>${completed?'<span style="color:var(--suc);font-size:12px">✓ Done</span>':`<button class="btn btn-s btn-sm" onclick="window._collectSpecimen('${pid}','${sp.id}',${i})">Collect</button>`}</td>
+    </tr>`;
+  }).join("")||`<tr><td colspan="5" style="text-align:center;color:var(--txt3)">No specimen collection tasks for ${pt.name}</td></tr>`;
+
+  return`<div class="card">
+    <div class="card-title">🩸 Specimen Collection — ${pt.name} (${pt.bedLabel})</div>
+    <p style="font-size:11px;color:var(--txt2);margin-bottom:12px">Displays specimens ordered as "Nurse Collect". Click Collect to sign off when completed.</p>
+    <div class="data-table"><table><thead><tr>
+      <th style="width:90px">Status</th><th style="width:100px">Scheduled</th><th>Description</th><th>Priority</th><th style="width:80px">Action</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
+window._collectSpecimen=function(pid,specId,idx){
+  let specs=S.specimenTasks[pid]||[];
+  let spec=specs[idx];if(!spec)return;
+  showModal(`<div class="modal-head">Confirm Specimen Collection<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px">
+        <tr><td style="font-weight:600;padding-right:16px">Specimen:</td><td>${spec.description}</td></tr>
+        <tr><td style="font-weight:600">Priority:</td><td>${spec.orderDetails}</td></tr>
+        <tr><td style="font-weight:600">Patient:</td><td>${S.patients.find(p=>p.patientId===pid)?.name||""}</td></tr>
+        <tr><td style="font-weight:600">Collected By:</td><td>RN Sarah Mitchell</td></tr>
+        <tr><td style="font-weight:600">Time:</td><td>${new Date().toLocaleTimeString()}</td></tr>
+      </table>
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="window._confirmSpecimen('${pid}','${specId}')">OK — Confirm Collection</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+
+window._confirmSpecimen=function(pid,specId){
+  if(!S.specimenCompleted[pid])S.specimenCompleted[pid]=[];
+  if(!S.specimenCompleted[pid].includes(specId))S.specimenCompleted[pid].push(specId);
+  closeModal();toast("Specimen collected and signed off","success");render();
+};
+
+/* ═══════════════════════════════════════════════════════════
+   ORDER REVIEW
+   ═══════════════════════════════════════════════════════════ */
+function renderOrderReview(){
+  let pid=S.selectedPatient;
+
+  // If no patient selected, show all patients with pending orders
+  if(!pid){
+    let allRows="";
+    S.patients.filter(p=>p.status==="active").forEach(p=>{
+      let orders=(S.ordersToReview[p.patientId]||[]).filter(o=>!o.reviewed);
+      if(!orders.length)return;
+      orders.forEach(o=>{
+        let priBadge="";
+        let rowClass="";
+        if(o.priority==="stat"){priBadge=`<span class="badge badge-stat">STAT</span>`;rowClass="stat-row"}
+        else if(o.priority==="critical"){priBadge=`<span class="badge badge-critical">CRITICAL</span>`;rowClass="stat-row"}
+        else priBadge=`<span class="badge badge-routine">Routine</span>`;
+        let typeBadge=`<span class="badge badge-new">${o.type}</span>`;
+        allRows+=`<tr class="${rowClass}">
+          <td style="font-weight:600">${p.bedLabel}</td>
+          <td>${p.name}</td>
+          <td>${priBadge}</td>
+          <td>${typeBadge}</td>
+          <td>${o.description}</td>
+          <td><button class="btn btn-p btn-sm" onclick="window._reviewOrder('${p.patientId}','${o.id}')">Review</button></td>
+        </tr>`;
+      });
+    });
+    if(!allRows)allRows=`<tr><td colspan="6" style="text-align:center;color:var(--txt3)">All orders have been reviewed ✓</td></tr>`;
+
+    return`<div class="card">
+      <div class="card-title">📝 New Orders/Results Review
+        <span class="card-subtitle">Review is to be completed from the Orders page</span></div>
+      <p style="font-size:11px;color:var(--txt2);margin-bottom:12px">Orange icon = new/modified orders. Red icon = STAT or Critical results. Click Review to acknowledge.</p>
+      <div class="data-table"><table><thead><tr>
+        <th style="width:70px">Location</th><th>Patient</th><th style="width:80px">Priority</th><th style="width:80px">Type</th><th>Description</th><th style="width:70px">Action</th>
+      </tr></thead><tbody>${allRows}</tbody></table></div>
+    </div>`;
+  }
+
+  // Single patient mode
+  let pt=S.patients.find(p=>p.patientId===pid);
+  let orders=(S.ordersToReview[pid]||[]);
+  let rows=orders.map(o=>{
+    let priBadge="";
+    let rowClass="";
+    if(o.priority==="stat"){priBadge=`<span class="badge badge-stat">STAT</span>`;rowClass="stat-row"}
+    else if(o.priority==="critical"){priBadge=`<span class="badge badge-critical">CRITICAL</span>`;rowClass="stat-row"}
+    else priBadge=`<span class="badge badge-routine">Routine</span>`;
+    let typeBadge=`<span class="badge badge-new">${o.type}</span>`;
+    let reviewed=o.reviewed;
+    return`<tr class="${rowClass}">
+      <td>${o.id}</td>
+      <td>${priBadge}</td>
+      <td>${typeBadge}</td>
+      <td>${o.description}</td>
+      <td>${reviewed?'<span class="badge badge-completed">Reviewed ✓</span>':`<button class="btn btn-p btn-sm" onclick="window._reviewOrder('${pid}','${o.id}')">Review</button>`}</td>
+    </tr>`;
+  }).join("")||`<tr><td colspan="5" style="text-align:center;color:var(--txt3)">No orders for ${pt.name}</td></tr>`;
+
+  return`<div class="card">
+    <div class="card-title">📝 Order Review — ${pt.name} (${pt.bedLabel})</div>
+    <div class="data-table"><table><thead><tr>
+      <th>Order ID</th><th style="width:80px">Priority</th><th style="width:80px">Type</th><th>Description</th><th style="width:100px">Action</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="window._reviewAllForPatient('${pid}')">Review All for This Patient</button></div>
+  </div>`;
+}
+
+window._reviewOrder=function(pid,orderId){
+  let orders=S.ordersToReview[pid]||[];
+  let order=orders.find(o=>o.id===orderId);
+  if(!order)return;
+
+  showModal(`<div class="modal-head">Order Review<button class="btn btn-out btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <table style="font-size:12px;width:100%">
+        <tr><td style="font-weight:600;width:100px;padding:6px 12px;background:#f8fafc">Order ID:</td><td style="padding:6px 12px">${order.id}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Description:</td><td style="padding:6px 12px">${order.description}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Priority:</td><td style="padding:6px 12px;${order.priority==="stat"||order.priority==="critical"?"color:var(--err);font-weight:700":""}">${order.priority.toUpperCase()}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Type:</td><td style="padding:6px 12px">${order.type}</td></tr>
+        <tr><td style="font-weight:600;padding:6px 12px;background:#f8fafc">Ordered By:</td><td style="padding:6px 12px">${S.patients.find(p=>p.patientId===pid)?.attendingPhysician||"N/A"}</td></tr>
+      </table>
+      ${order.priority==="stat"?'<div style="margin-top:12px;padding:10px;background:var(--crit-bg);border-radius:var(--rad);font-size:12px;font-weight:600;color:var(--err)">⚠️ This is a STAT order and requires immediate attention.</div>':""}
+      ${order.priority==="critical"?'<div style="margin-top:12px;padding:10px;background:var(--crit-bg);border-radius:var(--rad);font-size:12px;font-weight:600;color:var(--err)">🔴 CRITICAL RESULT — Notify physician immediately.</div>':""}
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="window._confirmReview('${pid}','${orderId}')">Acknowledge & Review</button><button class="btn btn-out" onclick="closeModal()">Cancel</button></div>`);
+};
+
+window._confirmReview=function(pid,orderId){
+  let orders=S.ordersToReview[pid]||[];
+  let order=orders.find(o=>o.id===orderId);
+  if(order){
+    order.reviewed=true;
+    if(!S.reviewedOrders[pid])S.reviewedOrders[pid]=[];
+    S.reviewedOrders[pid].push(orderId);
+  }
+  closeModal();toast("Order "+orderId+" reviewed and acknowledged","success");render();
+};
+
+window._reviewAllForPatient=function(pid){
+  let orders=(S.ordersToReview[pid]||[]).filter(o=>!o.reviewed);
+  if(!orders.length){toast("All orders already reviewed","info");return}
+  orders.forEach(o=>{
+    o.reviewed=true;
+    if(!S.reviewedOrders[pid])S.reviewedOrders[pid]=[];
+    S.reviewedOrders[pid].push(o.id);
+  });
+  toast(orders.length+" order(s) reviewed","success");render();
+};
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+window._medgym_init(42);
+})();
+</script>
+</body>
+</html>

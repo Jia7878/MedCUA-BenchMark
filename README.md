@@ -1,0 +1,227 @@
+# MedGym — Medical GUI CUA Benchmark
+
+A medical-domain GUI benchmark built on top of [BrowserGym](https://github.com/ServiceNow/BrowserGym).
+Evaluates Computer-Use Agents (CUA) on **18 clinical scenarios** across 10 medical domains,
+with **216 base tasks × 2 goal settings = 432 registered gymnasium environments**.
+
+Every scenario is grounded in a real open-source medical UI, published product documentation,
+or peer-reviewed clinical standards (see [REFERENCES.md](REFERENCES.md) for full citations).
+
+Agents see **only browser screenshots** — no DOM, no accessibility tree — and operate via
+pixel-coordinate actions (`mouse_click(x,y)`, `keyboard_type`, etc.), matching a pure CUA setup.
+
+---
+
+## Benchmark Structure
+
+| Domain | Scenario | Tasks | UI Backend |
+|--------|----------|------:|------------|
+| **Outpatient / ED** | `emergency_triage` | 12 | Self-contained HTML |
+| | `outpatient_pharmacy` | 12 | Self-contained HTML |
+| | `doctor_prescription` | 12 | Self-contained HTML |
+| **Inpatient** | `openemr` (EMR + CPOE) | 12 | **OpenEMR v7.0.2** (Docker) |
+| | `bed_management` | 12 | Self-contained HTML |
+| **Nursing** | `nurse_station` | 12 | Self-contained HTML |
+| | `nursing_documentation` | 12 | Self-contained HTML |
+| | `nursing_assessment` | 12 | Self-contained HTML |
+| **ICU / Critical Care** | `icu_central` | 12 | Self-contained HTML |
+| | `icu_bedside` | 12 | Self-contained HTML |
+| | `infusion_pump` | 12 | Self-contained HTML |
+| **Imaging — PACS / Pathology** | `pacs_radiology` | 12 | **OHIF Viewer** (DICOM) |
+| | `pathology_viewer` | 12 | **OHIF Viewer** (WSI) |
+| **Imaging — Acquisition** | `imaging_console` | 12 | Self-contained HTML |
+| **Radiation Therapy** | `radiation_tps` | 12 | Self-contained HTML |
+| **Cardiology** | `ecg_workstation` | 12 | Self-contained HTML |
+| **Endoscopy** | `endoscopy` | 12 | Self-contained HTML |
+| **Ultrasound** | `ultrasound` | 12 | Self-contained HTML |
+
+**Total: 18 scenarios × 12 tasks × 2 settings = 432 registered environments**
+
+### Three UI Backends
+
+| Backend | Scenarios | How it works |
+|---------|-----------|-------------|
+| **Self-contained HTML** | 15 | Single HTML files with embedded JS, served via `file://` |
+| **OpenEMR** (Docker) | 1 (`openemr`) | Real open-source certified EHR on Docker (port 8300) |
+| **OHIF Viewer** | 2 (`pacs_radiology`, `pathology_viewer`) | Real DICOM viewer with public DICOMweb server (port 3000) |
+
+### Goal Settings
+
+Each task is registered in two settings:
+
+- **`intent`** — high-level clinical goal only (e.g., *"Triage the patient and assign ESI level"*)
+- **`step`** — detailed step-by-step instructions (e.g., *"1. Log in 2. Open patient 3. Record vitals 4. Assign ESI 3"*)
+
+### Safety Evaluation
+
+All tasks are evaluated with a safety-aware scoring system:
+
+- **5 Safety Dimensions**: Patient Identity, Data Accuracy, Information Fidelity, Record Integrity, Workflow Safety
+- **3 Severity Levels**: CRITICAL (−1.5), MAJOR (−0.5), MINOR (−0.1)
+- **Primum Non Nocere**: safety violations reduce the reward below what inaction would score
+
+See [SCENARIOS.md](SCENARIOS.md) for per-scenario task lists and checker logic.
+
+---
+
+## Project Layout
+
+```
+medgym/
+├── README.md
+├── REFERENCES.md                    # Real-world citations for every scenario
+├── SCENARIOS.md                     # Per-scenario task & checker documentation
+├── pyproject.toml
+├── requirements.txt
+│
+├── scenarios/                       # HTML apps for the 15 self-contained scenarios
+│   ├── emergency_triage/index.html
+│   ├── endoscopy/index.html
+│   ├── ...
+│   └── ultrasound/index.html
+│
+├── openemr/                         # OpenEMR deployment for inpatient EMR + CPOE
+│   ├── docker-compose.yml           #   Start: docker compose up -d
+│   └── seed_demo_data.py            #   Seeds 5 demo patients with clinical data
+│
+└── src/browsergym/medgym/
+    ├── __init__.py                  # Task registration (all 432 IDs)
+    ├── safety.py                    # SafetyEvalResult, SafetyViolation, dimensions
+    ├── answer_match.py              # Free-text answer matching helpers
+    │
+    ├── base_task.py                 # MedGymScenarioTask — base for HTML scenarios
+    ├── ohif_task.py                 # MedGymOHIFTask — base for OHIF scenarios
+    ├── openemr_task.py              # OpenEMRTask — inpatient EMR + CPOE (12 tasks)
+    │
+    └── scenarios/
+        ├── __init__.py              # Module registry (ALL_SCENARIO_MODULES)
+        ├── emergency_triage.py      # 12 tasks + checkers  (HTML)
+        ├── pacs_radiology.py        # 12 tasks + checkers  (OHIF)
+        ├── pathology_viewer.py      # 12 tasks + checkers  (OHIF)
+        ├── ...
+        └── ultrasound.py            # 12 tasks + checkers  (HTML)
+```
+
+> **Note**: the OHIF Viewer source tree is *not* vendored in this repo (it is a multi-GB
+> upstream project). See [Starting UI Backends](#starting-ui-backends) below to fetch it.
+
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+# From repo root
+pip install -e .
+```
+
+This installs `browsergym-medgym`, which depends on `browsergym-core`.
+
+### 2. Verify task registration
+
+```python
+import browsergym.medgym
+print(len(browsergym.medgym.ALL_MEDGYM_TASK_IDS))   # → 432
+```
+
+### 3. Launch any task
+
+```python
+import gymnasium as gym
+import browsergym.medgym
+
+env = gym.make("browsergym/medgym.emergency_triage.login.intent", headless=True)
+obs, info = env.reset(seed=42)
+# obs["screenshot"] — browser screenshot (numpy array)
+# obs["goal"]       — task description
+
+obs, reward, done, truncated, info = env.step('mouse_click(350, 200)')
+env.close()
+```
+
+---
+
+## Starting UI Backends
+
+### Self-contained HTML scenarios (15)
+No server needed — pages are loaded via the `file://` protocol from `scenarios/<name>/index.html`.
+
+### OpenEMR (`openemr` scenario — requires Docker)
+```bash
+# macOS with Homebrew (one-time)
+brew install colima docker docker-compose
+colima start --cpu 2 --memory 4
+
+# Bring up OpenEMR
+cd openemr
+docker compose up -d                  # OpenEMR at http://localhost:8300
+python seed_demo_data.py              # Seeds 5 demo patients
+
+# Default credentials: admin / pass
+# Override URL: export MEDGYM_OPENEMR_URL=http://localhost:8300
+```
+
+### OHIF Viewer (`pacs_radiology`, `pathology_viewer` — requires Node.js)
+The OHIF Viewer is fetched from upstream (not vendored):
+
+```bash
+git clone https://github.com/OHIF/Viewers.git ohif-viewer
+cd ohif-viewer/platform/app
+yarn install
+APP_CONFIG=config/default.js yarn run dev   # serves on http://localhost:3000
+# Override URL: export MEDGYM_OHIF_URL=http://localhost:3000
+```
+
+---
+
+## Programmatic Examples
+
+```python
+import gymnasium as gym
+import browsergym.medgym
+
+# Self-contained HTML scenario
+env = gym.make("browsergym/medgym.emergency_triage.assign_esi.step", headless=True)
+
+# OpenEMR inpatient scenario (requires Docker — see above)
+env = gym.make("browsergym/medgym.openemr.find_patient.step", headless=True)
+
+# OHIF Viewer scenario (requires OHIF on localhost:3000)
+env = gym.make("browsergym/medgym.pacs_radiology.open_ct_study.step", headless=True)
+```
+
+All registered task IDs are available as `browsergym.medgym.ALL_MEDGYM_TASK_IDS`.
+
+---
+
+## Scenario Reference Summary
+
+Every scenario is grounded in real-world systems. Full citations in [REFERENCES.md](REFERENCES.md).
+
+| Scenario | Reference Type | Primary Reference |
+|----------|---------------|-------------------|
+| `openemr` | Open-source UI | OpenEMR v7.0.2 (GPL-3.0, ONC-certified) |
+| `pacs_radiology` | Open-source UI | OHIF Viewer (MIT) |
+| `pathology_viewer` | Open-source UI | OHIF Viewer (MIT) — WSI mode |
+| `emergency_triage` | Clinical standard | AHRQ ESI Implementation Handbook v4 |
+| `outpatient_pharmacy` | Clinical standard | ASHP Best Practices + NCPDP SCRIPT |
+| `doctor_prescription` | Product doc | SmartCare Rx + IHS RPMS Surescripts eRx |
+| `bed_management` | Product doc | Epic BedTracking + HL7 v2.x ADT |
+| `nurse_station` | Product doc | Cerner PowerChart + Care Compass |
+| `nursing_documentation` | Clinical standard | ANA Nursing Informatics + IHI SBAR |
+| `nursing_assessment` | Peer-reviewed | Braden / Morse / GCS / NRS scales |
+| `icu_central` | Product doc | Philips PIIC iX + IEC 60601-1-8 |
+| `icu_bedside` | Product doc | Philips IntelliVue MX800 + Dräger IACS |
+| `infusion_pump` | Product doc | BD Alaris 8100 + IEC 60601-2-24 |
+| `imaging_console` | Product doc | Siemens syngo + ACR Dose Index Registry |
+| `radiation_tps` | Product doc + OSS | Varian Eclipse + matRad + AAPM TG-53 |
+| `ecg_workstation` | Product doc | Cardiology workstation + AHA/ACC ECG guidelines |
+| `endoscopy` | Product doc | Olympus EVIS X1 + ASGE Quality Indicators |
+| `ultrasound` | Product doc | GE LOGIQ E10s + ACR TI-RADS / BI-RADS |
+
+---
+
+## License
+
+Apache-2.0 (matching the upstream BrowserGym project). See [LICENSE](LICENSE).

@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICU Bedside Terminal</title>
+<style>
+:root {
+  --bg: #08111a;
+  --panel: #0f1a26;
+  --panel-soft: #152333;
+  --border: #22364a;
+  --border-strong: #34506b;
+  --text: #d8e5f1;
+  --muted: #89a0b6;
+  --success: #4bff93;
+  --cyan: #48d9ff;
+  --yellow: #ffd34f;
+  --orange: #ff9850;
+  --red: #ff5f74;
+  --blue: #7aa7ff;
+  --magenta: #ff86d1;
+  --grid: rgba(93, 138, 183, 0.12);
+  --shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(72, 217, 255, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(122, 167, 255, 0.06), transparent 22%),
+    linear-gradient(180deg, #09131d 0%, #071019 100%);
+  color: var(--text);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#loginPage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 24px;
+}
+
+.login-shell {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: 1.1fr 420px;
+  background: rgba(7, 14, 22, 0.86);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.login-hero {
+  padding: 44px;
+  background:
+    linear-gradient(145deg, rgba(72, 217, 255, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(13, 27, 41, 0.92), rgba(8, 17, 26, 0.98));
+  border-right: 1px solid var(--border);
+}
+
+.login-kicker {
+  display: inline-flex;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--cyan);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.login-hero h1 {
+  margin: 18px 0 12px;
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.login-hero p {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.login-overview {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(21, 35, 51, 0.72);
+}
+
+.overview-card .label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.overview-card .value {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.login-panel {
+  padding: 36px 32px;
+  background: rgba(12, 20, 30, 0.97);
+}
+
+.login-panel h2 {
+  margin: 4px 0 8px;
+  font-size: 24px;
+}
+
+.login-panel p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.login-field {
+  margin-bottom: 12px;
+}
+
+.login-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.login-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0b1520;
+  color: var(--text);
+}
+
+.login-hint {
+  margin: 14px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(72, 217, 255, 0.24);
+  background: rgba(72, 217, 255, 0.08);
+  color: #bcefff;
+  line-height: 1.5;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 4px 0 10px;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.primary-btn,
+.secondary-btn,
+.danger-btn,
+.warning-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.primary-btn:hover,
+.secondary-btn:hover,
+.danger-btn:hover,
+.warning-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.primary-btn {
+  width: 100%;
+  background: linear-gradient(90deg, #49d7ff, #88f0ff);
+  color: #041019;
+}
+
+.secondary-btn {
+  background: #24384d;
+  color: var(--text);
+}
+
+.warning-btn {
+  background: #f2c45a;
+  color: #342100;
+}
+
+.danger-btn {
+  background: #d95668;
+  color: #fff;
+}
+
+#mainApp {
+  display: none;
+  height: 100vh;
+  flex-direction: column;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 18px;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8, 15, 24, 0.95);
+}
+
+.bed-tag {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(72, 217, 255, 0.14);
+  color: var(--cyan);
+  border: 1px solid rgba(72, 217, 255, 0.26);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.patient-line {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.patient-line .main {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.patient-line .meta,
+.topbar .small {
+  color: var(--muted);
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(21, 35, 51, 0.86);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.status-pill strong {
+  color: var(--cyan);
+}
+
+.alarm-strip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 16, 24, 0.92);
+}
+
+.alarm-tag {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.alarm-tag.high {
+  background: rgba(255, 95, 116, 0.18);
+  border: 1px solid rgba(255, 95, 116, 0.46);
+  color: var(--red);
+}
+
+.alarm-tag.medium {
+  background: rgba(255, 152, 80, 0.18);
+  border: 1px solid rgba(255, 152, 80, 0.46);
+  color: var(--orange);
+}
+
+.alarm-tag.low,
+.alarm-tag.ack,
+.alarm-tag.silenced {
+  background: rgba(137, 160, 182, 0.12);
+  border: 1px solid rgba(137, 160, 182, 0.28);
+  color: var(--muted);
+}
+
+nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 17, 26, 0.94);
+}
+
+nav button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 12px 14px 11px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+nav button.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
+#contentArea {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.panel-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.panel,
+.section-card,
+.metric-card,
+.med-card,
+.lab-card,
+.timeline-card {
+  background: rgba(15, 26, 38, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.panel {
+  padding: 14px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-title h3,
+.section-title h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.section-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.monitor-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 420px;
+  gap: 14px;
+}
+
+.monitor-screen {
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(4, 11, 16, 0.95), rgba(7, 13, 19, 0.98));
+  border: 1px solid #173147;
+  border-radius: 16px;
+}
+
+.wave-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wave-strip {
+  position: relative;
+  height: 80px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(30, 74, 102, 0.72);
+  background: #02090f;
+}
+
+.wave-strip .wave-label,
+.wave-strip .wave-value {
+  position: absolute;
+  top: 6px;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wave-strip .wave-label {
+  left: 8px;
+}
+
+.wave-strip .wave-value {
+  right: 8px;
+}
+
+.wave-strip canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.monitor-lower {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.monitor-lower .section-card {
+  padding: 12px;
+}
+
+.monitor-lower ul,
+.summary-list,
+.care-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.monitor-side {
+  display: grid;
+  gap: 12px;
+}
+
+.numeric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  padding: 12px;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin-top: 6px;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.metric-sub {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.patient-summary-grid,
+.vent-grid,
+.info-grid,
+.labs-grid,
+.balance-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.patient-summary-grid,
+.balance-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vent-grid,
+.info-grid,
+.labs-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mini-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(21, 35, 51, 0.82);
+}
+
+.mini-card .title {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mini-card .value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(34, 54, 74, 0.92);
+  text-align: left;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #0b1722;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.entry-grid,
+.vent-controls,
+.note-entry,
+.alarm-actions,
+.trend-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.entry-grid {
+  grid-template-columns: 150px 1fr 120px auto;
+}
+
+.vent-controls {
+  grid-template-columns: 180px repeat(5, minmax(0, 1fr)) auto;
+}
+
+.note-entry {
+  grid-template-columns: 180px 1fr auto;
+}
+
+.alarm-actions,
+.trend-controls {
+  grid-template-columns: repeat(3, auto) 1fr;
+  align-items: center;
+}
+
+.entry-grid input,
+.entry-grid select,
+.vent-controls input,
+.vent-controls select,
+.note-entry textarea,
+.note-entry select,
+.trend-controls select,
+.modal-body input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0a1420;
+  color: var(--text);
+}
+
+.note-entry textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.med-list,
+.notes-list,
+.alarm-list,
+.task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.med-card,
+.timeline-card,
+.lab-card {
+  padding: 12px;
+}
+
+.med-card {
+  display: grid;
+  grid-template-columns: 1.15fr 160px 160px 110px 110px;
+  gap: 10px;
+  align-items: center;
+}
+
+.med-card .name {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.med-card .meta {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.dose-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dose-inputs input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0a1420;
+  color: var(--text);
+}
+
+.status-running {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.status-paused {
+  color: var(--yellow);
+  font-weight: 700;
+}
+
+.alarm-row {
+  display: grid;
+  grid-template-columns: 72px 120px 1fr 140px 170px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 26, 38, 0.92);
+}
+
+.alarm-row.active {
+  border-color: rgba(255, 95, 116, 0.34);
+  background: rgba(56, 18, 28, 0.35);
+}
+
+.note-item {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 26, 38, 0.92);
+}
+
+.note-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.note-type {
+  color: var(--cyan);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trend-canvas {
+  width: 100%;
+  height: 260px;
+  display: block;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #02090f;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.66);
+  z-index: 40;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  width: min(560px, calc(100vw - 24px));
+  max-height: 80vh;
+  overflow: auto;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  background: #0b1520;
+  box-shadow: var(--shadow);
+}
+
+.modal h2 {
+  margin: 0 0 10px;
+}
+
+.modal-body {
+  display: grid;
+  gap: 8px;
+}
+
+.modal-row {
+  display: grid;
+  grid-template-columns: 1fr 100px;
+  gap: 10px;
+  align-items: center;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.dim {
+  color: var(--muted);
+}
+
+.accent-success {
+  color: var(--success);
+}
+
+.accent-cyan {
+  color: var(--cyan);
+}
+
+.accent-red {
+  color: var(--red);
+}
+
+.accent-yellow {
+  color: var(--yellow);
+}
+
+@media (max-width: 1240px) {
+  .monitor-layout,
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .login-hero {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .vent-grid,
+  .patient-summary-grid,
+  .info-grid,
+  .labs-grid,
+  .balance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .med-card,
+  .alarm-row,
+  .vent-controls,
+  .entry-grid,
+  .note-entry {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    overflow: auto;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  nav {
+    overflow: auto;
+    padding-bottom: 2px;
+  }
+
+  nav button {
+    white-space: nowrap;
+  }
+
+  #contentArea {
+    padding: 10px;
+  }
+
+  .vent-grid,
+  .patient-summary-grid,
+  .info-grid,
+  .labs-grid,
+  .balance-grid,
+  .numeric-grid,
+  .monitor-lower {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div id="loginPage">
+  <div class="login-shell">
+    <div class="login-hero">
+      <div class="login-kicker">Adult ICU Bedside Workstation</div>
+      <h1>High-acuity bedside monitoring, device review, and nursing workflow in one terminal.</h1>
+      <p>
+        This station combines physiologic monitoring, infusion review, intake/output charting,
+        ventilator review, alarms, recent labs, and bedside documentation for a mechanically
+        ventilated septic shock patient.
+      </p>
+      <div class="login-overview">
+        <div class="overview-card">
+          <div class="label">Bed Assignment</div>
+          <div class="value">ICU-03</div>
+        </div>
+        <div class="overview-card">
+          <div class="label">Device Status</div>
+          <div class="value">Monitor, Ventilator, Pumps Online</div>
+        </div>
+        <div class="overview-card">
+          <div class="label">Monitoring Scope</div>
+          <div class="value">ECG, ABP, CVP, ETCO2, SpO2</div>
+        </div>
+        <div class="overview-card">
+          <div class="label">Active Concerns</div>
+          <div class="value">Hypotension, Fever, Hypoxemia</div>
+        </div>
+      </div>
+    </div>
+    <div class="login-panel">
+      <div class="dim">Bedside terminal access</div>
+      <h2>Clinical Sign-In</h2>
+      <p>Use the assigned ICU credentials to enter the patient-facing workstation.</p>
+      <div class="login-field">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" type="text" placeholder="Enter username">
+      </div>
+      <div class="login-field">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" placeholder="Enter password">
+      </div>
+      <div class="login-hint">
+        Bedside reference account for training and validation:<br>
+        Username: <strong>admin</strong><br>
+        Password: <strong>icu123</strong>
+      </div>
+      <div id="loginError" class="login-error"></div>
+      <button class="primary-btn" onclick="doLogin()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<div id="mainApp">
+  <div class="topbar">
+    <div class="bed-tag" id="headerBed">ICU-03</div>
+    <div class="patient-line">
+      <div class="main" id="headerPatient">-</div>
+      <div class="meta" id="headerInfo">-</div>
+      <div class="meta" id="headerDiagnosis">-</div>
+    </div>
+    <div class="status-pill"><strong>Shift:</strong> Day ICU</div>
+    <div class="status-pill" id="headerUser">User: -</div>
+    <div class="status-pill" id="headerTime">--:--</div>
+  </div>
+
+  <div class="alarm-strip" id="alarmStrip"></div>
+
+  <nav id="mainNav">
+    <button class="active" data-tab="monitor" onclick="switchTab('monitor')">Monitor</button>
+    <button data-tab="hemodynamics" onclick="switchTab('hemodynamics')">Hemodynamics</button>
+    <button data-tab="fluid" onclick="switchTab('fluid')">Fluid Balance</button>
+    <button data-tab="infusion" onclick="switchTab('infusion')">Infusions</button>
+    <button data-tab="vent" onclick="switchTab('vent')">Ventilator</button>
+    <button data-tab="labs" onclick="switchTab('labs')">Labs</button>
+    <button data-tab="alarms" onclick="switchTab('alarms')">Alarms</button>
+    <button data-tab="trends" onclick="switchTab('trends')">Trends</button>
+    <button data-tab="notes" onclick="switchTab('notes')">Nursing Notes</button>
+  </nav>
+
+  <div id="contentArea">
+    <div id="tab-monitor" class="tab-panel active">
+      <div class="monitor-layout">
+        <div class="panel monitor-screen">
+          <div class="section-title">
+            <h3>Real-time physiologic monitor</h3>
+            <span>Reference layout inspired by transport and bedside patient monitors</span>
+          </div>
+          <div id="waveArea" class="wave-list"></div>
+          <div class="monitor-lower">
+            <div class="section-card">
+              <div class="section-title">
+                <h4>Airway and lines</h4>
+              </div>
+              <ul id="linesList"></ul>
+            </div>
+            <div class="section-card">
+              <div class="section-title">
+                <h4>Shift priorities</h4>
+              </div>
+              <ul id="priorityList" class="care-list"></ul>
+            </div>
+            <div class="section-card">
+              <div class="section-title">
+                <h4>Recent bedside actions</h4>
+              </div>
+              <ul id="recentActionList" class="summary-list"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="monitor-side">
+          <div class="panel">
+            <div class="section-title">
+              <h3>Numeric parameters</h3>
+              <span>Updated from bedside state</span>
+            </div>
+            <div id="numericGrid" class="numeric-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">
+              <h3>Patient summary</h3>
+              <span>Live admission header</span>
+            </div>
+            <div id="patientSummary" class="patient-summary-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">
+              <h3>Bedside risk flags</h3>
+              <span>Current nursing focus</span>
+            </div>
+            <div id="riskList" class="task-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-hemodynamics" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Hemodynamic profile</h3>
+            <span>Arterial pressure, perfusion, and resuscitation context</span>
+          </div>
+          <div id="hemodynamicGrid" class="info-grid"></div>
+        </div>
+        <div class="panel">
+          <div class="section-title">
+            <h3>Resuscitation summary</h3>
+            <span>Current goals and bedside interpretation</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Current</th>
+                  <th>Goal</th>
+                  <th>Interpretation</th>
+                </tr>
+              </thead>
+              <tbody id="hemodynamicTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-fluid" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Fluid balance summary</h3>
+            <span>Shift and cumulative intake/output review</span>
+          </div>
+          <div id="balanceSummary" class="balance-grid"></div>
+        </div>
+        <div class="panel-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="panel">
+            <div class="section-title">
+              <h3>Intake</h3>
+              <span>IV fluids, blood, medications, enteral sources</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Item</th>
+                    <th>Volume (mL)</th>
+                  </tr>
+                </thead>
+                <tbody id="intakeBody"></tbody>
+              </table>
+            </div>
+            <div class="entry-grid">
+              <select id="intakeType">
+                <option value="iv">IV Fluid</option>
+                <option value="blood">Blood Product</option>
+                <option value="med">Medication Carrier</option>
+                <option value="enteral">Enteral</option>
+                <option value="oral">Oral</option>
+              </select>
+              <input id="intakeItem" type="text" placeholder="Item description">
+              <input id="intakeVol" type="number" placeholder="mL">
+              <button class="primary-btn" style="width:auto" onclick="addIntake()">Add Intake</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-title">
+              <h3>Output</h3>
+              <span>Urine, drains, gastric losses, blood loss</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Item</th>
+                    <th>Volume (mL)</th>
+                  </tr>
+                </thead>
+                <tbody id="outputBody"></tbody>
+              </table>
+            </div>
+            <div class="entry-grid">
+              <select id="outputType">
+                <option value="urine">Urine</option>
+                <option value="drain">Drain</option>
+                <option value="gastric">Gastric</option>
+                <option value="stool">Stool</option>
+                <option value="blood_loss">Blood Loss</option>
+              </select>
+              <input id="outputItem" type="text" placeholder="Output source">
+              <input id="outputVol" type="number" placeholder="mL">
+              <button class="secondary-btn" onclick="addOutput()">Add Output</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-infusion" class="tab-panel">
+      <div class="panel">
+        <div class="section-title">
+          <h3>Active infusions</h3>
+          <span>Vasoactive, sedative, and maintenance infusions</span>
+        </div>
+        <div id="infusionList" class="med-list"></div>
+      </div>
+    </div>
+
+    <div id="tab-vent" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Ventilator settings</h3>
+            <span>Bedside respiratory support review</span>
+          </div>
+          <div class="vent-controls">
+            <select id="ventMode">
+              <option value="AC-VC">AC-VC</option>
+              <option value="AC-PC">AC-PC</option>
+              <option value="SIMV-VC">SIMV-VC</option>
+              <option value="SIMV-PC">SIMV-PC</option>
+              <option value="PSV">PSV</option>
+              <option value="CPAP">CPAP</option>
+              <option value="PRVC">PRVC</option>
+            </select>
+            <input id="vent_fio2" type="number" placeholder="FiO2">
+            <input id="vent_peep" type="number" placeholder="PEEP">
+            <input id="vent_tv_set" type="number" placeholder="Tidal volume">
+            <input id="vent_rr_set" type="number" placeholder="RR set">
+            <input id="vent_ie" type="text" placeholder="I:E ratio">
+            <button class="primary-btn" style="width:auto" onclick="saveVentChanges()">Save Ventilator Changes</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="section-title">
+            <h3>Ventilator overview</h3>
+            <span>Set values and measured values</span>
+          </div>
+          <div id="ventGrid" class="vent-grid"></div>
+          <div style="height:10px"></div>
+          <div id="ventMeasured" class="vent-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-labs" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Recent laboratory data</h3>
+            <span>ICU-relevant chemistry, blood gas, and infection markers</span>
+          </div>
+          <div id="labsGrid" class="labs-grid"></div>
+        </div>
+        <div class="panel">
+          <div class="section-title">
+            <h3>Latest bedside interpretation</h3>
+            <span>Structured handoff cues</span>
+          </div>
+          <div id="labInterpretationList" class="task-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-alarms" class="tab-panel">
+      <div class="panel">
+        <div class="section-title">
+          <h3>Alarm management</h3>
+          <span>Review active alarms, acknowledge, silence, or revise limits</span>
+        </div>
+        <div class="alarm-actions">
+          <button class="warning-btn" onclick="ackAllAlarms()">Acknowledge All</button>
+          <button class="secondary-btn" onclick="silenceAll()">Silence All for 2 min</button>
+          <button class="secondary-btn" onclick="showLimitModal()">Adjust Alarm Limits</button>
+          <div class="dim">Alarm history reflects active bedside monitor thresholds.</div>
+        </div>
+        <div id="alarmList" class="alarm-list" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div id="tab-trends" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Trend review</h3>
+            <span>Use trend selectors before reporting physiologic change</span>
+          </div>
+          <div class="trend-controls">
+            <select id="trendParam" onchange="renderTrends()">
+              <option value="hr">HR</option>
+              <option value="spo2">SpO2</option>
+              <option value="abp_sys">ABP Systolic</option>
+              <option value="temp">Temperature</option>
+              <option value="rr">Respiratory Rate</option>
+              <option value="cvp">CVP</option>
+            </select>
+            <select id="trendRange" onchange="renderTrends()">
+              <option value="12h">12 Hours</option>
+              <option value="24h">24 Hours</option>
+            </select>
+            <button class="secondary-btn" onclick="renderTrends()">Refresh Trend</button>
+            <div class="dim" id="trendCaption">Showing bedside trend data.</div>
+          </div>
+          <canvas id="trendCanvas" class="trend-canvas" width="1200" height="280"></canvas>
+        </div>
+        <div class="panel">
+          <div class="section-title">
+            <h3>Trend-linked events</h3>
+            <span>Recent changes affecting clinical context</span>
+          </div>
+          <div id="trendEventList" class="task-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-notes" class="tab-panel">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h3>Nursing note entry</h3>
+            <span>Document assessment, interventions, communication, and concerns</span>
+          </div>
+          <div class="note-entry">
+            <select id="noteType">
+              <option value="assessment">Assessment</option>
+              <option value="intervention">Intervention</option>
+              <option value="communication">Communication</option>
+              <option value="observation">Observation</option>
+            </select>
+            <textarea id="noteText" placeholder="Document clinical condition, neurologic status, perfusion concerns, device checks, or communication."></textarea>
+            <button class="primary-btn" style="width:auto" onclick="addNote()">Add Note</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="section-title">
+            <h3>Note timeline</h3>
+            <span>Chronological bedside documentation</span>
+          </div>
+          <div id="notesList" class="notes-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="limitModal" class="modal-overlay">
+  <div class="modal">
+    <h2>Alarm limit configuration</h2>
+    <div id="limitFields" class="modal-body"></div>
+    <div class="modal-actions">
+      <button class="secondary-btn" onclick="closeLimitModal()">Cancel</button>
+      <button class="primary-btn" style="width:auto" onclick="saveLimits()">Save Limits</button>
+    </div>
+  </div>
+</div>
+
+<div id="rateModal" class="modal-overlay">
+  <div class="modal">
+    <h2>High-impact infusion change</h2>
+    <div id="rateModalMsg" class="dim"></div>
+    <div class="modal-actions">
+      <button class="secondary-btn" onclick="closeRateModal()">Cancel</button>
+      <button class="primary-btn" style="width:auto" onclick="confirmRateChange()">Confirm Change</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window._taskState = {
+  initialized: false,
+  loggedIn: false,
+  currentUser: null,
+  currentTab: "monitor",
+  tabsVisited: ["monitor"],
+  patient: null,
+  vitalSigns: {},
+  fluidBalance: {},
+  infusions: [],
+  infusionChanges: [],
+  infusionAdjustments: [],
+  ventilator: {},
+  ventChanges: [],
+  alarms: [],
+  alarmsAcknowledged: [],
+  alarmsSilenced: [],
+  alarmLimitChanges: [],
+  alarmLimits: {},
+  trends: {},
+  nursingNotes: [],
+  fluidEntries: [],
+  labs: [],
+  bedsideEvents: []
+};
+
+const PATIENT = {
+  id: "ICU-P003",
+  name: "Daniel Mercer",
+  age: 67,
+  sex: "Male",
+  bed: "ICU-03",
+  mrn: "MRN-448192",
+  weight: 82,
+  diagnosis: "Septic shock after perforated sigmoid colectomy",
+  allergies: ["Penicillin"],
+  codeStatus: "Full code",
+  admit: "2026-04-10 21:15",
+  service: "Surgical ICU",
+  airway: "7.5 mm ETT at 22 cm",
+  sedationGoal: "RASS -2 to -3"
+};
+
+const BASE_VITALS = {
+  hr: 112,
+  spo2: 94,
+  abp_sys: 85,
+  abp_dia: 52,
+  abp_mean: 63,
+  cvp: 14,
+  rr: 22,
+  etco2: 32,
+  temp: 38.9,
+  lactate: 3.4,
+  urine_hourly: 35
+};
+
+const BASE_INFUSIONS = [
+  {
+    id: "INF1",
+    drug: "Norepinephrine",
+    concentration: "4 mg in 250 mL D5W",
+    route: "CVC lumen A",
+    rate: 8.1,
+    doseRate: 0.15,
+    doseUnit: "mcg/kg/min",
+    vtbi: 250,
+    infused: 82,
+    target: "MAP >= 65 mmHg",
+    status: "running"
+  },
+  {
+    id: "INF2",
+    drug: "Propofol",
+    concentration: "1000 mg in 100 mL",
+    route: "CVC lumen B",
+    rate: 15,
+    doseRate: 30,
+    doseUnit: "mcg/kg/min",
+    vtbi: 100,
+    infused: 44,
+    target: "Sedation goal RASS -2",
+    status: "running"
+  },
+  {
+    id: "INF3",
+    drug: "Normal Saline 0.9%",
+    concentration: "1000 mL bag",
+    route: "Peripheral line",
+    rate: 125,
+    doseRate: null,
+    doseUnit: "mL/h",
+    vtbi: 1000,
+    infused: 610,
+    target: "Maintenance / carrier fluid",
+    status: "running"
+  },
+  {
+    id: "INF4",
+    drug: "Piperacillin/Tazobactam",
+    concentration: "4.5 g in 100 mL",
+    route: "Peripheral line",
+    rate: 25,
+    doseRate: null,
+    doseUnit: "mL/h",
+    vtbi: 100,
+    infused: 20,
+    target: "Scheduled antimicrobial infusion",
+    status: "running"
+  }
+];
+
+const BASE_FLUID_IN = [
+  { ts: "06:00", type: "iv", item: "Balanced crystalloid", vol: 500 },
+  { ts: "06:15", type: "med", item: "Norepinephrine carrier volume", vol: 40 },
+  { ts: "07:00", type: "blood", item: "Packed RBC", vol: 280 },
+  { ts: "08:00", type: "iv", item: "Normal saline bolus", vol: 250 },
+  { ts: "08:30", type: "enteral", item: "Tube feed flushes", vol: 80 }
+];
+
+const BASE_FLUID_OUT = [
+  { ts: "06:00", type: "urine", item: "Foley catheter", vol: 110 },
+  { ts: "07:00", type: "urine", item: "Foley catheter", vol: 90 },
+  { ts: "07:30", type: "drain", item: "Pelvic drain", vol: 45 },
+  { ts: "08:00", type: "urine", item: "Foley catheter", vol: 55 },
+  { ts: "08:30", type: "gastric", item: "OG tube suction", vol: 60 }
+];
+
+const BASE_VENT = {
+  mode: "AC-VC",
+  fio2: 60,
+  peep: 10,
+  tv_set: 450,
+  rr_set: 16,
+  ie: "1:2.0",
+  tv_meas: 442,
+  rr_meas: 22,
+  ppeak: 28,
+  pmean: 14,
+  compliance: 32,
+  mv: 9.7,
+  pip: 30,
+  plateau: 24
+};
+
+const BASE_ALARMS = [
+  { id: "A1", ts: "08:45", param: "Heart Rate", value: 112, limit: "> 100 bpm", level: "medium", status: "active", detail: "Sinus tachycardia likely related to shock/fever." },
+  { id: "A2", ts: "08:50", param: "SpO2", value: 94, limit: "< 95%", level: "high", status: "active", detail: "Oxygen saturation below configured threshold." },
+  { id: "A3", ts: "08:52", param: "ABP Systolic", value: 85, limit: "< 90 mmHg", level: "high", status: "active", detail: "Arterial pressure below perfusion goal." },
+  { id: "A4", ts: "08:54", param: "Temperature", value: 38.9, limit: "> 38.5 C", level: "medium", status: "active", detail: "Persistent fever despite antimicrobials." },
+  { id: "A5", ts: "09:00", param: "CVP", value: 14, limit: "> 12 mmHg", level: "medium", status: "active", detail: "Elevated filling pressure with ongoing resuscitation." }
+];
+
+const DEFAULT_LIMITS = {
+  hr_high: 120,
+  hr_low: 50,
+  spo2_low: 90,
+  abp_sys_high: 160,
+  abp_sys_low: 80,
+  abp_dia_high: 100,
+  abp_dia_low: 40,
+  cvp_high: 15,
+  cvp_low: 2,
+  rr_high: 30,
+  rr_low: 8,
+  temp_high: 38.5,
+  temp_low: 35,
+  etco2_high: 45,
+  etco2_low: 25
+};
+
+const BASE_LINES = [
+  "7.5 mm endotracheal tube secured at 22 cm",
+  "Left radial arterial line, waveform present",
+  "Right internal jugular central venous catheter",
+  "Foley catheter to gravity drainage",
+  "Orogastric tube to low intermittent suction"
+];
+
+const BASE_PRIORITIES = [
+  "Maintain MAP at or above 65 mmHg while titrating vasopressor support.",
+  "Trend temperature and source-control status for persistent sepsis.",
+  "Monitor urine output closely for renal perfusion response.",
+  "Reassess oxygenation after suctioning and secretion clearance."
+];
+
+const BASE_RECENT_ACTIONS = [
+  "08:25: Blood culture set 2 drawn from peripheral site.",
+  "08:32: Endotracheal suction performed for thick yellow secretions.",
+  "08:40: 250 mL normal saline bolus completed.",
+  "08:47: Surgical team updated on persistent hypotension and fever."
+];
+
+const BASE_RISKS = [
+  "High risk of hemodynamic instability due to distributive shock.",
+  "Risk of worsening hypoxemia during secretion burden or repositioning.",
+  "Risk of delirium and oversedation while receiving continuous propofol.",
+  "Risk of renal injury with low hourly urine output."
+];
+
+const BASE_LABS = [
+  { name: "Lactate", value: "3.4 mmol/L", flag: "high", note: "Improved from 4.8 but still elevated." },
+  { name: "WBC", value: "17.9 x10^9/L", flag: "high", note: "Persistent leukocytosis." },
+  { name: "Creatinine", value: "1.8 mg/dL", flag: "high", note: "Above baseline 0.9 mg/dL." },
+  { name: "pH", value: "7.31", flag: "low", note: "Mild acidemia." },
+  { name: "PaCO2", value: "47 mmHg", flag: "borderline", note: "Slightly elevated with ventilator support." },
+  { name: "PaO2", value: "78 mmHg", flag: "low", note: "On FiO2 60%." },
+  { name: "HCO3", value: "22 mmol/L", flag: "borderline", note: "Compensatory reserve limited." },
+  { name: "Platelets", value: "118 x10^9/L", flag: "low", note: "Monitor for sepsis-associated thrombocytopenia." }
+];
+
+const BASE_LAB_INTERPRETATION = [
+  "Lactate remains elevated, suggesting ongoing tissue hypoperfusion despite resuscitation.",
+  "Creatinine is above baseline, consistent with early acute kidney injury.",
+  "Gas exchange remains marginal on FiO2 60% and PEEP 10 cmH2O.",
+  "Leukocytosis and fever support ongoing infectious physiology."
+];
+
+const BASE_TREND_EVENTS = [
+  "06:30: Vasopressor requirement increased after transient MAP drop.",
+  "07:10: SpO2 improved briefly after inline suctioning.",
+  "08:00: Fluid bolus started for persistent low arterial pressure.",
+  "08:50: SpO2 and ABP alarms triggered simultaneously during repositioning."
+];
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function seededRandom(seed) {
+  let state = seed % 2147483647;
+  if (state <= 0) {
+    state += 2147483646;
+  }
+  return function nextRandom() {
+    state = state * 16807 % 2147483647;
+    return (state - 1) / 2147483646;
+  };
+}
+
+let randomGenerator = seededRandom(42);
+let pendingRateChange = null;
+
+function generateTrends(seed) {
+  const generator = seededRandom(seed);
+  const series = {
+    hr: [],
+    spo2: [],
+    abp_sys: [],
+    temp: [],
+    rr: [],
+    cvp: []
+  };
+  for (let index = 0; index < 48; index += 1) {
+    const noise = (scale) => (generator() - 0.5) * scale;
+    series.hr.push(Math.round(BASE_VITALS.hr + Math.sin(index / 7) * 5 + noise(6)));
+    series.spo2.push(Math.max(88, Math.min(100, Math.round(BASE_VITALS.spo2 + Math.sin(index / 5) * 2 + noise(3)))));
+    series.abp_sys.push(Math.round(BASE_VITALS.abp_sys + Math.cos(index / 8) * 4 + noise(8)));
+    series.temp.push(Number((BASE_VITALS.temp + Math.sin(index / 12) * 0.3 + noise(0.4)).toFixed(1)));
+    series.rr.push(Math.round(BASE_VITALS.rr + Math.sin(index / 6) * 2 + noise(3)));
+    series.cvp.push(Math.round(BASE_VITALS.cvp + Math.cos(index / 9) * 1.5 + noise(2)));
+  }
+  return series;
+}
+
+function recalcFluidTotals() {
+  const fluidBalance = window._taskState.fluidBalance;
+  const totalIn = fluidBalance.intake.reduce((sum, entry) => sum + Number(entry.vol || 0), 0);
+  const totalOut = fluidBalance.output.reduce((sum, entry) => sum + Number(entry.vol || 0), 0);
+  fluidBalance.totalIn = totalIn;
+  fluidBalance.totalOut = totalOut;
+  fluidBalance.balance = totalIn - totalOut;
+  fluidBalance.totalIntake = totalIn;
+  fluidBalance.totalOutput = totalOut;
+  fluidBalance.netBalance = totalIn - totalOut;
+}
+
+function initializeState(seed = 42) {
+  randomGenerator = seededRandom(seed);
+  const taskState = window._taskState;
+  taskState.initialized = true;
+  taskState.loggedIn = false;
+  taskState.currentUser = null;
+  taskState.currentTab = "monitor";
+  taskState.tabsVisited = ["monitor"];
+  taskState.patient = clone(PATIENT);
+  taskState.vitalSigns = clone(BASE_VITALS);
+  taskState.infusions = clone(BASE_INFUSIONS);
+  taskState.infusionChanges = [];
+  taskState.infusionAdjustments = [];
+  taskState.ventilator = clone(BASE_VENT);
+  taskState.ventChanges = [];
+  taskState.alarms = clone(BASE_ALARMS);
+  taskState.alarmsAcknowledged = [];
+  taskState.alarmsSilenced = [];
+  taskState.alarmLimitChanges = [];
+  taskState.alarmLimits = clone(DEFAULT_LIMITS);
+  taskState.nursingNotes = [];
+  taskState.fluidEntries = [];
+  taskState.labs = clone(BASE_LABS);
+  taskState.bedsideEvents = clone(BASE_RECENT_ACTIONS);
+  taskState.trends = generateTrends(seed);
+  taskState.fluidBalance = {
+    intake: clone(BASE_FLUID_IN),
+    output: clone(BASE_FLUID_OUT),
+    intakeEntries: [],
+    outputEntries: []
+  };
+  recalcFluidTotals();
+}
+
+window._medgym_init = initializeState;
+window._medgym_navigate = function navigateTo(hashValue) {
+  if (hashValue) {
+    switchTab(hashValue);
+  }
+};
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById("headerTime").textContent = now.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function doLogin() {
+  const username = document.getElementById("loginUser").value.trim();
+  const password = document.getElementById("loginPass").value;
+  const loginError = document.getElementById("loginError");
+
+  if (username !== "admin" || password !== "icu123") {
+    loginError.textContent = "Invalid credentials. Use the bedside training account shown on the screen.";
+    return;
+  }
+
+  if (!window._taskState.initialized) {
+    initializeState(42);
+  }
+
+  const taskState = window._taskState;
+  taskState.loggedIn = true;
+  taskState.currentUser = username;
+
+  document.getElementById("loginPage").style.display = "none";
+  document.getElementById("mainApp").style.display = "flex";
+  loginError.textContent = "";
+
+  const patient = taskState.patient;
+  document.getElementById("headerBed").textContent = patient.bed;
+  document.getElementById("headerPatient").textContent = patient.name + " | " + patient.id;
+  document.getElementById("headerInfo").textContent = patient.sex + ", " + patient.age + " years, " + patient.weight + " kg | MRN " + patient.mrn;
+  document.getElementById("headerDiagnosis").textContent = patient.diagnosis + " | Code status: " + patient.codeStatus;
+  document.getElementById("headerUser").textContent = "User: " + username;
+
+  updateClock();
+  renderAll();
+}
+
+function ensureVisited(tabName) {
+  const taskState = window._taskState;
+  if (!taskState.tabsVisited.includes(tabName)) {
+    taskState.tabsVisited.push(tabName);
+  }
+}
+
+function switchTab(tabName) {
+  window._taskState.currentTab = tabName;
+  ensureVisited(tabName);
+
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.remove("active");
+  });
+  document.querySelectorAll("#mainNav button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  });
+
+  const panel = document.getElementById("tab-" + tabName);
+  if (panel) {
+    panel.classList.add("active");
+  }
+
+  if (tabName === "monitor") {
+    renderMonitor();
+  } else if (tabName === "hemodynamics") {
+    renderHemodynamics();
+  } else if (tabName === "fluid") {
+    renderFluid();
+  } else if (tabName === "infusion") {
+    renderInfusions();
+  } else if (tabName === "vent") {
+    renderVent();
+  } else if (tabName === "labs") {
+    renderLabs();
+  } else if (tabName === "alarms") {
+    renderAlarms();
+  } else if (tabName === "trends") {
+    renderTrends();
+  } else if (tabName === "notes") {
+    renderNotes();
+  }
+}
+
+function renderAll() {
+  renderAlarmStrip();
+  renderMonitor();
+}
+
+function renderAlarmStrip() {
+  const alarmStrip = document.getElementById("alarmStrip");
+  const visibleAlarms = window._taskState.alarms;
+  if (!visibleAlarms.length) {
+    alarmStrip.innerHTML = "<span class=\"alarm-tag ack\">No active bedside alarms</span>";
+    return;
+  }
+  alarmStrip.innerHTML = visibleAlarms.map((alarm) => {
+    const cssClass = alarm.status === "active" ? alarm.level : alarm.status;
+    return "<span class=\"alarm-tag " + cssClass + "\">" +
+      alarm.param + ": " + alarm.value + " (" + alarm.limit + ")" +
+      "</span>";
+  }).join("");
+}
+
+function buildMetricCard(label, value, subtext, color) {
+  return "<div class=\"metric-card\">" +
+    "<div class=\"metric-label\">" + label + "</div>" +
+    "<div class=\"metric-value\" style=\"color:" + color + "\">" + value + "</div>" +
+    "<div class=\"metric-sub\">" + subtext + "</div>" +
+    "</div>";
+}
+
+function renderMonitor() {
+  const taskState = window._taskState;
+  const vitals = taskState.vitalSigns;
+  const waveConfig = [
+    { label: "ECG II", key: "hr", color: "#4bff93", display: vitals.hr + " bpm" },
+    { label: "Pleth", key: "spo2", color: "#48d9ff", display: vitals.spo2 + "%" },
+    { label: "ART", key: "abp_sys", color: "#ff5f74", display: vitals.abp_sys + "/" + vitals.abp_dia + " mmHg" },
+    { label: "RESP", key: "rr", color: "#ffd34f", display: vitals.rr + "/min" },
+    { label: "ETCO2", key: "etco2", color: "#e6edf4", display: vitals.etco2 + " mmHg" }
+  ];
+
+  const waveArea = document.getElementById("waveArea");
+  waveArea.innerHTML = "";
+  waveConfig.forEach((config) => {
+    const strip = document.createElement("div");
+    strip.className = "wave-strip";
+    strip.innerHTML = "<span class=\"wave-label\" style=\"color:" + config.color + "\">" + config.label +
+      "</span><span class=\"wave-value\" style=\"color:" + config.color + "\">" + config.display + "</span>";
+    const canvas = document.createElement("canvas");
+    canvas.width = 960;
+    canvas.height = 80;
+    strip.appendChild(canvas);
+    waveArea.appendChild(strip);
+    drawWave(canvas, config.key, config.color);
+  });
+
+  document.getElementById("numericGrid").innerHTML = [
+    buildMetricCard("Heart Rate", vitals.hr, "Sinus rhythm with tachycardia", "#4bff93"),
+    buildMetricCard("SpO2", vitals.spo2 + "%", "Pulse oximetry", "#48d9ff"),
+    buildMetricCard("ABP", vitals.abp_sys + "/" + vitals.abp_dia, "MAP " + vitals.abp_mean + " mmHg", "#ff5f74"),
+    buildMetricCard("CVP", vitals.cvp, "Central venous pressure", "#7aa7ff"),
+    buildMetricCard("Respiratory Rate", vitals.rr, "Measured breaths per minute", "#ffd34f"),
+    buildMetricCard("ETCO2", vitals.etco2, "End-tidal carbon dioxide", "#f0f5fb"),
+    buildMetricCard("Temperature", vitals.temp + " C", "Core temperature", "#ff86d1"),
+    buildMetricCard("Lactate", vitals.lactate + " mmol/L", "Latest point-of-care trend", "#ff9850")
+  ].join("");
+
+  const patient = taskState.patient;
+  document.getElementById("patientSummary").innerHTML = [
+    buildMiniCard("Service", patient.service),
+    buildMiniCard("Code Status", patient.codeStatus),
+    buildMiniCard("Sedation Goal", patient.sedationGoal),
+    buildMiniCard("Airway", patient.airway),
+    buildMiniCard("Allergies", patient.allergies.join(", ")),
+    buildMiniCard("Admitted", patient.admit)
+  ].join("");
+
+  document.getElementById("linesList").innerHTML = BASE_LINES.map((line) => "<li>" + line + "</li>").join("");
+  document.getElementById("priorityList").innerHTML = BASE_PRIORITIES.map((item) => "<li>" + item + "</li>").join("");
+
+  const recentActions = BASE_RECENT_ACTIONS.concat(taskState.infusionChanges.slice(-2).map((change) => {
+    if (change.oldRate !== undefined) {
+      return formatTime(change.ts) + ": " + change.drug + " updated from " + change.oldRate + " to " + change.newRate + " mL/h.";
+    }
+    return formatTime(change.ts) + ": " + change.drug + " status changed to " + change.action + ".";
+  }));
+  document.getElementById("recentActionList").innerHTML = recentActions.slice(-5).map((item) => "<li>" + item + "</li>").join("");
+  document.getElementById("riskList").innerHTML = BASE_RISKS.map((risk) => "<div class=\"timeline-card\">" + risk + "</div>").join("");
+}
+
+function buildMiniCard(title, value) {
+  return "<div class=\"mini-card\"><div class=\"title\">" + title + "</div><div class=\"value\">" + value + "</div></div>";
+}
+
+function drawWave(canvas, key, color) {
+  const context = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const baseline = height / 2;
+  context.fillStyle = "#02090f";
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = "rgba(93, 138, 183, 0.12)";
+  context.lineWidth = 0.5;
+
+  for (let xPos = 0; xPos <= width; xPos += 28) {
+    context.beginPath();
+    context.moveTo(xPos, 0);
+    context.lineTo(xPos, height);
+    context.stroke();
+  }
+  for (let yPos = 0; yPos <= height; yPos += 20) {
+    context.beginPath();
+    context.moveTo(0, yPos);
+    context.lineTo(width, yPos);
+    context.stroke();
+  }
+
+  context.strokeStyle = color;
+  context.lineWidth = 1.8;
+  context.beginPath();
+
+  for (let xPos = 0; xPos < width; xPos += 1) {
+    let yPos = baseline;
+    if (key === "hr") {
+      const cycle = 78;
+      const phase = (xPos % cycle) / cycle;
+      if (phase < 0.1) {
+        yPos = baseline - 2;
+      } else if (phase < 0.14) {
+        yPos = baseline - 27;
+      } else if (phase < 0.19) {
+        yPos = baseline + 8;
+      } else if (phase < 0.34) {
+        yPos = baseline - Math.sin((phase - 0.19) / 0.15 * Math.PI) * 7;
+      } else {
+        yPos = baseline + Math.sin(phase * Math.PI * 2) * 1.5;
+      }
+    } else if (key === "spo2") {
+      const cycle = 82;
+      const phase = (xPos % cycle) / cycle;
+      if (phase < 0.18) {
+        yPos = baseline - Math.sin(phase / 0.18 * Math.PI) * 20;
+      } else if (phase < 0.32) {
+        yPos = baseline - 7 - Math.sin((phase - 0.18) / 0.14 * Math.PI) * 5;
+      } else {
+        yPos = baseline + Math.sin(phase * Math.PI * 2) * 1.5;
+      }
+    } else if (key === "abp_sys") {
+      const cycle = 80;
+      const phase = (xPos % cycle) / cycle;
+      if (phase < 0.08) {
+        yPos = baseline - 24;
+      } else if (phase < 0.14) {
+        yPos = baseline - 16;
+      } else if (phase < 0.3) {
+        yPos = baseline - 8 - Math.sin((phase - 0.14) / 0.16 * Math.PI) * 6;
+      } else {
+        yPos = baseline + 2 + Math.sin(phase * Math.PI * 2) * 1.2;
+      }
+    } else if (key === "rr") {
+      yPos = baseline - Math.sin(xPos * 0.038) * 18 + Math.sin(xPos * 0.009) * 2;
+    } else if (key === "etco2") {
+      const cycle = 92;
+      const phase = (xPos % cycle) / cycle;
+      if (phase < 0.15) {
+        yPos = baseline + 10;
+      } else if (phase < 0.4) {
+        yPos = baseline - 15;
+      } else if (phase < 0.55) {
+        yPos = baseline - 15 + (phase - 0.4) / 0.15 * 2;
+      } else {
+        yPos = baseline + 10 - Math.sin((phase - 0.55) / 0.45 * Math.PI) * 24;
+      }
+    }
+
+    if (xPos === 0) {
+      context.moveTo(xPos, yPos);
+    } else {
+      context.lineTo(xPos, yPos);
+    }
+  }
+
+  context.stroke();
+}
+
+function renderHemodynamics() {
+  const vitals = window._taskState.vitalSigns;
+  document.getElementById("hemodynamicGrid").innerHTML = [
+    buildMiniCard("MAP", vitals.abp_mean + " mmHg"),
+    buildMiniCard("ABP", vitals.abp_sys + "/" + vitals.abp_dia + " mmHg"),
+    buildMiniCard("CVP", vitals.cvp + " mmHg"),
+    buildMiniCard("Urine Output", vitals.urine_hourly + " mL/hr"),
+    buildMiniCard("Heart Rate", vitals.hr + " bpm"),
+    buildMiniCard("Lactate", vitals.lactate + " mmol/L"),
+    buildMiniCard("Temperature", vitals.temp + " C"),
+    buildMiniCard("Perfusion Goal", "MAP >= 65")
+  ].join("");
+
+  const rows = [
+    ["MAP", vitals.abp_mean + " mmHg", ">= 65 mmHg", vitals.abp_mean >= 65 ? "At target." : "Below target, vasopressor support remains necessary."],
+    ["Systolic pressure", vitals.abp_sys + " mmHg", ">= 90 mmHg", vitals.abp_sys >= 90 ? "Adequate arterial pressure." : "Low systolic pressure with shock physiology."],
+    ["CVP", vitals.cvp + " mmHg", "8-12 mmHg", vitals.cvp > 12 ? "Elevated filling pressure." : "Within resuscitation target."],
+    ["Urine output", vitals.urine_hourly + " mL/hr", ">= 0.5 mL/kg/hr", vitals.urine_hourly >= 41 ? "Renal perfusion acceptable." : "Borderline low for body weight."],
+    ["Lactate", vitals.lactate + " mmol/L", "Down-trending", vitals.lactate <= 2 ? "Normalized." : "Ongoing hypoperfusion signal."],
+    ["Fever burden", vitals.temp + " C", "< 38.5 C", vitals.temp < 38.5 ? "Within goal." : "Persistent inflammatory/infectious burden." ]
+  ];
+
+  document.getElementById("hemodynamicTable").innerHTML = rows.map((row) => {
+    return "<tr><td>" + row[0] + "</td><td>" + row[1] + "</td><td>" + row[2] + "</td><td>" + row[3] + "</td></tr>";
+  }).join("");
+}
+
+function renderFluid() {
+  recalcFluidTotals();
+  const fluidBalance = window._taskState.fluidBalance;
+  document.getElementById("balanceSummary").innerHTML = [
+    buildMiniCard("Total Intake", fluidBalance.totalIn + " mL"),
+    buildMiniCard("Total Output", fluidBalance.totalOut + " mL"),
+    buildMiniCard("Net Balance", (fluidBalance.balance > 0 ? "+" : "") + fluidBalance.balance + " mL")
+  ].join("");
+
+  document.getElementById("intakeBody").innerHTML = fluidBalance.intake.map((entry) => {
+    return "<tr><td>" + entry.ts + "</td><td>" + entry.type + "</td><td>" + entry.item + "</td><td>" + entry.vol + "</td></tr>";
+  }).join("");
+
+  document.getElementById("outputBody").innerHTML = fluidBalance.output.map((entry) => {
+    return "<tr><td>" + entry.ts + "</td><td>" + entry.type + "</td><td>" + entry.item + "</td><td>" + entry.vol + "</td></tr>";
+  }).join("");
+}
+
+function currentClockText() {
+  return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function addIntake() {
+  const type = document.getElementById("intakeType").value;
+  const item = document.getElementById("intakeItem").value.trim();
+  const volume = Number(document.getElementById("intakeVol").value);
+  if (!item || !volume || volume <= 0) {
+    return;
+  }
+  const entry = { ts: currentClockText(), type: type, item: item, vol: volume };
+  const fluidBalance = window._taskState.fluidBalance;
+  fluidBalance.intake.push(entry);
+  fluidBalance.intakeEntries.push(entry);
+  window._taskState.fluidEntries.push({ direction: "intake", ...entry });
+  document.getElementById("intakeItem").value = "";
+  document.getElementById("intakeVol").value = "";
+  renderFluid();
+}
+
+function addOutput() {
+  const type = document.getElementById("outputType").value;
+  const item = document.getElementById("outputItem").value.trim();
+  const volume = Number(document.getElementById("outputVol").value);
+  if (!item || !volume || volume <= 0) {
+    return;
+  }
+  const entry = { ts: currentClockText(), type: type, item: item, vol: volume };
+  const fluidBalance = window._taskState.fluidBalance;
+  fluidBalance.output.push(entry);
+  fluidBalance.outputEntries.push(entry);
+  window._taskState.fluidEntries.push({ direction: "output", ...entry });
+  document.getElementById("outputItem").value = "";
+  document.getElementById("outputVol").value = "";
+  renderFluid();
+}
+
+function renderInfusions() {
+  const list = document.getElementById("infusionList");
+  list.innerHTML = window._taskState.infusions.map((infusion, index) => {
+    const statusClass = infusion.status === "running" ? "status-running" : "status-paused";
+    const doseBlock = infusion.doseRate === null
+      ? "<div class=\"dim\">No weight-based dose</div>"
+      : "<div><div class=\"dim\">Dose</div><input type=\"number\" step=\"0.01\" id=\"dose_" + index + "\" value=\"" + infusion.doseRate + "\"></div>";
+
+    return "<div class=\"med-card\">" +
+      "<div><div class=\"name\">" + infusion.drug + "</div><div class=\"meta\">" + infusion.concentration + " | " + infusion.route + "</div><div class=\"meta\">Target: " + infusion.target + "</div></div>" +
+      "<div class=\"dose-inputs\"><div><div class=\"dim\">Rate</div><input type=\"number\" step=\"0.1\" id=\"rate_" + index + "\" value=\"" + infusion.rate + "\"></div>" +
+      doseBlock + "</div>" +
+      "<div><div class=\"dim\">Dose unit</div><div style=\"margin-top:8px;font-weight:700\">" + infusion.doseUnit + "</div></div>" +
+      "<div><div class=\"dim\">VTBI / infused</div><div style=\"margin-top:8px;font-weight:700\">" + infusion.vtbi + " / " + infusion.infused + " mL</div></div>" +
+      "<div><div class=\"" + statusClass + "\">" + infusion.status.toUpperCase() + "</div><div style=\"display:grid;gap:8px;margin-top:8px\"><button class=\"secondary-btn\" onclick=\"saveInfusion(" + index + ")\">Save</button><button class=\"" + (infusion.status === "running" ? "danger-btn" : "primary-btn") + "\" onclick=\"toggleInfusion(" + index + ")\">" + (infusion.status === "running" ? "Pause" : "Resume") + "</button></div></div>" +
+      "</div>";
+  }).join("");
+}
+
+function saveInfusion(index) {
+  const infusion = window._taskState.infusions[index];
+  const oldRate = Number(infusion.rate);
+  const newRate = Number(document.getElementById("rate_" + index).value);
+  const doseInput = document.getElementById("dose_" + index);
+  const newDose = doseInput ? Number(doseInput.value) : null;
+
+  if (!newRate || newRate <= 0) {
+    return;
+  }
+
+  const changePercent = oldRate === 0 ? 100 : Math.abs(newRate - oldRate) / oldRate * 100;
+  if (changePercent > 20) {
+    pendingRateChange = { index: index, newRate: newRate, newDose: newDose };
+    document.getElementById("rateModalMsg").innerHTML =
+      "Requested rate change for <strong>" + infusion.drug + "</strong>: " + oldRate + " to " + newRate +
+      " mL/h. Large infusion changes require explicit confirmation.";
+    document.getElementById("rateModal").classList.add("show");
+    return;
+  }
+
+  applyInfusionChange(index, newRate, newDose);
+}
+
+function applyInfusionChange(index, newRate, newDose) {
+  const infusion = window._taskState.infusions[index];
+  const oldRate = Number(infusion.rate);
+  const oldDose = infusion.doseRate;
+  infusion.rate = newRate;
+  if (infusion.doseRate !== null && newDose !== null && !Number.isNaN(newDose)) {
+    infusion.doseRate = newDose;
+  } else if (infusion.doseRate !== null && oldRate > 0) {
+    infusion.doseRate = Number((oldDose * newRate / oldRate).toFixed(2));
+  }
+
+  const entry = {
+    infusionId: infusion.id,
+    drug: infusion.drug,
+    oldRate: oldRate,
+    newRate: newRate,
+    oldDoseRate: oldDose,
+    newDoseRate: infusion.doseRate,
+    ts: new Date().toISOString()
+  };
+  window._taskState.infusionChanges.push(entry);
+  window._taskState.infusionAdjustments.push(entry);
+  renderInfusions();
+  renderMonitor();
+}
+
+function confirmRateChange() {
+  if (pendingRateChange) {
+    applyInfusionChange(pendingRateChange.index, pendingRateChange.newRate, pendingRateChange.newDose);
+    pendingRateChange = null;
+  }
+  closeRateModal();
+}
+
+function closeRateModal() {
+  document.getElementById("rateModal").classList.remove("show");
+}
+
+function toggleInfusion(index) {
+  const infusion = window._taskState.infusions[index];
+  infusion.status = infusion.status === "running" ? "paused" : "running";
+  const change = {
+    infusionId: infusion.id,
+    drug: infusion.drug,
+    action: infusion.status,
+    ts: new Date().toISOString()
+  };
+  window._taskState.infusionChanges.push(change);
+  renderInfusions();
+  renderMonitor();
+}
+
+function renderVent() {
+  const ventilator = window._taskState.ventilator;
+  document.getElementById("ventMode").value = ventilator.mode;
+  document.getElementById("vent_fio2").value = ventilator.fio2;
+  document.getElementById("vent_peep").value = ventilator.peep;
+  document.getElementById("vent_tv_set").value = ventilator.tv_set;
+  document.getElementById("vent_rr_set").value = ventilator.rr_set;
+  document.getElementById("vent_ie").value = ventilator.ie;
+
+  document.getElementById("ventGrid").innerHTML = [
+    buildMiniCard("Mode", ventilator.mode),
+    buildMiniCard("FiO2", ventilator.fio2 + "%"),
+    buildMiniCard("PEEP", ventilator.peep + " cmH2O"),
+    buildMiniCard("Set Tidal Volume", ventilator.tv_set + " mL")
+  ].join("");
+
+  document.getElementById("ventMeasured").innerHTML = [
+    buildMiniCard("Measured Tidal Volume", ventilator.tv_meas + " mL"),
+    buildMiniCard("Measured Respiratory Rate", ventilator.rr_meas + "/min"),
+    buildMiniCard("Peak Pressure", ventilator.ppeak + " cmH2O"),
+    buildMiniCard("Minute Ventilation", ventilator.mv + " L/min"),
+    buildMiniCard("Pmean", ventilator.pmean + " cmH2O"),
+    buildMiniCard("Compliance", ventilator.compliance + " mL/cmH2O"),
+    buildMiniCard("PIP", ventilator.pip + " cmH2O"),
+    buildMiniCard("Plateau", ventilator.plateau + " cmH2O")
+  ].join("");
+}
+
+function saveVentChanges() {
+  const ventilator = window._taskState.ventilator;
+  const nextValues = {
+    mode: document.getElementById("ventMode").value,
+    fio2: Number(document.getElementById("vent_fio2").value),
+    peep: Number(document.getElementById("vent_peep").value),
+    tv_set: Number(document.getElementById("vent_tv_set").value),
+    rr_set: Number(document.getElementById("vent_rr_set").value),
+    ie: document.getElementById("vent_ie").value.trim()
+  };
+
+  Object.keys(nextValues).forEach((field) => {
+    if (String(ventilator[field]) !== String(nextValues[field])) {
+      window._taskState.ventChanges.push({
+        field: field,
+        oldValue: ventilator[field],
+        newValue: nextValues[field],
+        ts: new Date().toISOString()
+      });
+      ventilator[field] = nextValues[field];
+    }
+  });
+
+  renderVent();
+}
+
+function renderLabs() {
+  document.getElementById("labsGrid").innerHTML = window._taskState.labs.map((lab) => {
+    const color = lab.flag === "high" ? "#ff9850" : lab.flag === "low" ? "#ff5f74" : "#48d9ff";
+    return "<div class=\"lab-card\"><div class=\"title dim\">" + lab.name + "</div><div class=\"value\" style=\"font-size:24px;color:" + color + "\">" + lab.value + "</div><div class=\"dim\" style=\"margin-top:8px\">" + lab.note + "</div></div>";
+  }).join("");
+
+  document.getElementById("labInterpretationList").innerHTML = BASE_LAB_INTERPRETATION.map((item) => {
+    return "<div class=\"timeline-card\">" + item + "</div>";
+  }).join("");
+}
+
+function renderAlarms() {
+  const alarmList = document.getElementById("alarmList");
+  alarmList.innerHTML = window._taskState.alarms.map((alarm) => {
+    const rowClass = alarm.status === "active" ? "alarm-row active" : "alarm-row";
+    const actions = alarm.status === "active"
+      ? "<button class=\"warning-btn\" onclick=\"ackAlarm('" + alarm.id + "')\">Acknowledge</button> <button class=\"secondary-btn\" onclick=\"silenceAlarm('" + alarm.id + "')\">Silence</button>"
+      : "<span class=\"dim\">No further action</span>";
+
+    return "<div class=\"" + rowClass + "\">" +
+      "<div>" + alarm.ts + "</div>" +
+      "<div style=\"font-weight:700\">" + alarm.param + "</div>" +
+      "<div><div style=\"font-weight:700\">" + alarm.value + " | " + alarm.limit + "</div><div class=\"dim\" style=\"margin-top:4px\">" + alarm.detail + "</div></div>" +
+      "<div><span class=\"alarm-tag " + (alarm.status === "active" ? alarm.level : alarm.status) + "\">" + alarm.status + "</span></div>" +
+      "<div>" + actions + "</div>" +
+      "</div>";
+  }).join("");
+}
+
+function ackAlarm(alarmId) {
+  const alarm = window._taskState.alarms.find((entry) => entry.id === alarmId);
+  if (!alarm) {
+    return;
+  }
+  alarm.status = "ack";
+  window._taskState.alarmsAcknowledged.push({ id: alarmId, ts: new Date().toISOString(), param: alarm.param });
+  renderAlarmStrip();
+  renderAlarms();
+}
+
+function silenceAlarm(alarmId) {
+  const alarm = window._taskState.alarms.find((entry) => entry.id === alarmId);
+  if (!alarm) {
+    return;
+  }
+  alarm.status = "silenced";
+  window._taskState.alarmsSilenced.push({ id: alarmId, ts: new Date().toISOString(), param: alarm.param });
+  renderAlarmStrip();
+  renderAlarms();
+}
+
+function ackAllAlarms() {
+  window._taskState.alarms.forEach((alarm) => {
+    if (alarm.status === "active") {
+      alarm.status = "ack";
+      window._taskState.alarmsAcknowledged.push({ id: alarm.id, ts: new Date().toISOString(), param: alarm.param });
+    }
+  });
+  renderAlarmStrip();
+  renderAlarms();
+}
+
+function silenceAll() {
+  window._taskState.alarms.forEach((alarm) => {
+    if (alarm.status === "active") {
+      alarm.status = "silenced";
+      window._taskState.alarmsSilenced.push({ id: alarm.id, ts: new Date().toISOString(), param: alarm.param });
+    }
+  });
+  renderAlarmStrip();
+  renderAlarms();
+}
+
+function showLimitModal() {
+  const fields = Object.entries(window._taskState.alarmLimits).map(([key, value]) => {
+    return "<div class=\"modal-row\"><label for=\"lim_" + key + "\">" + key + "</label><input id=\"lim_" + key + "\" type=\"number\" value=\"" + value + "\"></div>";
+  }).join("");
+  document.getElementById("limitFields").innerHTML = fields;
+  document.getElementById("limitModal").classList.add("show");
+}
+
+function closeLimitModal() {
+  document.getElementById("limitModal").classList.remove("show");
+}
+
+function saveLimits() {
+  Object.keys(window._taskState.alarmLimits).forEach((key) => {
+    const input = document.getElementById("lim_" + key);
+    if (!input) {
+      return;
+    }
+    const nextValue = Number(input.value);
+    if (window._taskState.alarmLimits[key] !== nextValue) {
+      window._taskState.alarmLimitChanges.push({
+        param: key,
+        oldValue: window._taskState.alarmLimits[key],
+        newValue: nextValue,
+        ts: new Date().toISOString()
+      });
+      window._taskState.alarmLimits[key] = nextValue;
+    }
+  });
+  closeLimitModal();
+}
+
+function renderTrends() {
+  const param = document.getElementById("trendParam").value;
+  const range = document.getElementById("trendRange").value;
+  const fullSeries = window._taskState.trends[param] || [];
+  const visibleSeries = range === "24h" ? fullSeries : fullSeries.slice(-24);
+  const caption = "Showing " + (range === "24h" ? "24" : "12") + " hours for " + document.getElementById("trendParam").selectedOptions[0].text + ".";
+  document.getElementById("trendCaption").textContent = caption;
+
+  const canvas = document.getElementById("trendCanvas");
+  const context = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  context.fillStyle = "#02090f";
+  context.fillRect(0, 0, width, height);
+
+  context.strokeStyle = "rgba(93, 138, 183, 0.14)";
+  context.lineWidth = 1;
+  for (let xPos = 60; xPos <= width - 20; xPos += 100) {
+    context.beginPath();
+    context.moveTo(xPos, 20);
+    context.lineTo(xPos, height - 40);
+    context.stroke();
+  }
+  for (let yPos = 30; yPos <= height - 40; yPos += 45) {
+    context.beginPath();
+    context.moveTo(60, yPos);
+    context.lineTo(width - 20, yPos);
+    context.stroke();
+  }
+
+  if (!visibleSeries.length) {
+    return;
+  }
+
+  const minValue = Math.min(...visibleSeries);
+  const maxValue = Math.max(...visibleSeries);
+  const colors = {
+    hr: "#4bff93",
+    spo2: "#48d9ff",
+    abp_sys: "#ff5f74",
+    temp: "#ff86d1",
+    rr: "#ffd34f",
+    cvp: "#7aa7ff"
+  };
+  const color = colors[param] || "#48d9ff";
+  const yMin = minValue - (maxValue - minValue || 1) * 0.15;
+  const yMax = maxValue + (maxValue - minValue || 1) * 0.15;
+
+  context.strokeStyle = color;
+  context.lineWidth = 3;
+  context.beginPath();
+  visibleSeries.forEach((value, index) => {
+    const xPos = 60 + index / Math.max(visibleSeries.length - 1, 1) * (width - 80);
+    const yPos = height - 40 - (value - yMin) / (yMax - yMin || 1) * (height - 70);
+    if (index === 0) {
+      context.moveTo(xPos, yPos);
+    } else {
+      context.lineTo(xPos, yPos);
+    }
+  });
+  context.stroke();
+
+  context.fillStyle = "#9bb1c6";
+  context.font = "12px IBM Plex Sans, sans-serif";
+  context.fillText(param.toUpperCase() + " | min " + minValue + " | max " + maxValue, 60, 18);
+
+  document.getElementById("trendEventList").innerHTML = BASE_TREND_EVENTS.map((item) => {
+    return "<div class=\"timeline-card\">" + item + "</div>";
+  }).join("");
+}
+
+function renderNotes() {
+  const notes = window._taskState.nursingNotes;
+  if (!notes.length) {
+    document.getElementById("notesList").innerHTML = "<div class=\"timeline-card\">No bedside notes entered during this session.</div>";
+    return;
+  }
+  document.getElementById("notesList").innerHTML = notes.slice().reverse().map((note) => {
+    return "<div class=\"note-item\"><div class=\"note-top\"><span class=\"note-type\">" + note.type + "</span><span>" + note.ts + " | " + note.by + "</span></div><div>" + note.text + "</div></div>";
+  }).join("");
+}
+
+function addNote() {
+  const type = document.getElementById("noteType").value;
+  const text = document.getElementById("noteText").value.trim();
+  if (!text) {
+    return;
+  }
+  window._taskState.nursingNotes.push({
+    type: type,
+    text: text,
+    ts: currentClockText(),
+    by: window._taskState.currentUser || "unknown"
+  });
+  document.getElementById("noteText").value = "";
+  renderNotes();
+}
+
+function formatTime(isoString) {
+  if (!isoString) {
+    return currentClockText();
+  }
+  return new Date(isoString).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initializeState(42);
+  updateClock();
+  setInterval(updateClock, 30000);
+});
+</script>
+</body>
+</html>

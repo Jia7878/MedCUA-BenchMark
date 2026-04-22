@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: EVIS X1 Endoscopy Workstation
+
+  REAL-WORLD REFERENCES:
+  1. Olympus EVIS X1 Endoscopy System (CV-1500 Video System Center, CLV-S200 XENON Light Source)
+  2. Olympus GIF-XZ1200 / CF-HQ1200I/L endoscopes
+  3. Olympus ENDO-AID CADe (Computer-Aided Detection)
+  4. ASGE Quality Indicators for GI Endoscopic Procedures (GIE 2015; 2020 update)
+  5. Boston Bowel Preparation Scale (BBPS) — Lai et al., GIE 2009
+  6. Paris Classification of Superficial Neoplastic Lesions (Gastrointest Endosc 2003)
+  7. NICE Classification for colorectal polyps
+  8. AGA Guidelines for Colonoscopy Surveillance (Gastroenterology 2020)
+  9. ASA Physical Status Classification System
+  10. WHO Surgical Safety Checklist (adapted for endoscopy)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EVIS X1 — Endoscopy Workstation</title>
+<style>
+:root{
+  --bg:#080b10;--panel:#10141c;--panel2:#161c28;--border:#1e2838;--border2:#2a354a;
+  --text:#c4d0e4;--dim:#5a6a82;--bright:#e0e8f4;
+  --accent:#e67e22;--accent2:#2980b9;--olympus-blue:#0069b4;
+  --success:#27ae60;--danger:#e74c3c;--warning:#f1c40f;--info:#3498db;
+  --mono:'Consolas','SF Mono','Courier New',monospace;
+  --sans:'Segoe UI','SF Pro Display',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:12px;overflow:hidden;height:100vh}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+.hidden{display:none!important}
+
+/* ── Login ── */
+#loginPage{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#060810 0%,#0c1220 50%,#101828 100%)}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:40px 44px;width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.login-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
+.login-logo .brand{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:1px}
+.login-logo .system{font-size:13px;color:var(--olympus-blue);font-weight:600}
+.login-sub{color:var(--dim);font-size:11px;margin-bottom:20px}
+.login-info{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:18px;font-size:11px;color:var(--dim);text-align:left}
+.login-info .unit{font-weight:600;color:var(--text)}
+.login-box input{width:100%;padding:10px 12px;margin:5px 0;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;transition:.2s}
+.login-box input:focus{border-color:var(--accent);outline:none}
+.login-box .btn-login{width:100%;padding:11px;margin-top:14px;background:linear-gradient(135deg,#d35400,#e67e22);border:none;border-radius:5px;color:#fff;font-weight:700;font-size:14px;letter-spacing:.5px}
+.login-err{color:var(--danger);font-size:11px;margin-top:8px;display:none}
+.login-footer{margin-top:16px;font-size:10px;color:var(--dim)}
+
+/* ── Main App ── */
+#mainApp{display:none;height:100vh;flex-direction:column}
+
+/* Top bar */
+.top-bar{display:flex;align-items:center;padding:0 12px;background:#060810;border-bottom:1px solid var(--border);height:38px;gap:10px;font-size:11px}
+.top-bar .logo{display:flex;align-items:center;gap:6px}
+.top-bar .logo .name{color:var(--accent);font-weight:800;font-size:14px;letter-spacing:.5px}
+.top-bar .logo .sys{color:var(--olympus-blue);font-size:10px;font-weight:600;padding:1px 6px;border:1px solid var(--olympus-blue);border-radius:3px}
+.top-bar .sep{color:var(--border);margin:0 2px}
+.top-bar .info{color:var(--dim);font-size:11px}
+.top-bar .patient-label{color:var(--bright);font-weight:600}
+
+/* Status indicators */
+.sys-status{display:flex;gap:8px;margin-left:auto;margin-right:10px}
+.sys-ind{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--dim)}
+.sys-dot{width:7px;height:7px;border-radius:50%}
+.sys-dot.on{background:var(--success);box-shadow:0 0 4px var(--success)}
+.sys-dot.off{background:var(--danger)}
+.sys-dot.warn{background:var(--warning)}
+.rec-ind{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--danger);font-weight:700}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.top-bar .clock{font-family:var(--mono);color:var(--dim);font-size:12px}
+.top-bar .btn-sm{padding:3px 10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px}
+.top-bar .btn-sm:hover{background:rgba(255,255,255,.1)}
+
+/* Nav bar */
+.nav-bar{display:flex;background:#060810;border-bottom:1px solid var(--border)}
+.nav-btn{padding:7px 20px;background:transparent;border:none;color:var(--dim);font-size:12px;font-weight:600;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.3px}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Main content */
+.main{flex:1;overflow-y:auto;padding:10px}
+
+/* Tables */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:#060810;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);border-bottom:2px solid var(--accent);position:sticky;top:0;z-index:1}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
+.tbl tr:hover{background:rgba(230,126,34,.04)}
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-block}
+.badge-scheduled{background:rgba(52,152,219,.15);color:var(--info)}
+.badge-inprogress{background:rgba(230,126,34,.15);color:var(--accent)}
+.badge-completed{background:rgba(39,174,96,.15);color:var(--success)}
+
+/* Cards */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:6px;margin-bottom:10px}
+.card-h{padding:9px 14px;font-size:12px;font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.card-h .card-tag{font-size:9px;color:var(--dim);font-weight:400;text-transform:uppercase;letter-spacing:.5px}
+.card-b{padding:12px 14px}
+
+/* Patient banner */
+.pt-banner{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:16px;margin-bottom:10px}
+.pt-banner .nm{font-size:15px;font-weight:700;color:var(--bright)}.pt-banner .det{font-size:11px;color:var(--dim)}
+.pt-banner .alert{font-size:11px;font-weight:700}
+
+/* Form */
+.fg{margin-bottom:8px}.fg label{display:block;font-size:11px;color:var(--dim);margin-bottom:3px;font-weight:600}
+.fc{width:100%;padding:7px 9px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px}
+.fc:focus{border-color:var(--accent);outline:none}
+.fc-sm{padding:5px 7px;font-size:11px}
+
+/* Buttons */
+.btn-p{padding:7px 18px;background:linear-gradient(135deg,#d35400,#e67e22);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
+.btn-s{padding:7px 18px;background:var(--success);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
+.btn-d{padding:7px 18px;background:var(--danger);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
+.btn-o{padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px}
+.btn-o:hover{border-color:var(--dim);background:rgba(255,255,255,.03)}
+.btn-blue{padding:7px 18px;background:var(--olympus-blue);border:none;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
+
+/* Checkboxes */
+.chk-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.chk-row input{width:16px;height:16px;accent-color:var(--accent)}
+.chk-row label{flex:1}
+
+/* ── Procedure View ── */
+.endo-view{display:grid;grid-template-columns:1fr 300px;gap:0;height:calc(100vh - 80px)}
+.endo-image{background:#000;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+/* Endoscope viewport simulation */
+.endo-viewport{width:82%;height:84%;border-radius:50%;background:radial-gradient(circle at 45% 40%,#d08060 0%,#b05040 15%,#803020 30%,#501515 50%,#200808 70%,#000 100%);position:relative;box-shadow:0 0 60px rgba(0,0,0,.8);overflow:hidden}
+.endo-viewport .vessel{position:absolute;background:linear-gradient(90deg,transparent,rgba(160,40,40,.3),transparent);height:2px;border-radius:1px}
+.endo-viewport .mucosa-detail{position:absolute;border-radius:50%;background:rgba(200,100,80,.15);border:1px solid rgba(200,100,80,.08)}
+
+/* Imaging mode overlay */
+.endo-image .img-mode-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:10}
+.img-mode-btn{padding:4px 12px;border:1px solid rgba(255,255,255,.2);border-radius:3px;font-size:10px;font-weight:700;background:rgba(0,0,0,.6);color:rgba(255,255,255,.6);font-family:var(--mono);letter-spacing:.5px}
+.img-mode-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(230,126,34,.15)}
+.img-mode-btn:hover{background:rgba(255,255,255,.1)}
+
+/* Image overlays */
+.endo-image .overlay-tl{position:absolute;top:8px;left:8px;color:#0f0;font-family:var(--mono);font-size:10px;line-height:1.6;text-shadow:0 0 4px rgba(0,0,0,.8)}
+.endo-image .overlay-tr{position:absolute;top:8px;right:312px;color:#0f0;font-family:var(--mono);font-size:10px;line-height:1.6;text-align:right;text-shadow:0 0 4px rgba(0,0,0,.8)}
+
+/* AI detection indicator */
+.ai-badge{padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;font-family:var(--mono)}
+.ai-badge.active{background:rgba(46,204,113,.15);border:1px solid var(--success);color:var(--success)}
+.ai-badge.inactive{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4)}
+
+/* Vitals strip */
+.vitals-strip{position:absolute;bottom:40px;left:8px;display:flex;gap:12px}
+.vital-item{background:rgba(0,0,0,.7);padding:3px 8px;border-radius:3px;font-family:var(--mono);font-size:10px;border:1px solid rgba(255,255,255,.1)}
+.vital-item .v-label{color:var(--dim);font-size:8px;display:block}.vital-item .v-val{font-weight:700}
+.vital-item.hr .v-val{color:#0f0}.vital-item.spo2 .v-val{color:#00bfff}.vital-item.bp .v-val{color:#ffa500}
+
+/* Control buttons */
+.ctrl-btn{padding:6px 14px;border:none;border-radius:4px;font-size:11px;font-weight:700;color:#fff}
+.ctrl-capture{background:var(--accent)}
+.ctrl-record{background:var(--danger)}
+.ctrl-record.recording{animation:blink 1s infinite}
+
+/* Sidebar */
+.endo-sidebar{overflow-y:auto;background:var(--panel);border-left:1px solid var(--border);padding:0;display:flex;flex-direction:column}
+.sidebar-section{border-bottom:1px solid var(--border);padding:8px 10px}
+.sidebar-section h4{font-size:10px;text-transform:uppercase;color:var(--dim);letter-spacing:.6px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.sidebar-section h4 .count{color:var(--accent);font-size:10px}
+
+/* Timer */
+.timer-display{font-family:var(--mono);font-size:18px;color:var(--accent);font-weight:700;text-align:center;padding:6px 0}
+
+/* Landmarks */
+.landmark-btn{padding:3px 8px;margin:2px;border:1px solid var(--border);border-radius:3px;font-size:10px;background:transparent;color:var(--dim);transition:.15s}
+.landmark-btn:hover{border-color:var(--dim)}
+.landmark-btn.marked{background:rgba(39,174,96,.12);border-color:var(--success);color:var(--success)}
+
+/* BBPS */
+.bbps-row{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.bbps-label{font-size:10px;color:var(--dim);width:80px;flex-shrink:0}
+.bbps-btn{padding:3px 8px;border:1px solid var(--border);border-radius:3px;font-size:11px;background:transparent;color:var(--text);min-width:26px;text-align:center}
+.bbps-btn.selected{background:rgba(230,126,34,.15);border-color:var(--accent);color:var(--accent)}
+
+/* Findings */
+.finding-item{font-size:11px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.finding-item .f-loc{color:var(--accent);font-weight:600}
+.finding-item .f-det{color:var(--dim)}
+
+/* Sedation */
+.sed-entry{font-size:10px;padding:2px 0;color:var(--dim);border-bottom:1px solid rgba(255,255,255,.03)}
+.sed-entry .sed-drug{color:var(--text);font-weight:600}
+.sed-entry .sed-time{color:var(--accent);font-family:var(--mono)}
+
+/* Specimens */
+.spec-item{font-size:10px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03);color:var(--dim)}
+.spec-item .spec-label{color:var(--text);font-weight:600}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.modal-header h3{font-size:14px;color:var(--bright)}.modal-header .close-btn{background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer}
+.modal-body{padding:16px}
+
+/* ── Grid helpers ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* ── Quality / Metrics ── */
+.metric-card{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:14px;text-align:center}
+.metric-card .m-val{font-size:28px;font-weight:800;color:var(--accent);font-family:var(--mono)}
+.metric-card .m-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.metric-card .m-target{font-size:9px;color:var(--dim);margin-top:2px}
+.metric-card.good .m-val{color:var(--success)}
+.metric-card.warn .m-val{color:var(--warning)}
+.metric-card.bad .m-val{color:var(--danger)}
+
+/* ── Equipment panel ── */
+.equip-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.equip-row .e-icon{width:28px;height:28px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.equip-row .e-name{font-weight:600;color:var(--bright)}.equip-row .e-model{color:var(--dim);font-size:11px}
+.equip-row .e-status{margin-left:auto;font-size:10px;font-weight:600}
+.equip-row .e-status.ok{color:var(--success)}.equip-row .e-status.err{color:var(--danger)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ LOGIN ════════════════════════ -->
+<div id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="brand">EVIS X1</span>
+      <span class="system">EndoView</span>
+    </div>
+    <div class="login-sub">Endoscopy Workstation v3.0 &middot; CV-1500 / CLV-S200</div>
+    <div class="login-info">
+      <div class="unit">GI Endoscopy Unit — Room 1 &amp; 2</div>
+      <div style="margin-top:4px;font-style:italic">Authorized endoscopy personnel only. All activity is logged.</div>
+      <div style="margin-top:6px;display:flex;gap:12px">
+        <span>CV-1500 <span style="color:var(--success)">&#9679;</span></span>
+        <span>CLV-S200 <span style="color:var(--success)">&#9679;</span></span>
+        <span>Network <span style="color:var(--success)">&#9679;</span></span>
+      </div>
+    </div>
+    <input id="loginUser" placeholder="Username" autocomplete="off">
+    <input id="loginPass" type="password" placeholder="Password">
+    <div class="login-err" id="loginErr">Invalid credentials. Contact IT Help Desk ext. 4500.</div>
+    <button class="btn-login" id="btnLogin">Sign In</button>
+    <div class="login-footer">Powered by Olympus EVIS X1 &middot; &copy; 2026 MedGym Simulation</div>
+  </div>
+</div>
+
+<!-- ════════════════════════ MAIN APP ════════════════════════ -->
+<div id="mainApp">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="logo">
+      <span class="name">EVIS X1</span>
+      <span class="sys">EndoView</span>
+    </div>
+    <span class="sep">|</span>
+    <span class="info" id="hdrUser">&mdash;</span>
+    <span class="sep">|</span>
+    <span class="patient-label" id="hdrPatient">No patient selected</span>
+
+    <div class="sys-status">
+      <div class="sys-ind"><span class="sys-dot on" id="dotProcessor"></span>CV-1500</div>
+      <div class="sys-ind"><span class="sys-dot on" id="dotLight"></span>CLV-S200</div>
+      <div class="sys-ind"><span class="sys-dot on" id="dotScope"></span>Scope</div>
+      <div class="sys-ind"><span class="sys-dot on" id="dotNetwork"></span>NET</div>
+      <div class="rec-ind hidden" id="recIndicator"><span class="rec-dot"></span>REC</div>
+    </div>
+
+    <span class="clock" id="hdrClock">--:--:--</span>
+    <button class="btn-sm" id="btnLogout">Sign Out</button>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-bar">
+    <button class="nav-btn active" data-page="worklist" onclick="showPage('worklist')">Worklist</button>
+    <button class="nav-btn" data-page="preassess" onclick="showPage('preassess')">Pre-Assessment</button>
+    <button class="nav-btn" data-page="procedure" onclick="showPage('procedure')">Procedure</button>
+    <button class="nav-btn" data-page="report" onclick="showPage('report')">Report</button>
+    <button class="nav-btn" data-page="quality" onclick="showPage('quality')">Quality</button>
+  </div>
+
+  <div class="main" id="mainContent"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
+
+<!-- ════════════════════════ JAVASCRIPT ════════════════════════ -->
+<script>
+(function(){
+"use strict";
+
+/* ── RNG (deterministic) ── */
+var _rng;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function rng(){return _rng();}
+function rI(a,b){return Math.floor(rng()*(b-a+1))+a;}
+function rP(a){return a[Math.floor(rng()*a.length)];}
+
+/* ── Helpers ── */
+function $(id){return document.getElementById(id);}
+function showPage(pid){S.currentPage=pid;document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.toggle('active',b.dataset.page===pid);});render();}
+window.showPage=showPage;
+function openModal(t,h){$('modalContent').innerHTML='<div class="modal-header"><h3>'+t+'</h3><button class="close-btn" onclick="closeModal()">&times;</button></div><div class="modal-body">'+h+'</div>';$('modalOverlay').classList.add('show');}
+function closeModal(){$('modalOverlay').classList.remove('show');}
+window.closeModal=closeModal;
+$('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+function updateClock(){var el=$('hdrClock');if(el)el.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
+setInterval(updateClock,1000);updateClock();
+
+/* ── Static Data ── */
+var PROCEDURES=['Colonoscopy','EGD (Upper Endoscopy)','Colonoscopy','EGD (Upper Endoscopy)','Colonoscopy','Sigmoidoscopy','EGD (Upper Endoscopy)','Colonoscopy'];
+var INDICATIONS=[
+  'Screening colonoscopy — average risk, age 50+',
+  'Dyspepsia / GERD evaluation — refractory symptoms',
+  'Surveillance — prior polypectomy (tubular adenoma 2023)',
+  'Dysphagia evaluation — progressive solid food dysphagia',
+  'Iron deficiency anemia workup — Hgb 9.2 g/dL',
+  'Rectal bleeding evaluation — bright red blood per rectum',
+  'Epigastric pain — H. pylori eradication follow-up',
+  'Positive FIT test follow-up — quantitative FIT 180 ng/mL'
+];
+var SCOPES=['CF-HQ1200I','GIF-XZ1200','CF-HQ1200L','GIF-XZ1200','CF-HQ1200I','CF-HQ1200I','GIF-XZ1200','CF-HQ1200I'];
+var ROOMS=['Endo Suite 1','Endo Suite 2','Endo Suite 1','Endo Suite 2','Endo Suite 1','Endo Suite 2','Endo Suite 1','Endo Suite 2'];
+var ANESTHESIA=['Moderate Sedation','Moderate Sedation','Moderate Sedation','Moderate Sedation','MAC','Moderate Sedation','Moderate Sedation','MAC'];
+
+var PATIENTS=[
+  {pid:'ENDO-001',name:'Zhang Wei',   dob:'1971-03-15',age:55,sex:'M',weight:78,height:175,allergies:[],meds:['Aspirin 100 mg daily'],pmh:['Hypertension','Hyperlipidemia'],asa:2,fasting:'8h NPO confirmed'},
+  {pid:'ENDO-002',name:'Li Fang',     dob:'1984-07-22',age:42,sex:'F',weight:56,height:162,allergies:['Penicillin — rash'],meds:[],pmh:['GERD'],asa:1,fasting:'10h NPO confirmed'},
+  {pid:'ENDO-003',name:'Wang Qiang',  dob:'1964-01-08',age:62,sex:'M',weight:82,height:170,allergies:[],meds:['Warfarin 2.5 mg daily','Lisinopril 10 mg daily','Atorvastatin 20 mg daily'],pmh:['Atrial fibrillation','Hypertension','Prior colonic polyps'],asa:2,fasting:'8h NPO confirmed'},
+  {pid:'ENDO-004',name:'Chen Jing',   dob:'1988-11-30',age:38,sex:'F',weight:52,height:158,allergies:['Latex — anaphylaxis'],meds:[],pmh:['Eosinophilic esophagitis (suspected)'],asa:1,fasting:'12h NPO confirmed'},
+  {pid:'ENDO-005',name:'Liu Yang',    dob:'1958-05-12',age:68,sex:'M',weight:90,height:172,allergies:[],meds:['Metformin 500 mg BID','Amlodipine 5 mg daily'],pmh:['Type 2 DM','Hypertension','Obesity'],asa:2,fasting:'8h NPO confirmed'},
+  {pid:'ENDO-006',name:'Zhao Min',    dob:'1976-09-04',age:50,sex:'F',weight:64,height:165,allergies:[],meds:[],pmh:['None significant'],asa:1,fasting:'10h NPO confirmed'},
+  {pid:'ENDO-007',name:'Huang Lei',   dob:'1981-02-18',age:45,sex:'M',weight:74,height:178,allergies:['Iodine contrast — hives'],meds:['Omeprazole 20 mg daily'],pmh:['GERD','H. pylori (treated)'],asa:1,fasting:'8h NPO confirmed'},
+  {pid:'ENDO-008',name:'Zhou Ting',   dob:'1968-12-25',age:58,sex:'M',weight:86,height:176,allergies:[],meds:['Clopidogrel 75 mg daily (held 7 days)','Metoprolol 50 mg daily'],pmh:['CAD — PCI 2022','Hypertension'],asa:2,fasting:'8h NPO confirmed'},
+];
+
+var LANDMARKS_COLON=['Rectum','Sigmoid Colon','Descending Colon','Splenic Flexure','Transverse Colon','Hepatic Flexure','Ascending Colon','Cecum','Ileocecal Valve','Terminal Ileum'];
+var LANDMARKS_UPPER=['Upper Esophagus','Mid Esophagus','Lower Esophagus','GE Junction (Z-line)','Cardia','Fundus','Body','Incisura','Antrum','Pylorus','Duodenal Bulb','Second Duodenum (D2)'];
+var LANDMARKS_SIGMOID=['Rectum','Sigmoid Colon','Descending Colon','Splenic Flexure'];
+
+var FINDINGS=[
+  [{location:'Ascending Colon',type:'Polyp',size:8,morphology:'Paris 0-Ip (pedunculated)',nice:'NICE Type 2',action:'Hot snare polypectomy',retrieval:'Roth net',pathology:'Tubular adenoma, low-grade dysplasia'}],
+  [{location:'Antrum',type:'Erosion',size:5,morphology:'Flat erosion (multiple)',nice:'N/A',action:'Biopsy x4 (Sydney protocol)',retrieval:'N/A',pathology:'Chronic active gastritis, H. pylori positive'}],
+  [{location:'Sigmoid Colon',type:'Polyp',size:12,morphology:'Paris 0-Is (sessile)',nice:'NICE Type 2',action:'Piecemeal EMR',retrieval:'Roth net',pathology:'Tubulovillous adenoma, low-grade dysplasia'},{location:'Transverse Colon',type:'Polyp',size:4,morphology:'Paris 0-Ip',nice:'NICE Type 1',action:'Cold snare polypectomy',retrieval:'Suction trap',pathology:'Hyperplastic polyp'}],
+  [{location:'Mid Esophagus',type:'Stricture',size:15,morphology:'Circumferential ring',nice:'N/A',action:'Savary dilation to 15 mm',retrieval:'N/A',pathology:'Eosinophilic esophagitis (>15 eos/hpf)'}],
+  [{location:'Cecum',type:'Polyp',size:6,morphology:'Paris 0-IIa (flat elevated)',nice:'NICE Type 2',action:'Cold snare polypectomy with submucosal lift',retrieval:'Cold forceps',pathology:'Sessile serrated lesion without dysplasia'}],
+  [{location:'Rectum',type:'Hemorrhoid',size:0,morphology:'Internal Grade II',nice:'N/A',action:'Observation — no intervention',retrieval:'N/A',pathology:'N/A'}],
+  [{location:'GE Junction',type:'Erosion',size:3,morphology:'LA Grade B reflux esophagitis',nice:'N/A',action:'Biopsy x2',retrieval:'N/A',pathology:'Reflux esophagitis, no Barrett\'s'}],
+  [{location:'Ascending Colon',type:'Polyp',size:15,morphology:'Paris 0-IIa+Is (LST-G nodular mixed)',nice:'NICE Type 2',action:'Piecemeal EMR with submucosal lift',retrieval:'Roth net',pathology:'Pending'},{location:'Sigmoid Colon',type:'Diverticulum',size:0,morphology:'Multiple diverticula, no active bleeding',nice:'N/A',action:'Observation — documented',retrieval:'N/A',pathology:'N/A'}],
+];
+
+/* Sedation medications available */
+var SEDATION_DRUGS=[
+  {name:'Midazolam',unit:'mg',doses:[0.5,1,2]},
+  {name:'Fentanyl',unit:'mcg',doses:[25,50,100]},
+  {name:'Propofol',unit:'mg',doses:[20,40,60]},
+  {name:'Meperidine',unit:'mg',doses:[25,50]},
+];
+
+/* ── State ── */
+var S;
+
+window._medgym_init=function(seed){
+  seed=seed||42;_rng=mulberry32(seed);
+
+  var cases=[];
+  var times=[];
+  for(var i=0;i<8;i++) times.push(String(7+i).padStart(2,'0')+':'+String(rI(0,3)*15).padStart(2,'0'));
+
+  for(var i=0;i<8;i++){
+    var procName=PROCEDURES[i];
+    var isColon=procName.indexOf('Colonoscopy')>=0||procName.indexOf('Sigmoidoscopy')>=0;
+    var lm=procName.indexOf('Sigmoidoscopy')>=0?LANDMARKS_SIGMOID:isColon?LANDMARKS_COLON:LANDMARKS_UPPER;
+
+    cases.push({
+      caseId:'CASE-'+String(i+1).padStart(3,'0'),
+      patient:PATIENTS[i],
+      procedure:procName,
+      indication:INDICATIONS[i],
+      time:times[i],
+      room:ROOMS[i],
+      scope:SCOPES[i],
+      anesthesiaType:ANESTHESIA[i],
+      status:i<1?'completed':'scheduled',
+
+      /* Pre-assessment */
+      preAssessComplete:i<1,
+      consentSigned:i<1,
+      timeoutComplete:i<1,
+      equipmentChecked:i<1,
+      vitalsRecorded:i<1,
+      sedationPlanConfirmed:i<1,
+      preVitals:i<1?{hr:72,spo2:99,bp:'128/78',rr:14}:{hr:null,spo2:null,bp:null,rr:null},
+
+      /* Procedure state */
+      landmarks:lm,
+      landmarksMarked:i<1?lm.slice():[],
+      bbps:i<1?{right:3,transverse:3,left:2}:{right:null,transverse:null,left:null},
+      captures:i<1?4:0,
+      findings:FINDINGS[i],
+      findingsRecorded:i<1?FINDINGS[i].slice():[],
+      biopsies:i<1?FINDINGS[i].filter(function(f){return f.action.indexOf('Observation')<0;}).length:0,
+      imagingMode:'WLI',
+      edofEnabled:false,
+      aiCadeEnabled:true,
+      aiDetections:i<1?1:0,
+      recording:false,
+      sedationLog:i<1?[{drug:'Midazolam',dose:2,unit:'mg',time:'07:02'},{drug:'Fentanyl',dose:50,unit:'mcg',time:'07:03'}]:[],
+      specimens:i<1?[{id:'S1',site:'Ascending Colon',type:'Polyp',jar:'Jar A',label:'ENDO-001-A'}]:[],
+      liveVitals:{hr:72+rI(-5,5),spo2:98+rI(0,2),bp:(120+rI(-10,10))+'/'+(75+rI(-5,5)),rr:14+rI(-2,2)},
+      complications:'None',
+      procedureNotes:'',
+
+      /* Report */
+      reportGenerated:i<1,
+      reportSubmitted:i<1,
+      cecalIntubation:i<1?true:null,
+      withdrawalTime:i<1?'8:32':null,
+      followUpInterval:i<1?'3 years':null,
+    });
+  }
+
+  S={
+    loggedIn:false,
+    currentPage:'worklist',
+    cases:cases,
+    selectedCaseIdx:null,
+    procedureStarted:false,
+    reportsSubmitted:i<1?1:0,
+    /* System state */
+    processorOnline:true,
+    lightSourceOnline:true,
+    scopeConnected:true,
+    networkOnline:true,
+  };
+  window._taskState=S;
+  renderLogin();
+};
+window._medgym_navigate=function(hash){if(hash==='login')renderLogin();else showPage(hash);};
+
+/* ── Login ── */
+function renderLogin(){$('loginPage').style.display='flex';$('mainApp').style.display='none';S.currentPage='login';}
+$('btnLogin').addEventListener('click',doLogin);
+$('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+function doLogin(){
+  var u=$('loginUser').value.trim(),p=$('loginPass').value.trim();
+  $('loginErr').style.display='none';
+  if(u==='endostaff'&&p==='endo2026'){
+    S.loggedIn=true;
+    $('hdrUser').textContent=u+' — Endoscopist';
+    $('loginPage').style.display='none';$('mainApp').style.display='flex';
+    showPage('worklist');
+  }else{
+    $('loginErr').style.display='block';
+  }
+}
+$('btnLogout').addEventListener('click',function(){S.loggedIn=false;renderLogin();});
+
+/* ── Render dispatcher ── */
+function render(){
+  var C=$('mainContent');
+  if(S.currentPage==='worklist')C.innerHTML=renWorklist();
+  else if(S.currentPage==='preassess')C.innerHTML=renPreassess();
+  else if(S.currentPage==='procedure')C.innerHTML=renProcedure();
+  else if(S.currentPage==='report')C.innerHTML=renReport();
+  else if(S.currentPage==='quality')C.innerHTML=renQuality();
+  else C.innerHTML=renWorklist();
+}
+window.render=render;
+
+/* ════════════════════════════════════════════════════════════
+   WORKLIST
+   ════════════════════════════════════════════════════════════ */
+function renWorklist(){
+  var sched=S.cases.filter(function(c){return c.status==='scheduled';}).length;
+  var inp=S.cases.filter(function(c){return c.status==='in-progress';}).length;
+  var done=S.cases.filter(function(c){return c.status==='completed';}).length;
+
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  h+='<div><h3 style="font-size:15px;color:var(--bright)">Endoscopy Schedule</h3>';
+  h+='<div style="font-size:11px;color:var(--dim);margin-top:2px">'+S.cases.length+' procedures &middot; '+sched+' scheduled &middot; '+inp+' in progress &middot; '+done+' completed</div></div>';
+  h+='<div style="display:flex;gap:6px">';
+  h+='<button class="btn-o" onclick="showEquipment()">Equipment Status</button>';
+  h+='</div></div>';
+
+  h+='<table class="tbl"><thead><tr>';
+  h+='<th>Case</th><th>Time</th><th>Room</th><th>Patient</th><th>Age/Sex</th><th>ASA</th><th>Procedure</th><th>Scope</th><th>Indication</th><th>Sedation</th><th>Status</th><th>Action</th>';
+  h+='</tr></thead><tbody>';
+  for(var i=0;i<S.cases.length;i++){
+    var c=S.cases[i],p=c.patient;
+    var sc=c.status==='scheduled'?'badge-scheduled':c.status==='in-progress'?'badge-inprogress':'badge-completed';
+    var allergyFlag=p.allergies.length?'<span style="color:var(--danger);font-size:10px" title="'+escHtml(p.allergies.join('; '))+'"> &#9888;</span>':'';
+    var acoagFlag=(p.meds.join(' ').match(/warfarin|clopidogrel|apixaban|rivaroxaban/i))?'<span style="color:var(--warning);font-size:10px" title="Anticoagulant"> &#128138;</span>':'';
+    h+='<tr>';
+    h+='<td style="font-family:var(--mono);font-size:11px">'+c.caseId+'</td>';
+    h+='<td style="font-family:var(--mono)">'+c.time+'</td>';
+    h+='<td style="font-size:11px">'+c.room+'</td>';
+    h+='<td><b>'+p.name+'</b><span style="color:var(--dim);font-size:10px"> ('+p.pid+')</span>'+allergyFlag+acoagFlag+'</td>';
+    h+='<td>'+p.age+p.sex+'</td>';
+    h+='<td>ASA '+p.asa+'</td>';
+    h+='<td>'+c.procedure+'</td>';
+    h+='<td style="font-family:var(--mono);font-size:10px;color:var(--dim)">'+c.scope+'</td>';
+    h+='<td style="max-width:220px;font-size:11px;color:var(--dim)">'+c.indication+'</td>';
+    h+='<td style="font-size:11px">'+c.anesthesiaType+'</td>';
+    h+='<td><span class="badge '+sc+'">'+c.status.toUpperCase()+'</span></td>';
+    h+='<td><button class="btn-o" style="font-size:11px" onclick="selectCase('+i+')">'+(c.status==='completed'?'Review':'Select')+'</button></td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  return h;
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+window.selectCase=function(idx){
+  S.selectedCaseIdx=idx;
+  var c=S.cases[idx];
+  $('hdrPatient').textContent=c.patient.name+' — '+c.procedure+' ('+c.scope+')';
+  showPage('preassess');
+};
+
+window.showEquipment=function(){
+  var h='<div style="margin-bottom:12px;font-size:11px;color:var(--dim)">EVIS X1 System Equipment Status</div>';
+  var items=[
+    {icon:'&#128421;',name:'Video System Center',model:'CV-1500',status:S.processorOnline},
+    {icon:'&#128161;',name:'XENON Light Source',model:'CLV-S200',status:S.lightSourceOnline},
+    {icon:'&#128300;',name:'Endoscope (active)',model:'GIF-XZ1200 / CF-HQ1200I',status:S.scopeConnected},
+    {icon:'&#128225;',name:'Network / PACS',model:'DICOM Gateway',status:S.networkOnline},
+    {icon:'&#128424;',name:'Report Printer',model:'HP LaserJet M404',status:true},
+    {icon:'&#128167;',name:'UPD-4 Water Mgmt',model:'UPD-4',status:true},
+    {icon:'&#127899;',name:'Foot Switch',model:'MAJ-2167',status:true},
+    {icon:'&#128250;',name:'Monitor',model:'OEV322H 4K',status:true},
+  ];
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    h+='<div class="equip-row">';
+    h+='<div class="e-icon">'+it.icon+'</div>';
+    h+='<div><div class="e-name">'+it.name+'</div><div class="e-model">'+it.model+'</div></div>';
+    h+='<div class="e-status '+(it.status?'ok':'err')+'">'+(it.status?'&#9679; Online':'&#9679; Offline')+'</div>';
+    h+='</div>';
+  }
+  h+='<div style="margin-top:12px;font-size:10px;color:var(--dim)">Imaging modes available: WLI &middot; NBI &middot; TXI Mode 1/2 &middot; RDI &middot; EDOF</div>';
+  openModal('Equipment Status — EVIS X1',h);
+};
+
+/* ════════════════════════════════════════════════════════════
+   PRE-ASSESSMENT
+   ════════════════════════════════════════════════════════════ */
+function renPreassess(){
+  if(S.selectedCaseIdx===null) return '<div style="text-align:center;padding:60px;color:var(--dim)">Select a case from the Worklist first.</div>';
+  var c=S.cases[S.selectedCaseIdx],p=c.patient;
+
+  /* Patient banner */
+  var h='<div class="pt-banner">';
+  h+='<div style="flex:1"><div class="nm">'+p.name+'</div>';
+  h+='<div class="det">'+p.pid+' &middot; DOB: '+p.dob+' &middot; '+p.age+'/'+p.sex+' &middot; '+p.weight+' kg &middot; '+p.height+' cm &middot; ASA '+p.asa+'</div>';
+  h+='<div class="det" style="margin-top:2px">'+c.procedure+' &middot; '+c.scope+' &middot; '+c.room+' &middot; '+c.anesthesiaType+'</div></div>';
+  if(p.allergies.length) h+='<div class="alert" style="color:var(--danger)">&#9888; ALLERGY: '+escHtml(p.allergies.join('; '))+'</div>';
+  h+='</div>';
+
+  /* Two-column layout */
+  h+='<div class="grid-2">';
+
+  /* Left: Patient Info */
+  h+='<div>';
+
+  /* Medical History */
+  h+='<div class="card"><div class="card-h">Medical History <span class="card-tag">PMH / Meds / Allergies</span></div><div class="card-b">';
+  h+='<div class="fg"><label>Past Medical History</label><div class="fc" style="min-height:24px">'+(p.pmh.length?p.pmh.join(', '):'None reported')+'</div></div>';
+  h+='<div class="fg"><label>Current Medications</label><div class="fc" style="min-height:24px">'+(p.meds.length?p.meds.join(', '):'None')+'</div></div>';
+  h+='<div class="fg"><label>Allergies</label><div class="fc" style="min-height:24px;'+(p.allergies.length?'color:var(--danger);font-weight:600':'')+'">'+(p.allergies.length?p.allergies.join(', '):'NKDA (No Known Drug Allergies)')+'</div></div>';
+  h+='<div class="fg"><label>Fasting Status</label><div class="fc">'+p.fasting+'</div></div>';
+  h+='</div></div>';
+
+  /* Indication and Plan */
+  h+='<div class="card"><div class="card-h">Procedure Plan</div><div class="card-b">';
+  h+='<div class="fg"><label>Indication</label><div class="fc">'+c.indication+'</div></div>';
+  h+='<div class="fg"><label>Planned Procedure</label><div class="fc">'+c.procedure+'</div></div>';
+  h+='<div class="fg"><label>Endoscope</label><div class="fc">'+c.scope+' (EVIS X1 compatible)</div></div>';
+  h+='<div class="fg"><label>Sedation Plan</label><div class="fc">'+c.anesthesiaType+'</div></div>';
+  h+='</div></div>';
+
+  h+='</div>';
+
+  /* Right: Checklist + Vitals */
+  h+='<div>';
+
+  /* Pre-Procedure Checklist */
+  h+='<div class="card"><div class="card-h">Pre-Procedure Safety Checklist <span class="card-tag">WHO Adapted</span></div><div class="card-b">';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-id"'+(c.preAssessComplete?' checked':'')+'><label>Patient identity verified — name, DOB, wristband match</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-fast"'+(c.preAssessComplete?' checked':'')+'><label>Fasting status confirmed: '+p.fasting+'</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-allergy"'+(c.preAssessComplete?' checked':'')+'><label>Allergies reviewed: '+(p.allergies.length?'<b style="color:var(--danger)">'+escHtml(p.allergies.join(', '))+'</b>':'NKDA')+'</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-meds"'+(c.preAssessComplete?' checked':'')+'><label>Medications reviewed'+(p.meds.length?' — <b style="color:var(--warning)">'+escHtml(p.meds.join(', '))+'</b>':'')+' — anticoagulant/antiplatelet status confirmed</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-consent"'+(c.consentSigned?' checked':'')+'><label>Informed consent signed — risks, benefits, alternatives discussed</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-equipment"'+(c.equipmentChecked?' checked':'')+'><label>Equipment check — '+c.scope+' tested, CV-1500 / CLV-S200 verified</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-sedplan"'+(c.sedationPlanConfirmed?' checked':'')+'><label>Sedation plan confirmed — '+c.anesthesiaType+', monitoring equipment ready</label></div>';
+  h+='<div class="chk-row"><input type="checkbox" id="chk-timeout"'+(c.timeoutComplete?' checked':'')+'><label>Time-out completed — patient, procedure, laterality confirmed by team</label></div>';
+  h+='</div></div>';
+
+  /* Pre-Procedure Vitals */
+  h+='<div class="card"><div class="card-h">Baseline Vitals</div><div class="card-b">';
+  h+='<div class="grid-2">';
+  h+='<div class="fg"><label>Heart Rate (bpm)</label><input class="fc" id="pre-hr" type="number" placeholder="60-100" value="'+(c.preVitals.hr||'')+'"></div>';
+  h+='<div class="fg"><label>SpO2 (%)</label><input class="fc" id="pre-spo2" type="number" placeholder="95-100" value="'+(c.preVitals.spo2||'')+'"></div>';
+  h+='<div class="fg"><label>Blood Pressure</label><input class="fc" id="pre-bp" placeholder="120/80" value="'+(c.preVitals.bp||'')+'"></div>';
+  h+='<div class="fg"><label>Resp Rate (/min)</label><input class="fc" id="pre-rr" type="number" placeholder="12-20" value="'+(c.preVitals.rr||'')+'"></div>';
+  h+='</div>';
+  if(!c.vitalsRecorded) h+='<button class="btn-o" style="margin-top:6px;font-size:11px" onclick="recordVitals('+S.selectedCaseIdx+')">Record Vitals</button>';
+  else h+='<div style="color:var(--success);font-size:11px;margin-top:4px">&#10003; Vitals recorded</div>';
+  h+='</div></div>';
+
+  h+='</div>';
+  h+='</div>';
+
+  /* Action buttons */
+  if(!c.preAssessComplete){
+    h+='<div style="margin-top:8px;display:flex;gap:8px">';
+    h+='<button class="btn-p" onclick="completePreassess('+S.selectedCaseIdx+')">Complete Pre-Assessment</button>';
+    h+='<button class="btn-o" onclick="showPage(\'worklist\')">Back to Worklist</button>';
+    h+='</div>';
+  }else{
+    h+='<div style="margin-top:8px;display:flex;align-items:center;gap:12px">';
+    h+='<div style="color:var(--success);font-weight:700;font-size:13px">&#10003; Pre-Assessment Complete</div>';
+    h+='<button class="btn-blue" onclick="showPage(\'procedure\')">Proceed to Procedure &#8594;</button>';
+    h+='</div>';
+  }
+  return h;
+}
+
+window.recordVitals=function(idx){
+  var c=S.cases[idx];
+  var hr=parseInt($('pre-hr').value)||null;
+  var spo2=parseInt($('pre-spo2').value)||null;
+  var bp=$('pre-bp').value||null;
+  var rr=parseInt($('pre-rr').value)||null;
+  if(!hr||!spo2||!bp||!rr){openModal('Incomplete','<p>All vital signs must be entered.</p><button class="btn-o" onclick="closeModal()" style="margin-top:8px">OK</button>');return;}
+  c.preVitals={hr:hr,spo2:spo2,bp:bp,rr:rr};
+  c.vitalsRecorded=true;
+  render();
+};
+
+window.completePreassess=function(idx){
+  var c=S.cases[idx];
+  var ids=['chk-id','chk-fast','chk-allergy','chk-meds','chk-consent','chk-equipment','chk-sedplan','chk-timeout'];
+  var allChecked=ids.every(function(id){var el=$(id);return el&&el.checked;});
+  if(!allChecked){
+    openModal('Incomplete Checklist','<p style="color:var(--danger)">All safety checklist items must be verified before proceeding.</p><p style="font-size:11px;color:var(--dim);margin-top:6px">This is required per ASGE and institutional safety protocols.</p><button class="btn-o" onclick="closeModal()" style="margin-top:10px">OK</button>');
+    return;
+  }
+  c.preAssessComplete=true;c.consentSigned=true;c.timeoutComplete=true;c.equipmentChecked=true;c.sedationPlanConfirmed=true;c.status='in-progress';
+  if(!c.vitalsRecorded){
+    c.preVitals={hr:72+rI(-8,8),spo2:97+rI(0,3),bp:(118+rI(-10,10))+'/'+(74+rI(-5,5)),rr:14+rI(-2,2)};
+    c.vitalsRecorded=true;
+  }
+  render();
+};
+
+/* ════════════════════════════════════════════════════════════
+   PROCEDURE
+   ════════════════════════════════════════════════════════════ */
+function renProcedure(){
+  if(S.selectedCaseIdx===null) return '<div style="text-align:center;padding:60px;color:var(--dim)">Select a case from the Worklist first.</div>';
+  var c=S.cases[S.selectedCaseIdx],p=c.patient;
+  if(!c.preAssessComplete) return '<div style="text-align:center;padding:60px;color:var(--dim)">Complete the Pre-Assessment before starting the procedure.</div>';
+  var isColon=c.procedure.indexOf('Colonoscopy')>=0||c.procedure.indexOf('Sigmoidoscopy')>=0;
+
+  var h='<div class="endo-view">';
+
+  /* ── Left: Endoscopy viewport ── */
+  h+='<div class="endo-image">';
+
+  /* Viewport with imaging mode-dependent coloring */
+  var vpStyle='';
+  if(c.imagingMode==='NBI') vpStyle='filter:hue-rotate(180deg) saturate(1.5) brightness(0.8);';
+  else if(c.imagingMode==='TXI1') vpStyle='filter:saturate(1.8) contrast(1.2);';
+  else if(c.imagingMode==='TXI2') vpStyle='filter:saturate(2.0) contrast(1.3) brightness(1.1);';
+  else if(c.imagingMode==='RDI') vpStyle='filter:hue-rotate(340deg) saturate(1.3) brightness(0.9);';
+
+  h+='<div class="endo-viewport" style="'+vpStyle+'">';
+  for(var v=0;v<6;v++){
+    var vx=15+rI(0,60),vy=20+rI(0,50),vw=rI(40,120);
+    h+='<div class="vessel" style="left:'+vx+'%;top:'+vy+'%;width:'+vw+'px;transform:rotate('+rI(-30,30)+'deg)"></div>';
+  }
+  for(var m=0;m<8;m++){
+    var mx=10+rI(0,70),my=10+rI(0,70),ms=rI(8,30);
+    h+='<div class="mucosa-detail" style="left:'+mx+'%;top:'+my+'%;width:'+ms+'px;height:'+ms+'px"></div>';
+  }
+  h+='</div>';
+
+  /* Imaging mode toolbar */
+  h+='<div class="img-mode-bar">';
+  var modes=[['WLI','WLI'],['NBI','NBI'],['TXI1','TXI-1'],['TXI2','TXI-2'],['RDI','RDI']];
+  for(var mi=0;mi<modes.length;mi++){
+    var act=c.imagingMode===modes[mi][0]?' active':'';
+    h+='<button class="img-mode-btn'+act+'" onclick="setImagingMode('+S.selectedCaseIdx+',\''+modes[mi][0]+'\')">'+modes[mi][1]+'</button>';
+  }
+  h+='<button class="img-mode-btn'+(c.edofEnabled?' active':'')+'" onclick="toggleEDOF('+S.selectedCaseIdx+')">EDOF</button>';
+  h+='</div>';
+
+  /* Top-left overlay */
+  h+='<div class="overlay-tl">';
+  h+=p.name+' ('+p.pid+')<br>';
+  h+=c.procedure+'<br>';
+  h+='Scope: '+c.scope+'<br>';
+  h+='Mode: '+c.imagingMode+(c.edofEnabled?' + EDOF':'');
+  h+='</div>';
+
+  /* Top-right overlay */
+  h+='<div class="overlay-tr">';
+  h+='CV-1500 / CLV-S200<br>';
+  h+='Captures: '+c.captures+'<br>';
+  h+=(c.recording?'<span style="color:red">&#9679; REC</span>':'&#9675; STANDBY');
+  h+='</div>';
+
+  /* Vitals strip */
+  h+='<div class="vitals-strip">';
+  h+='<div class="vital-item hr"><span class="v-label">HR</span><span class="v-val">'+c.liveVitals.hr+'</span></div>';
+  h+='<div class="vital-item spo2"><span class="v-label">SpO&#8322;</span><span class="v-val">'+c.liveVitals.spo2+'%</span></div>';
+  h+='<div class="vital-item bp"><span class="v-label">BP</span><span class="v-val">'+c.liveVitals.bp+'</span></div>';
+  h+='</div>';
+
+  /* AI CADe indicator */
+  h+='<div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);margin-top:28px">';
+  h+='<span class="ai-badge '+(c.aiCadeEnabled?'active':'inactive')+'">ENDO-AID CADe '+(c.aiCadeEnabled?'ON':'OFF')+'</span>';
+  h+='</div>';
+
+  /* Bottom controls */
+  h+='<div style="position:absolute;bottom:8px;right:312px;display:flex;gap:6px">';
+  h+='<button class="ctrl-btn ctrl-capture" onclick="captureImage('+S.selectedCaseIdx+')">&#128247; Capture</button>';
+  h+='<button class="ctrl-btn ctrl-record'+(c.recording?' recording':'')+'" onclick="toggleRecording('+S.selectedCaseIdx+')">'+(c.recording?'&#9209; Stop':'&#9210; Record')+'</button>';
+  h+='<button class="ctrl-btn" style="background:var(--olympus-blue)" onclick="toggleAICade('+S.selectedCaseIdx+')">AI '+(c.aiCadeEnabled?'ON':'OFF')+'</button>';
+  h+='</div>';
+
+  h+='</div>';
+
+  /* ── Right: Sidebar ── */
+  h+='<div class="endo-sidebar">';
+
+  /* Timer */
+  h+='<div class="sidebar-section" style="text-align:center;padding:6px 10px">';
+  h+='<div style="font-size:9px;text-transform:uppercase;color:var(--dim);letter-spacing:1px">Procedure Time</div>';
+  h+='<div class="timer-display" id="procTimer">00:00</div>';
+  h+='</div>';
+
+  /* Sedation Log */
+  h+='<div class="sidebar-section"><h4>Sedation Log <span class="count">('+c.sedationLog.length+')</span></h4>';
+  for(var sl=0;sl<c.sedationLog.length;sl++){
+    var se=c.sedationLog[sl];
+    h+='<div class="sed-entry"><span class="sed-time">'+se.time+'</span> <span class="sed-drug">'+se.drug+' '+se.dose+' '+se.unit+'</span></div>';
+  }
+  h+='<button class="btn-o" style="font-size:10px;width:100%;margin-top:4px;padding:3px 6px" onclick="adminSedation('+S.selectedCaseIdx+')">+ Administer</button>';
+  h+='</div>';
+
+  /* Anatomical Landmarks */
+  h+='<div class="sidebar-section"><h4>Landmarks <span class="count">('+c.landmarksMarked.length+'/'+c.landmarks.length+')</span></h4>';
+  for(var li=0;li<c.landmarks.length;li++){
+    var lm=c.landmarks[li];
+    var marked=c.landmarksMarked.indexOf(lm)>=0;
+    h+='<button class="landmark-btn'+(marked?' marked':'')+'" onclick="markLandmark('+S.selectedCaseIdx+',\''+escHtml(lm)+'\')">'+lm+(marked?' &#10003;':'')+'</button>';
+  }
+  h+='</div>';
+
+  /* BBPS — colonoscopy only (not sigmoidoscopy) */
+  if(isColon&&c.procedure.indexOf('Sigmoidoscopy')<0){
+    h+='<div class="sidebar-section"><h4>BBPS <span class="count">(Boston Bowel Prep)</span></h4>';
+    var segs=['right','transverse','left'];
+    var segLabels=['Right Colon','Transverse','Left Colon'];
+    for(var si=0;si<3;si++){
+      h+='<div class="bbps-row"><span class="bbps-label">'+segLabels[si]+'</span>';
+      for(var sc=0;sc<=3;sc++){
+        var sel=c.bbps[segs[si]]===sc;
+        h+='<button class="bbps-btn'+(sel?' selected':'')+'" onclick="setBBPS('+S.selectedCaseIdx+',\''+segs[si]+'\','+sc+')">'+sc+'</button>';
+      }
+      h+='</div>';
+    }
+    var bTotal=(c.bbps.right!=null?c.bbps.right:0)+(c.bbps.transverse!=null?c.bbps.transverse:0)+(c.bbps.left!=null?c.bbps.left:0);
+    var adequate=bTotal>=6&&(c.bbps.right>=2)&&(c.bbps.transverse>=2)&&(c.bbps.left>=2);
+    h+='<div style="font-size:10px;margin-top:4px;color:'+(adequate?'var(--success)':'var(--warning)')+'">Total: <b>'+bTotal+'</b>/9 — '+(adequate?'Adequate':'Inadequate')+'</div>';
+    h+='</div>';
+  }
+
+  /* Findings */
+  h+='<div class="sidebar-section"><h4>Findings <span class="count">('+c.findingsRecorded.length+')</span></h4>';
+  if(c.findingsRecorded.length===0) h+='<div style="color:var(--dim);font-size:10px;padding:2px 0">No findings recorded.</div>';
+  for(var fi=0;fi<c.findingsRecorded.length;fi++){
+    var fd=c.findingsRecorded[fi];
+    h+='<div class="finding-item"><span class="f-loc">'+fd.location+'</span>: '+fd.type;
+    if(fd.size>0) h+=' '+fd.size+'mm';
+    h+='<div class="f-det">'+fd.morphology+' &#8594; '+fd.action+'</div></div>';
+  }
+  if(c.findingsRecorded.length<c.findings.length){
+    h+='<button class="btn-o" style="font-size:10px;width:100%;margin-top:4px;padding:3px 6px" onclick="recordFinding('+S.selectedCaseIdx+')">+ Record Finding</button>';
+  }
+  h+='</div>';
+
+  /* Specimens */
+  h+='<div class="sidebar-section"><h4>Specimens <span class="count">('+c.specimens.length+')</span></h4>';
+  for(var spi=0;spi<c.specimens.length;spi++){
+    var sp=c.specimens[spi];
+    h+='<div class="spec-item"><span class="spec-label">'+sp.label+'</span>: '+sp.site+' — '+sp.type+' ('+sp.jar+')</div>';
+  }
+  if(c.findingsRecorded.length>c.specimens.length&&c.findingsRecorded.some(function(f){return f.action.indexOf('Observation')<0;})){
+    h+='<button class="btn-o" style="font-size:10px;width:100%;margin-top:4px;padding:3px 6px" onclick="addSpecimen('+S.selectedCaseIdx+')">+ Log Specimen</button>';
+  }
+  h+='</div>';
+
+  /* Cecal Intubation (colonoscopy) */
+  if(isColon&&c.procedure.indexOf('Sigmoidoscopy')<0){
+    h+='<div class="sidebar-section"><h4>Cecal Intubation</h4>';
+    h+='<div style="display:flex;gap:4px">';
+    h+='<button class="btn-o'+(c.cecalIntubation===true?' selected" style="border-color:var(--success);color:var(--success);background:rgba(39,174,96,.1)':'"')+' onclick="setCecal('+S.selectedCaseIdx+',true)">Yes &#8212; Photo doc</button>';
+    h+='<button class="btn-o'+(c.cecalIntubation===false?' selected" style="border-color:var(--danger);color:var(--danger)':'"')+' onclick="setCecal('+S.selectedCaseIdx+',false)">No</button></div></div>';
+  }
+
+  /* Withdrawal Time */
+  h+='<div class="sidebar-section"><h4>Withdrawal Time</h4>';
+  h+='<div style="display:flex;gap:6px;align-items:center">';
+  h+='<input class="fc fc-sm" id="withdrawalTime" placeholder="mm:ss" value="'+(c.withdrawalTime||'')+'" style="width:80px">';
+  h+='<button class="btn-o" style="font-size:10px;padding:4px 10px" onclick="setWithdrawal('+S.selectedCaseIdx+')">Set</button>';
+  if(isColon&&c.procedure.indexOf('Sigmoidoscopy')<0) h+='<span style="font-size:9px;color:var(--dim)">Target &#8805;6:00</span>';
+  h+='</div></div>';
+
+  /* Complete Procedure */
+  h+='<div class="sidebar-section" style="border-bottom:none">';
+  h+='<button class="btn-s" style="width:100%" onclick="completeProcedure('+S.selectedCaseIdx+')">Complete Procedure</button>';
+  h+='</div>';
+
+  h+='</div>';
+  h+='</div>';
+
+  return h;
+}
+
+/* ── Procedure Actions ── */
+window.setImagingMode=function(idx,mode){S.cases[idx].imagingMode=mode;render();};
+window.toggleEDOF=function(idx){S.cases[idx].edofEnabled=!S.cases[idx].edofEnabled;render();};
+window.toggleAICade=function(idx){S.cases[idx].aiCadeEnabled=!S.cases[idx].aiCadeEnabled;render();};
+window.captureImage=function(idx){var c=S.cases[idx];c.captures++;render();};
+window.toggleRecording=function(idx){
+  var c=S.cases[idx];
+  c.recording=!c.recording;
+  var ri=$('recIndicator');
+  if(ri){if(c.recording)ri.classList.remove('hidden');else ri.classList.add('hidden');}
+  render();
+};
+
+window.markLandmark=function(idx,lm){
+  var c=S.cases[idx];
+  if(c.landmarksMarked.indexOf(lm)<0) c.landmarksMarked.push(lm);
+  render();
+};
+window.setBBPS=function(idx,seg,val){S.cases[idx].bbps[seg]=val;render();};
+window.setCecal=function(idx,val){S.cases[idx].cecalIntubation=val;render();};
+window.setWithdrawal=function(idx){var el=$('withdrawalTime');if(el)S.cases[idx].withdrawalTime=el.value;render();};
+
+window.recordFinding=function(idx){
+  var c=S.cases[idx];
+  var next=c.findings[c.findingsRecorded.length];
+  if(!next) return;
+
+  var h='<div style="margin-bottom:12px;font-size:11px;color:var(--dim)">Recording finding detected at <b>'+next.location+'</b></div>';
+  h+='<div class="grid-2" style="gap:10px">';
+  h+='<div class="fg"><label>Location</label><input class="fc" value="'+next.location+'" readonly></div>';
+  h+='<div class="fg"><label>Type</label><input class="fc" value="'+next.type+'" readonly></div>';
+  h+='<div class="fg"><label>Size (mm)</label><input class="fc" value="'+(next.size||'N/A')+'" readonly></div>';
+  h+='<div class="fg"><label>Morphology (Paris)</label><input class="fc" value="'+next.morphology+'" readonly></div>';
+  if(next.nice&&next.nice!=='N/A') h+='<div class="fg"><label>NICE Classification</label><input class="fc" value="'+next.nice+'" readonly></div>';
+  h+='<div class="fg"><label>Action Taken</label><input class="fc" value="'+next.action+'" readonly></div>';
+  if(next.retrieval&&next.retrieval!=='N/A') h+='<div class="fg"><label>Retrieval Method</label><input class="fc" value="'+next.retrieval+'" readonly></div>';
+  h+='<div class="fg"><label>Pathology</label><input class="fc" value="'+next.pathology+'" readonly></div>';
+  h+='</div>';
+  h+='<div style="margin-top:14px;display:flex;gap:8px">';
+  h+='<button class="btn-p" onclick="confirmFinding('+idx+')">Confirm &amp; Save Finding</button>';
+  h+='<button class="btn-o" onclick="closeModal()">Cancel</button>';
+  h+='</div>';
+  openModal('Record Finding — '+next.type+' at '+next.location,h);
+};
+
+window.confirmFinding=function(idx){
+  var c=S.cases[idx];
+  var next=c.findings[c.findingsRecorded.length];
+  if(!next) return;
+  c.findingsRecorded.push(next);
+  if(next.action.indexOf('Observation')<0) c.biopsies++;
+  c.aiDetections++;
+  closeModal();
+  render();
+};
+
+window.adminSedation=function(idx){
+  var h='<div style="margin-bottom:10px;font-size:11px;color:var(--dim)">Select medication and dose</div>';
+  h+='<div class="fg"><label>Medication</label><select class="fc" id="sed-drug" onchange="updateSedDoses()">';
+  for(var d=0;d<SEDATION_DRUGS.length;d++){
+    h+='<option value="'+d+'">'+SEDATION_DRUGS[d].name+' ('+SEDATION_DRUGS[d].unit+')</option>';
+  }
+  h+='</select></div>';
+  h+='<div class="fg"><label>Dose</label><select class="fc" id="sed-dose">';
+  for(var dd=0;dd<SEDATION_DRUGS[0].doses.length;dd++){
+    h+='<option>'+SEDATION_DRUGS[0].doses[dd]+'</option>';
+  }
+  h+='</select></div>';
+  h+='<div style="margin-top:12px"><button class="btn-p" onclick="confirmSedation('+idx+')">Administer</button> <button class="btn-o" onclick="closeModal()">Cancel</button></div>';
+  openModal('Administer Sedation',h);
+};
+window.updateSedDoses=function(){
+  var drugIdx=parseInt($('sed-drug').value);
+  var drug=SEDATION_DRUGS[drugIdx];
+  var sel=$('sed-dose');
+  sel.innerHTML='';
+  for(var i=0;i<drug.doses.length;i++){
+    var o=document.createElement('option');o.textContent=drug.doses[i];sel.appendChild(o);
+  }
+};
+window.confirmSedation=function(idx){
+  var c=S.cases[idx];
+  var drugIdx=parseInt($('sed-drug').value);
+  var drug=SEDATION_DRUGS[drugIdx];
+  var dose=parseFloat($('sed-dose').value);
+  var now=new Date();
+  c.sedationLog.push({drug:drug.name,dose:dose,unit:drug.unit,time:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')});
+  closeModal();render();
+};
+
+window.addSpecimen=function(idx){
+  var c=S.cases[idx];
+  var actionFindings=c.findingsRecorded.filter(function(f){return f.action.indexOf('Observation')<0;});
+  var nextSpec=actionFindings[c.specimens.length];
+  if(!nextSpec) return;
+  var jar='Jar '+String.fromCharCode(65+c.specimens.length);
+  var label=c.patient.pid+'-'+String.fromCharCode(65+c.specimens.length);
+  c.specimens.push({id:'S'+(c.specimens.length+1),site:nextSpec.location,type:nextSpec.type,jar:jar,label:label});
+  render();
+};
+
+window.completeProcedure=function(idx){
+  var c=S.cases[idx];
+  c.status='completed';
+  if(c.recording){c.recording=false;var ri=$('recIndicator');if(ri)ri.classList.add('hidden');}
+  render();
+};
+
+/* ════════════════════════════════════════════════════════════
+   REPORT
+   ════════════════════════════════════════════════════════════ */
+function renReport(){
+  if(S.selectedCaseIdx===null) return '<div style="text-align:center;padding:60px;color:var(--dim)">Select a case from the Worklist first.</div>';
+  var c=S.cases[S.selectedCaseIdx],p=c.patient;
+  if(c.status!=='completed'&&!c.reportGenerated) return '<div style="text-align:center;padding:60px;color:var(--dim)">Complete the procedure before generating a report.</div>';
+  var isColon=c.procedure.indexOf('Colonoscopy')>=0||c.procedure.indexOf('Sigmoidoscopy')>=0;
+
+  /* Patient banner */
+  var h='<div class="pt-banner">';
+  h+='<div style="flex:1"><div class="nm">'+p.name+'</div>';
+  h+='<div class="det">'+p.pid+' &middot; '+p.dob+' &middot; '+p.age+'/'+p.sex+' &middot; '+c.procedure+' &middot; '+c.scope+'</div></div>';
+  if(c.reportSubmitted) h+='<span class="badge badge-completed" style="font-size:12px;padding:4px 14px">SUBMITTED</span>';
+  h+='</div>';
+
+  if(c.reportSubmitted){
+    h+='<div style="color:var(--success);font-weight:700;padding:20px;text-align:center;font-size:14px">&#10003; Report has been submitted and sent to PACS/EMR</div>';
+    h+='<button class="btn-o" onclick="showPage(\'worklist\')" style="display:block;margin:0 auto">Return to Worklist</button>';
+    return h;
+  }
+
+  h+='<div class="grid-2" style="gap:10px">';
+
+  /* Left column */
+  h+='<div>';
+
+  /* Procedure Details */
+  h+='<div class="card"><div class="card-h">Procedure Details <span class="card-tag">ASGE Reporting Standards</span></div><div class="card-b">';
+  h+='<div class="grid-2">';
+  h+='<div class="fg"><label>Procedure</label><input class="fc" value="'+c.procedure+'" readonly></div>';
+  h+='<div class="fg"><label>Endoscope</label><input class="fc" value="'+c.scope+'" readonly></div>';
+  h+='<div class="fg"><label>Processor</label><input class="fc" value="CV-1500 / CLV-S200 (EVIS X1)" readonly></div>';
+  h+='<div class="fg"><label>Indication</label><input class="fc" value="'+c.indication+'" readonly></div>';
+  h+='<div class="fg"><label>Imaging Modes Used</label><input class="fc" value="WLI, NBI'+(c.imagingMode!=='WLI'&&c.imagingMode!=='NBI'?', '+c.imagingMode:'')+'" readonly></div>';
+  h+='<div class="fg"><label>AI-Assisted (ENDO-AID)</label><input class="fc" value="'+(c.aiCadeEnabled?'CADe enabled — '+c.aiDetections+' detection(s)':'Not used')+'" readonly></div>';
+  h+='</div></div></div>';
+
+  /* Quality Indicators */
+  if(isColon){
+    h+='<div class="card"><div class="card-h">Quality Indicators</div><div class="card-b">';
+    h+='<div class="grid-2">';
+    if(c.procedure.indexOf('Sigmoidoscopy')<0){
+      var bTotal=(c.bbps.right!=null?c.bbps.right:0)+(c.bbps.transverse!=null?c.bbps.transverse:0)+(c.bbps.left!=null?c.bbps.left:0);
+      h+='<div class="fg"><label>BBPS Score</label><input class="fc" value="'+bTotal+'/9 (R:'+c.bbps.right+' T:'+c.bbps.transverse+' L:'+c.bbps.left+')" readonly></div>';
+      h+='<div class="fg"><label>Cecal Intubation</label><input class="fc" value="'+(c.cecalIntubation===true?'Yes — photographically documented':c.cecalIntubation===false?'No':'Not recorded')+'" readonly></div>';
+    }
+    h+='<div class="fg"><label>Withdrawal Time</label><input class="fc" value="'+(c.withdrawalTime||'Not recorded')+'" readonly></div>';
+    h+='<div class="fg"><label>Landmarks Documented</label><input class="fc" value="'+c.landmarksMarked.length+'/'+c.landmarks.length+'" readonly></div>';
+    h+='<div class="fg"><label>Images Captured</label><input class="fc" value="'+c.captures+'" readonly></div>';
+    h+='<div class="fg"><label>Polyps Found</label><input class="fc" value="'+c.findingsRecorded.filter(function(f){return f.type==="Polyp";}).length+'" readonly></div>';
+    h+='</div></div></div>';
+  }
+
+  /* Sedation Summary */
+  h+='<div class="card"><div class="card-h">Sedation &amp; Monitoring</div><div class="card-b">';
+  h+='<div class="fg"><label>Sedation Type</label><input class="fc" value="'+c.anesthesiaType+'" readonly></div>';
+  if(c.sedationLog.length>0){
+    h+='<table class="tbl" style="margin-top:6px"><thead><tr><th>Time</th><th>Drug</th><th>Dose</th></tr></thead><tbody>';
+    for(var s=0;s<c.sedationLog.length;s++){
+      var se=c.sedationLog[s];
+      h+='<tr><td style="font-family:var(--mono)">'+se.time+'</td><td>'+se.drug+'</td><td>'+se.dose+' '+se.unit+'</td></tr>';
+    }
+    h+='</tbody></table>';
+  } else {
+    h+='<div style="font-size:11px;color:var(--dim)">No sedation administered.</div>';
+  }
+  h+='<div class="fg" style="margin-top:8px"><label>Baseline Vitals</label><input class="fc" value="HR '+(c.preVitals.hr||'--')+' &middot; SpO&#8322; '+(c.preVitals.spo2||'--')+'% &middot; BP '+(c.preVitals.bp||'--')+' &middot; RR '+(c.preVitals.rr||'--')+'" readonly></div>';
+  h+='</div></div>';
+
+  h+='</div>';
+
+  /* Right column */
+  h+='<div>';
+
+  /* Findings Table */
+  h+='<div class="card"><div class="card-h">Findings ('+c.findingsRecorded.length+')</div><div class="card-b">';
+  if(c.findingsRecorded.length>0){
+    h+='<table class="tbl"><thead><tr><th>Location</th><th>Type</th><th>Size</th><th>Morphology</th><th>Action</th><th>Retrieval</th></tr></thead><tbody>';
+    for(var f=0;f<c.findingsRecorded.length;f++){
+      var fd=c.findingsRecorded[f];
+      h+='<tr><td>'+fd.location+'</td><td>'+fd.type+'</td><td>'+(fd.size?fd.size+'mm':'&#8212;')+'</td><td style="font-size:11px">'+fd.morphology+'</td><td style="font-size:11px">'+fd.action+'</td><td style="font-size:11px">'+(fd.retrieval||'&#8212;')+'</td></tr>';
+    }
+    h+='</tbody></table>';
+  } else h+='<div style="font-size:11px;color:var(--dim)">No abnormalities. Normal examination.</div>';
+  h+='</div></div>';
+
+  /* Specimens */
+  if(c.specimens.length>0){
+    h+='<div class="card"><div class="card-h">Specimens Collected ('+c.specimens.length+')</div><div class="card-b">';
+    h+='<table class="tbl"><thead><tr><th>Label</th><th>Site</th><th>Type</th><th>Container</th></tr></thead><tbody>';
+    for(var sp=0;sp<c.specimens.length;sp++){
+      var spe=c.specimens[sp];
+      h+='<tr><td style="font-family:var(--mono)">'+spe.label+'</td><td>'+spe.site+'</td><td>'+spe.type+'</td><td>'+spe.jar+'</td></tr>';
+    }
+    h+='</tbody></table></div></div>';
+  }
+
+  /* Complications */
+  h+='<div class="card"><div class="card-h">Complications &amp; Assessment</div><div class="card-b">';
+  h+='<div class="fg"><label>Complications</label><select class="fc" id="rpt-complications" onchange="setComplications('+S.selectedCaseIdx+')">';
+  var compOpts=['None','Bleeding — minor, self-limited','Bleeding — requiring intervention','Perforation','Adverse sedation event','Other'];
+  for(var co=0;co<compOpts.length;co++){
+    h+='<option'+(c.complications===compOpts[co]?' selected':'')+'>'+compOpts[co]+'</option>';
+  }
+  h+='</select></div>';
+  h+='<div class="fg"><label>Procedure Notes</label><textarea class="fc" id="rpt-notes" rows="3" placeholder="Additional notes...">'+escHtml(c.procedureNotes)+'</textarea></div>';
+  h+='</div></div>';
+
+  /* Follow-up */
+  if(isColon){
+    h+='<div class="card"><div class="card-h">Follow-Up Recommendation <span class="card-tag">AGA Guidelines</span></div><div class="card-b">';
+    h+='<div class="fg"><label>Surveillance Interval</label><select class="fc" id="rpt-followup" onchange="setFollowUp('+S.selectedCaseIdx+')">';
+    var fuOpts=['','1 year','3 years','5 years','7-10 years','10 years','Refer to surgery','Repeat in 6 months (inadequate prep)'];
+    for(var fu=0;fu<fuOpts.length;fu++){
+      h+='<option'+(c.followUpInterval===fuOpts[fu]?' selected':'')+'>'+fuOpts[fu]+'</option>';
+    }
+    h+='</select></div></div></div>';
+  }
+
+  h+='</div>';
+  h+='</div>';
+
+  /* Action buttons */
+  h+='<div style="margin-top:10px;display:flex;gap:8px;align-items:center">';
+  if(!c.reportGenerated){
+    h+='<button class="btn-p" onclick="generateReport('+S.selectedCaseIdx+')">Generate Report</button>';
+  } else {
+    h+='<button class="btn-s" onclick="submitReport('+S.selectedCaseIdx+')">Submit Report to EMR/PACS</button>';
+  }
+  h+='<button class="btn-o" onclick="showPage(\'procedure\')">Back to Procedure</button>';
+  h+='<button class="btn-o" onclick="showPage(\'worklist\')">Worklist</button>';
+  h+='</div>';
+
+  return h;
+}
+
+window.setComplications=function(idx){var el=$('rpt-complications');if(el)S.cases[idx].complications=el.value;};
+window.setFollowUp=function(idx){var el=$('rpt-followup');if(el)S.cases[idx].followUpInterval=el.value;};
+window.generateReport=function(idx){
+  var c=S.cases[idx];
+  var notes=$('rpt-notes');if(notes)c.procedureNotes=notes.value;
+  c.reportGenerated=true;render();
+};
+window.submitReport=function(idx){
+  var c=S.cases[idx];
+  var notes=$('rpt-notes');if(notes)c.procedureNotes=notes.value;
+  c.reportSubmitted=true;S.reportsSubmitted++;
+  render();
+};
+
+/* ════════════════════════════════════════════════════════════
+   QUALITY DASHBOARD
+   ════════════════════════════════════════════════════════════ */
+function renQuality(){
+  var submitted=S.cases.filter(function(c){return c.reportSubmitted;});
+  var colonoscopies=S.cases.filter(function(c){return c.procedure.indexOf('Colonoscopy')>=0;});
+  var completedColons=colonoscopies.filter(function(c){return c.reportSubmitted;});
+
+  var cecalCount=completedColons.filter(function(c){return c.cecalIntubation===true;}).length;
+  var cir=completedColons.length>0?Math.round(cecalCount/completedColons.length*100):0;
+
+  var polypsFound=completedColons.filter(function(c){return c.findingsRecorded.some(function(f){return f.type==='Polyp';});}).length;
+  var adr=completedColons.length>0?Math.round(polypsFound/completedColons.length*100):0;
+
+  var bbpsAdequate=completedColons.filter(function(c){
+    var b=c.bbps;return b.right>=2&&b.transverse>=2&&b.left>=2;
+  }).length;
+  var bbpsRate=completedColons.length>0?Math.round(bbpsAdequate/completedColons.length*100):0;
+
+  var h='<div style="margin-bottom:12px"><h3 style="font-size:15px;color:var(--bright)">Quality Dashboard</h3>';
+  h+='<div style="font-size:11px;color:var(--dim)">'+submitted.length+' procedures submitted &middot; Real-time quality metrics per ASGE standards</div></div>';
+
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">';
+  h+='<div class="metric-card '+(cir>=95?'good':cir>=90?'warn':'bad')+'"><div class="m-val">'+cir+'%</div><div class="m-label">Cecal Intubation Rate</div><div class="m-target">Target &#8805;95%</div></div>';
+  h+='<div class="metric-card '+(adr>=25?'good':adr>=20?'warn':'bad')+'"><div class="m-val">'+adr+'%</div><div class="m-label">Adenoma Detection Rate</div><div class="m-target">Target &#8805;25%</div></div>';
+  h+='<div class="metric-card '+(bbpsRate>=90?'good':bbpsRate>=80?'warn':'bad')+'"><div class="m-val">'+bbpsRate+'%</div><div class="m-label">Adequate Bowel Prep</div><div class="m-target">Target &#8805;90%</div></div>';
+  h+='<div class="metric-card"><div class="m-val">'+submitted.length+'</div><div class="m-label">Procedures Completed</div><div class="m-target">of '+S.cases.length+' scheduled</div></div>';
+  h+='</div>';
+
+  h+='<div class="card"><div class="card-h">Completed Procedures</div><div class="card-b">';
+  if(!submitted.length){
+    h+='<div style="text-align:center;padding:30px;color:var(--dim)">No submitted procedures yet.</div>';
+  } else {
+    h+='<table class="tbl"><thead><tr><th>Case</th><th>Patient</th><th>Procedure</th><th>Scope</th><th>Findings</th><th>BBPS</th><th>CIR</th><th>Withdrawal</th><th>AI Det.</th><th>Complications</th><th>Status</th></tr></thead><tbody>';
+    for(var i=0;i<submitted.length;i++){
+      var c=submitted[i];
+      var bTotal=(c.bbps.right!=null?c.bbps.right:0)+(c.bbps.transverse!=null?c.bbps.transverse:0)+(c.bbps.left!=null?c.bbps.left:0);
+      var isCol=c.procedure.indexOf('Colonoscopy')>=0;
+      h+='<tr>';
+      h+='<td style="font-family:var(--mono);font-size:11px">'+c.caseId+'</td>';
+      h+='<td>'+c.patient.name+'</td>';
+      h+='<td>'+c.procedure+'</td>';
+      h+='<td style="font-family:var(--mono);font-size:10px">'+c.scope+'</td>';
+      h+='<td>'+c.findingsRecorded.length+'</td>';
+      h+='<td>'+(isCol?bTotal+'/9':'N/A')+'</td>';
+      h+='<td>'+(isCol?(c.cecalIntubation?'&#10003;':'&#10007;'):'N/A')+'</td>';
+      h+='<td style="font-family:var(--mono)">'+(c.withdrawalTime||'&#8212;')+'</td>';
+      h+='<td>'+c.aiDetections+'</td>';
+      h+='<td style="font-size:11px">'+c.complications+'</td>';
+      h+='<td><span class="badge badge-completed">SUBMITTED</span></td>';
+      h+='</tr>';
+    }
+    h+='</tbody></table>';
+  }
+  h+='</div></div>';
+
+  return h;
+}
+
+/* ── Init ── */
+if(!window._medgym_init_called){window._medgym_init(42);window._medgym_init_called=true;}
+})();
+</script>
+</body>
+</html>

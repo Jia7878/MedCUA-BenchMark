@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Nursing Assessment Station — Cerner PowerChart iView-style
+
+  UI inspired by Cerner Millennium PowerChart iView nursing flowsheet
+  (reference: 8.nursing_assessment.pdf — "iView Training Manual, Jan 2019").
+  Key elements modelled:
+    - Three-pane layout: Navigator bands (left) | Time-scale flowsheet grid (centre) | Result Viewer (right)
+    - Toolbar icons: As Of refresh, Sign (green check), Cancel (red X),
+      Insert Date/Time, Show/Hide Empty Rows, Collapse Navigator, Add Dynamic Group
+    - Time-column documentation: double-click blue cells, then Sign to commit
+    - Calculation icon for auto-totalled scores (Braden, Morse, GCS, MUST)
+    - Dynamic Groups for repeating items (IV Sites, Wounds, Lines/Tubes/Drains)
+    - Right-click context: Add Comment / Modify / Unchart / Change Date
+
+  REAL-WORLD CLINICAL REFERENCES:
+  1. Braden Scale: Bergstrom N, Braden BJ, et al. Nursing Research. 1987;36(4):205-210.
+  2. Morse Fall Scale: Morse JM, et al. Canadian J Aging. 1989;8(4):366-377.
+  3. Glasgow Coma Scale: Teasdale G, Jennett B. The Lancet. 1974;304(7872):81-84.
+  4. NRS Pain Scale: McCaffery M, Beebe A. Pain: Clinical Manual. Mosby, 1989.
+  5. MUST Screening Tool: BAPEN Malnutrition Advisory Group, 2003.
+  6. Joint Commission Pain Management Standards (PC.01.02.07).
+  7. Cerner Corporation. PowerChart iView Training Manual, Jan 2019.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nursing Assessment Station — Clinical Assessment Tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8eef4;--bg4:#d0dde8;
+  --green:#0d47a1;--green2:#1565c0;--green-dark:#0a2f6b;--green-light:#90caf9;
+  --success:#2e7d32;--warn:#ef6c00;--danger:#c62828;--info:#0277bd;
+  --text:#1a2332;--text2:#455a64;--text3:#78909c;
+  --border:#b0bec5;--border2:#e0e4e8;
+  --radius:4px;--shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+}
+html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit;background:#fff;color:var(--text);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--green)}
+textarea{resize:vertical;min-height:80px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border2)}
+th{background:var(--bg3);color:var(--text2);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--bg3)}
+.app{display:flex;flex-direction:column;height:100vh}
+.header{background:#1a2332;border-bottom:2px solid #1565c0;padding:0 24px;height:48px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:10px;letter-spacing:0.2px}
+.header h1 .icon{font-size:18px;color:#64b5f6}
+.header-right{display:flex;align-items:center;gap:16px}
+.header-right .user-info{color:rgba(255,255,255,.85);font-size:13px}
+.header-right .user-info strong{color:#fff}
+.nav{display:flex;gap:4px}
+.nav button{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.8);padding:8px 16px;border-radius:var(--radius);font-size:13px;transition:.15s}
+.nav button:hover{background:rgba(255,255,255,.25);color:#fff}
+.nav button.active{background:rgba(255,255,255,.95);color:#0d47a1;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:var(--radius);font-weight:600;font-size:13px;transition:.15s}
+.btn-primary{background:var(--green);color:#fff}.btn-primary:hover{background:var(--green2)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.9}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.9}
+.btn-warn{background:var(--warn);color:#000}.btn-warn:hover{opacity:.9}
+.btn-info{background:var(--info);color:#fff}.btn-info:hover{opacity:.9}
+.btn-outline{background:none;border:1px solid var(--border2);color:var(--text2)}.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.main{flex:1;overflow-y:auto;padding:24px}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.badge-danger{background:rgba(211,47,47,.15);color:var(--danger)}
+.badge-success{background:rgba(56,142,60,.15);color:var(--success)}
+.badge-warn{background:rgba(249,168,37,.15);color:#e65100}
+.badge-info{background:rgba(25,118,210,.15);color:var(--info)}
+.badge-neutral{background:rgba(148,163,184,.15);color:var(--text3)}
+/* Login */
+.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh;background:#1a2332}
+.login-box{background:#fff;border:1px solid var(--border2);border-radius:12px;padding:48px 40px;width:420px;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+.login-box h2{text-align:center;font-size:20px;margin-bottom:8px;color:#1a2332;font-weight:700;letter-spacing:-0.3px}
+.login-box .subtitle{text-align:center;color:var(--text3);margin-bottom:32px;font-size:13px}
+.login-box .logo{text-align:center;font-size:48px;margin-bottom:16px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:600}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.login-box .btn{width:100%;justify-content:center;padding:12px;font-size:15px}
+.error-msg{color:var(--danger);font-size:13px;margin-top:8px;display:none}
+/* Patient card */
+.patient-card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:16px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:space-between}
+.patient-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12);border-color:var(--green)}
+.patient-card .left{display:flex;align-items:center;gap:14px}
+.patient-card .bed-badge{background:var(--green);color:#fff;padding:6px 12px;border-radius:8px;font-weight:700;font-size:16px;min-width:56px;text-align:center}
+.patient-card .patient-info h3{font-size:15px;margin-bottom:2px}
+.patient-card .patient-info .meta{font-size:12px;color:var(--text3)}
+.patient-card .right{display:flex;align-items:center;gap:12px}
+.patient-card .alerts{display:flex;gap:6px}
+.alert-icon{font-size:18px;cursor:help}
+.patient-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* Sub-nav tabs */
+.sub-nav{display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border2);padding-bottom:0}
+.sub-nav button{background:none;border:none;color:var(--text3);padding:10px 16px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s}
+.sub-nav button:hover{color:var(--green)}
+.sub-nav button.active{color:var(--green-dark);border-bottom-color:var(--green)}
+/* Stats bar */
+.stats-bar{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.stat-item{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 20px;min-width:130px;box-shadow:var(--shadow)}
+.stat-item .stat-val{font-size:24px;font-weight:700;color:var(--green-dark)}
+.stat-item .stat-label{font-size:12px;color:var(--text3);margin-top:2px}
+/* Score gauge */
+.score-gauge{display:flex;align-items:center;gap:12px;margin:12px 0}
+.score-bar{flex:1;height:24px;background:#e2e8f0;border-radius:12px;overflow:hidden;position:relative}
+.score-fill{height:100%;border-radius:12px;transition:.5s}
+.score-value{font-size:24px;font-weight:700;min-width:60px;text-align:center}
+/* Scale item */
+.scale-item{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:16px;margin-bottom:12px}
+.scale-item h4{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--green-dark)}
+.scale-item .options{display:flex;flex-direction:column;gap:6px}
+.scale-item .option-row{display:flex;align-items:center;gap:8px}
+.scale-item .option-row input[type="radio"]{width:auto;margin:0}
+.scale-item .option-row label{font-size:13px;cursor:pointer}
+/* Body diagram */
+.body-diagram{position:relative;width:200px;height:400px;margin:0 auto}
+.body-diagram svg{width:100%;height:100%}
+.body-region{cursor:pointer;fill:rgba(46,125,50,.1);stroke:var(--green);stroke-width:1;transition:.2s}
+.body-region:hover,.body-region.active{fill:rgba(211,47,47,.3);stroke:var(--danger)}
+/* Pain slider */
+.pain-slider{width:100%;margin:16px 0}
+.pain-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text3)}
+.pain-value{font-size:36px;font-weight:700;text-align:center;margin:8px 0}
+/* Summary matrix */
+.matrix-table th,.matrix-table td{text-align:center;padding:8px}
+.matrix-table td.overdue{background:rgba(211,47,47,.1);color:var(--danger);font-weight:700}
+/* GCS component */
+.gcs-component{margin-bottom:16px;padding:16px;background:var(--bg3);border-radius:8px}
+.gcs-component h4{margin-bottom:10px;color:var(--green-dark);font-size:14px}
+/* Toast */
+.toast-container{position:fixed;top:68px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;box-shadow:var(--shadow);animation:slideIn .3s ease}
+.toast-success{background:var(--success);color:#fff}
+.toast-danger{background:var(--danger);color:#fff}
+.toast-info{background:var(--info);color:#fff}
+.toast-warn{background:var(--warn);color:#000}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border:1px solid var(--border2);border-radius:12px;padding:28px;width:750px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.15)}
+.modal h3{font-size:18px;margin-bottom:20px;display:flex;align-items:center;gap:8px;color:var(--green-dark)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+/* Responsive */
+@media(max-width:900px){.patient-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}}
+/* Print */
+@media print{.header,.nav,.btn,.toast-container,.modal-overlay,.sub-nav{display:none!important}.main{padding:0}.card{break-inside:avoid;box-shadow:none;border:1px solid #ddd}}
+/* Scrollbar */
+.main::-webkit-scrollbar{width:8px}
+.main::-webkit-scrollbar-track{background:var(--bg)}
+.main::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.main::-webkit-scrollbar-thumb:hover{background:var(--green)}
+/* Animations */
+.patient-card,.scale-item,.gcs-component{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* Clinical polish overrides */
+th{background:#e8eef4;color:#37474f;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid #b0bec5}
+.card{border:1px solid #d0dde8;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-title{font-size:14px;font-weight:600;color:#1a2332;gap:6px;border-bottom:1px solid #e0e4e8;padding-bottom:12px;margin-bottom:14px}
+.card-title i{color:#0d47a1;font-size:15px}
+.badge{font-size:10px;font-weight:600;border-radius:3px;padding:2px 6px;letter-spacing:.3px}
+.stat-item{border-radius:6px;border:1px solid #d0dde8}
+.stat-item .stat-val{font-size:22px;color:#0a2f6b}
+.patient-card{border:1px solid #d0dde8;border-radius:6px;transition:.15s}
+.patient-card:hover{border-color:#1565c0;box-shadow:0 2px 8px rgba(13,71,161,.12)}
+.patient-card .bed-badge{background:#0d47a1;border-radius:4px;font-size:14px;padding:5px 10px}
+.login-box{border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}
+input:focus,select:focus,textarea:focus{border-color:#1565c0;box-shadow:0 0 0 2px rgba(21,101,192,.15)}
+.toast{border-radius:4px;font-weight:500}
+.scale-item{border:1px solid #d0dde8;border-radius:6px}
+.scale-item h4{color:#0a2f6b}
+.gcs-component{background:#e8eef4;border-radius:6px}
+.gcs-component h4{color:#0a2f6b}
+.score-fill{border-radius:4px}
+.intervention-plan{border:2px solid #ef6c00}
+/* Intervention plan */
+.intervention-plan{border:2px solid var(--warn);border-radius:8px;padding:16px;margin-top:12px;background:rgba(249,168,37,.06)}
+.intervention-plan h4{color:#e65100;margin-bottom:8px}
+
+/* ===== Cerner iView styling ===== */
+.iview-toolbar{display:flex;align-items:center;gap:2px;padding:4px 8px;background:linear-gradient(to bottom,#e8eef4,#d0dde8);border-bottom:1px solid #b0bec5;margin-bottom:8px;border-radius:4px}
+.iview-tool-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;background:transparent;border:1px solid transparent;border-radius:3px;color:#37474f;font-size:14px;transition:.1s}
+.iview-tool-btn:hover{background:#fff;border-color:#90a4ae;box-shadow:inset 0 0 0 1px #cfd8dc}
+.iview-tool-btn.sign{color:#2e7d32;font-size:16px}
+.iview-tool-btn.cancel{color:#c62828;font-size:16px}
+.iview-tool-divider{width:1px;height:18px;background:#90a4ae;margin:0 4px}
+.iview-tool-label{font-size:11px;color:#546e7a;margin-left:8px;font-style:italic}
+
+.iview-pane{display:grid;grid-template-columns:220px 1fr;gap:0;border:1px solid #b0bec5;border-radius:4px;background:#fff;height:calc(100vh - 220px);min-height:520px;overflow:hidden}
+.iview-nav{background:#eceff1;border-right:1px solid #b0bec5;overflow-y:auto;font-size:12px}
+.iview-nav-section{padding:6px 10px;background:#cfd8dc;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#37474f;border-bottom:1px solid #b0bec5}
+.iview-band{padding:6px 10px 6px 18px;cursor:pointer;border-bottom:1px solid #e0e4e8;color:#263238;display:flex;align-items:center;gap:6px;transition:.1s}
+.iview-band:hover{background:#fff}
+.iview-band.active{background:#1565c0;color:#fff;font-weight:600}
+.iview-band .band-icon{font-size:11px;color:#78909c;width:14px;text-align:center}
+.iview-band.active .band-icon{color:#fff}
+.iview-band .band-badge{margin-left:auto;font-size:10px;padding:1px 5px;border-radius:8px;background:#fff;color:#0d47a1;font-weight:700}
+.iview-band.active .band-badge{background:#0d47a1;color:#fff}
+
+.iview-grid{overflow:auto;background:#fff}
+.iview-grid table{border-collapse:separate;border-spacing:0;width:auto;min-width:100%;font-size:12px}
+.iview-grid th,.iview-grid td{padding:4px 8px;border:1px solid #cfd8dc;text-align:center;white-space:nowrap;vertical-align:middle;height:26px}
+.iview-grid thead th{background:linear-gradient(to bottom,#eceff1,#cfd8dc);position:sticky;top:0;z-index:3;font-size:11px;font-weight:600;color:#263238;text-transform:none;letter-spacing:0;min-width:90px}
+.iview-grid thead th.row-label-col{position:sticky;left:0;z-index:4;background:linear-gradient(to right,#eceff1,#cfd8dc);text-align:left;min-width:240px;padding-left:12px}
+.iview-grid thead th.col-active{background:linear-gradient(to bottom,#fff9c4,#ffe082);color:#e65100}
+.iview-grid tbody td.row-label{position:sticky;left:0;background:#f5f7fa;text-align:left;font-weight:500;color:#263238;min-width:240px;padding-left:12px;border-right:2px solid #b0bec5;z-index:2}
+.iview-grid tbody td.row-label .calc-icon{color:#2e7d32;margin-right:4px}
+.iview-grid tbody td.row-label .row-units{color:#78909c;font-size:11px;margin-left:6px;font-weight:400}
+.iview-grid tbody tr.section-header td{background:#37474f;color:#fff;text-align:left;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:5px 12px;position:sticky;left:0;z-index:1}
+.iview-grid tbody tr.subsection-header td{background:#cfd8dc;color:#37474f;text-align:left;font-weight:600;font-size:11px;padding:3px 12px}
+.iview-grid td.cell-active{background:#fff9c4;cursor:cell}
+.iview-grid td.cell-empty{background:#e3f2fd;cursor:cell}
+.iview-grid td.cell-empty:hover{background:#bbdefb}
+.iview-grid td.cell-signed{background:#fff;color:#1a2332;font-weight:500}
+.iview-grid td.cell-unsigned{background:#fff3cd;color:#e65100;font-weight:600;font-style:italic}
+.iview-grid td.cell-unsigned::after{content:' *';color:#c62828}
+.iview-grid td.cell-abnormal{color:#c62828;font-weight:700}
+.iview-grid td.cell-critical{background:#ffebee;color:#c62828;font-weight:700}
+.iview-grid td.cell-comment::before{content:'\f075';font-family:'Font Awesome 6 Free';font-weight:900;font-size:9px;color:#0277bd;margin-right:3px;vertical-align:super}
+.iview-grid input.cell-input{width:100%;border:1px solid #1565c0;padding:2px 4px;font-size:12px;text-align:center;background:#fff9c4;border-radius:0;height:22px}
+.iview-grid select.cell-input{width:100%;border:1px solid #1565c0;padding:1px 2px;font-size:12px;background:#fff9c4;height:22px;border-radius:0}
+
+.dynamic-group-bar{background:#e8eaf6;border:1px dashed #5c6bc0;border-radius:4px;padding:6px 10px;margin:6px 0;display:flex;align-items:center;gap:8px;font-size:12px;color:#283593}
+.dynamic-group-bar .add-btn{background:#3949ab;color:#fff;border:none;border-radius:3px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600}
+
+.context-menu{position:fixed;background:#fff;border:1px solid #b0bec5;border-radius:3px;box-shadow:0 3px 10px rgba(0,0,0,.2);z-index:3000;min-width:180px;padding:4px 0;font-size:12px}
+.context-menu div{padding:6px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#263238}
+.context-menu div:hover{background:#1565c0;color:#fff}
+.context-menu div.divider{padding:0;border-top:1px solid #e0e4e8;margin:2px 0;cursor:default}
+.context-menu div.divider:hover{background:transparent}
+.context-menu i{width:14px;color:#546e7a}
+.context-menu div:hover i{color:#fff}
+
+.flowsheet-legend{display:flex;gap:14px;font-size:11px;color:#546e7a;padding:6px 12px;background:#f5f7fa;border:1px solid #e0e4e8;border-radius:4px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+.flowsheet-legend .swatch{display:inline-block;width:14px;height:14px;border:1px solid #b0bec5;vertical-align:middle;margin-right:4px;border-radius:2px}
+
+.must-step{border:1px solid #d0dde8;border-radius:6px;padding:14px;margin-bottom:10px;background:#fff}
+.must-step h4{color:#0a2f6b;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.must-step h4 .step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#0d47a1;color:#fff;font-size:12px}
+.must-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px}
+.must-options label{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;border:1px solid #d0dde8;border-radius:4px;cursor:pointer;font-size:12px;background:#fafbfc;transition:.1s}
+.must-options label:hover{border-color:#1565c0;background:#e3f2fd}
+.must-options input[type="radio"]{margin-top:2px}
+.must-options input[type="radio"]:checked + span{font-weight:600;color:#0d47a1}
+
+.dyngroup-card{border:1px solid #b39ddb;border-radius:6px;padding:12px;margin-bottom:10px;background:linear-gradient(to bottom right,#f3e5f5,#fff)}
+.dyngroup-card .dg-label{font-weight:700;color:#4527a0;font-size:13px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px dashed #b39ddb}
+.dyngroup-card .dg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.dyngroup-card .dg-grid .dg-field label{display:block;font-size:11px;color:#5e35b1;font-weight:600;margin-bottom:3px}
+.dyngroup-card .dg-grid .dg-field input,.dyngroup-card .dg-grid .dg-field select{font-size:12px;padding:5px 8px;width:100%}
+.inactivate-btn{background:transparent;border:1px solid #c62828;color:#c62828;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer}
+.inactivate-btn:hover{background:#c62828;color:#fff}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ─── Seeded RNG ─── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=Math.random;
+function randInt(a,b){return Math.floor(rng()*(b-a+1))+a}
+function pick(arr){return arr[Math.floor(rng()*arr.length)]}
+function shuffle(arr){let a=[...arr];for(let i=a.length-1;i>0;i--){let j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function randFloat(a,b){return +(a+rng()*(b-a)).toFixed(1)}
+
+/* ─── State ─── */
+window._taskState={
+  loggedIn:false,currentPage:'login',selectedPatient:null,
+  patients:[],bradenScores:{},morseScores:{},painAssessments:{},gcsScores:{},
+  assessmentHistory:[],interventionsPlanned:{},overdueAssessments:[],
+  /* iView Cerner-style flowsheet */
+  iviewColumns:{},          /* pid -> [ {ts, signed} ]  list of time columns per patient */
+  iviewActiveCol:{},        /* pid -> active column index for documenting */
+  iviewActiveBand:{},       /* pid -> currently selected navigator band id */
+  iviewData:{},             /* pid -> { 'band.row': { colIdx: {value, signed, comment, by, at} } } */
+  showEmptyRows:{},         /* pid -> bool */
+  navCollapsed:{},          /* pid -> bool */
+  vitalSigns:{},            /* pid -> [ {ts, t,hr,rr,bp,spo2} ] */
+  ivSites:{},               /* pid -> [ {label, site, gauge, inserted, condition, active} ] */
+  wounds:{},                /* pid -> [ {label, location, type, sizeCm, drainage, treatment, active} ] */
+  linesTubes:{},            /* pid -> [ {type, location, inserted, output, status} ] */
+  nutritionScreens:{},      /* pid -> {bmiScore,weightLossScore,acuteDiseaseScore,total,risk,...} */
+  painScores:{},            /* alias mirror of painAssessments for checker compatibility */
+  interventionPlans:{}      /* pid -> {items[], updatedThisSession,...} */
+};
+const S=window._taskState;
+
+/* ─── Data pools ─── */
+const PATIENT_NAMES=[
+'Li Wei','Wang Fang','Zhang Qiang','Chen Mei',
+'Liu Hua','Zhao Jun','Huang Ying','Sun Tao',
+'Zhou Min','Wu Xia','Xu Peng','Ma Ling',
+'Zhu Hao','Gao Fei','Lin Jing','He Yang'
+];
+/* Clinical context: Ward NAU (Nursing Assessment Unit)
+ * Standardized nursing assessment tools used in clinical practice:
+ * - Braden Scale: Pressure ulcer risk (6 subscales, total 6-23)
+ * - Morse Fall Scale: Fall risk (6 items, total 0-125)
+ * - NRS (Numeric Rating Scale): Pain assessment (0-10)
+ * - GCS (Glasgow Coma Scale): Consciousness (3-15)
+ * 
+ * Safety-critical patients:
+ * Bed 2: Hip fracture post-op, Braden 10 (High Risk), needs intervention plan
+ * Bed 4: Post-fall patient, Morse reassessment overdue >24h
+ * Bed 6: TBI, GCS ~10 (Moderate), q30min neuro checks needed
+ * Bed 7: Cancer pain 8/10, reassessment overdue
+ */
+const DIAGNOSES=[
+  'Acute ischemic stroke (MCA territory, Day 3)',
+  'Right hip fracture s/p ORIF (POD 2)',
+  'Community-acquired pneumonia (moderate)',
+  'CHF exacerbation (NYHA III, EF 25%)',
+  'Incomplete spinal cord injury (C5-C6)',
+  'COPD exacerbation with type 2 respiratory failure',
+  'Diabetic foot ulcer (Wagner Grade 2, R great toe)',
+  'Sepsis secondary to cholangitis',
+  'Traumatic brain injury (GCS 10 on admission)',
+  'Stage 4 CKD with uremic encephalopathy',
+  'Acute anterior STEMI (s/p PCI, Day 1)',
+  'Acute necrotizing pancreatitis',
+  'Upper GI bleed (esophageal varices)',
+  'Lower extremity cellulitis with MRSA',
+  'Acute proximal DVT (left femoral vein)',
+  'Partial small bowel obstruction'
+];
+
+/* ─── Braden Scale definitions ─── */
+const BRADEN_SUBSCALES=[
+ {name:'Sensory Perception',nameZh:'(Ability to respond to pressure-related discomfort)',key:'sensory',options:[
+ {score:1,label:'Completely Limited —',desc:'Unresponsive to painful stimuli or limited ability to feel pain over most of body surface'},
+ {score:2,label:'Very Limited —',desc:'Responds only to painful stimuli; cannot communicate discomfort except by moaning or restlessness'},
+ {score:3,label:'Slightly Limited —',desc:'Responds to verbal commands but cannot always communicate discomfort or need to be turned'},
+ {score:4,label:'No Impairment —',desc:'Responds to verbal commands; has no sensory deficit'}
+  ]},
+ {name:'Moisture',nameZh:'(Degree of skin exposure to moisture)',key:'moisture',options:[
+ {score:1,label:'Constantly Moist —',desc:'Skin is kept moist almost constantly by perspiration, urine, etc.'},
+ {score:2,label:'Very Moist —',desc:'Skin is often but not always moist; linen must be changed at least once a shift'},
+ {score:3,label:'Occasionally Moist —',desc:'Skin is occasionally moist, requiring an extra linen change approximately once a day'},
+ {score:4,label:'Rarely Moist —',desc:'Skin is usually dry; linen requires changing only at routine intervals'}
+  ]},
+ {name:'Activity',nameZh:'(Degree of physical activity)',key:'activity',options:[
+ {score:1,label:'Bedfast —',desc:'Confined to bed'},
+ {score:2,label:'Chairfast —',desc:'Ability to walk severely limited or nonexistent; cannot bear own weight'},
+ {score:3,label:'Walks Occasionally —',desc:'Walks occasionally during day but for very short distances'},
+ {score:4,label:'Walks Frequently —',desc:'Walks outside the room at least twice a day and inside room at least once every 2 hours'}
+  ]},
+ {name:'Mobility',nameZh:'(Ability to change/control body position)',key:'mobility',options:[
+ {score:1,label:'Completely Immobile —',desc:'Does not make even slight changes in body or extremity position without assistance'},
+ {score:2,label:'Very Limited —',desc:'Makes occasional slight changes in body or extremity position but unable to make frequent or significant changes independently'},
+ {score:3,label:'Slightly Limited —',desc:'Makes frequent though slight changes in body or extremity position independently'},
+ {score:4,label:'No Limitations —',desc:'Makes major and frequent changes in position without assistance'}
+  ]},
+ {name:'Nutrition',nameZh:'(Usual food intake pattern)',key:'nutrition',options:[
+ {score:1,label:'Very Poor —',desc:'Never eats a complete meal; rarely eats more than 1/3 of any food offered; protein intake includes only 2 servings of meat or dairy products per day'},
+ {score:2,label:'Probably Inadequate —',desc:'Rarely eats a complete meal; generally eats only about 1/2 of any food offered; protein intake includes only 3 servings of meat or dairy products per day'},
+ {score:3,label:'Adequate —',desc:'Eats over half of most meals; eats a total of 4 servings of protein (meat, dairy) each day'},
+ {score:4,label:'Excellent —',desc:'Eats most of every meal; never refuses a meal; usually eats a total of 4 or more servings of meat and dairy products'}
+  ]},
+ {name:'Friction & Shear',nameZh:'(Resistance to sliding)',key:'friction',options:[
+ {score:1,label:'Problem —',desc:'Requires moderate to maximum assistance in moving; complete lifting without sliding against sheets is impossible; frequently slides down in bed or chair'},
+ {score:2,label:'Potential Problem —',desc:'Moves feebly or requires minimum assistance; during a move skin probably slides to some extent against sheets, chair, restraints, or other devices'},
+ {score:3,label:'No Apparent Problem —',desc:'Moves in bed and in chair independently and has sufficient muscle strength to lift up completely during move'}
+  ]}
+];
+
+/* ─── Morse Fall Scale definitions ─── */
+const MORSE_ITEMS=[
+ {name:'History of Falling',nameZh:'(Within past 3 months)',key:'history',options:[
+ {score:0,label:'No —'},
+ {score:25,label:'Yes —'}
+  ]},
+ {name:'Secondary Diagnosis',nameZh:'(2 or more medical diagnoses)',key:'secondary_dx',options:[
+ {score:0,label:'No —'},
+ {score:15,label:'Yes —'}
+  ]},
+ {name:'Ambulatory Aid',nameZh:'(Walking aid used)',key:'ambulatory_aid',options:[
+ {score:0,label:'None / Bed Rest / Nurse Assist — / /'},
+ {score:15,label:'Crutches / Cane / Walker — / /'},
+ {score:30,label:'Furniture —'}
+  ]},
+ {name:'IV Therapy / Heparin Lock',nameZh:'(IV access present)',key:'iv_heparin',options:[
+ {score:0,label:'No —'},
+ {score:20,label:'Yes —'}
+  ]},
+ {name:'Gait',nameZh:'(Walking pattern)',key:'gait',options:[
+ {score:0,label:'Normal / Bed Rest / Wheelchair — / /'},
+ {score:10,label:'Weak —'},
+ {score:20,label:'Impaired —'}
+  ]},
+ {name:'Mental Status',nameZh:'(Self-assessment of ability)',key:'mental_status',options:[
+ {score:0,label:'Oriented to Own Ability —'},
+ {score:15,label:'Overestimates / Forgets Limitations — /'}
+  ]}
+];
+
+/* ─── GCS definitions ─── */
+const GCS_COMPONENTS=[
+ {name:'Eye Opening (E)',nameZh:'',key:'eye',options:[
+ {score:1,label:'None —',desc:'No eye opening'},
+ {score:2,label:'To Pressure —',desc:'Eye opening in response to pressure on fingertip'},
+ {score:3,label:'To Sound —',desc:'Eye opening in response to voice/sound'},
+ {score:4,label:'Spontaneous —',desc:'Eyes open spontaneously'}
+  ]},
+ {name:'Verbal Response (V)',nameZh:'',key:'verbal',options:[
+ {score:1,label:'None —',desc:'No verbal response'},
+ {score:2,label:'Sounds —',desc:'Incomprehensible sounds, moaning'},
+ {score:3,label:'Words —',desc:'Intelligible single words'},
+ {score:4,label:'Confused —',desc:'Sentences but confused/disoriented'},
+ {score:5,label:'Oriented —',desc:'Normal oriented conversation'}
+  ]},
+ {name:'Motor Response (M)',nameZh:'',key:'motor',options:[
+ {score:1,label:'None —',desc:'No motor response'},
+ {score:2,label:'Extension —',desc:'Extension (decerebrate) to pain'},
+ {score:3,label:'Abnormal Flexion —',desc:'Abnormal flexion (decorticate) to pain'},
+ {score:4,label:'Normal Flexion —',desc:'Withdrawal/normal flexion to pain'},
+ {score:5,label:'Localising —',desc:'Localises to painful stimulus'},
+ {score:6,label:'Obeys Commands —',desc:'Obeys two-part commands'}
+  ]}
+];
+
+/* ─── Pain locations for body diagram ─── */
+const PAIN_LOCATIONS=['Head / Headache','Cervical spine (Neck)','Chest (Thoracic)','Abdomen (Epigastric)','Abdomen (Periumbilical)','Upper Back (Thoracic)','Lower Back (Lumbar / Sacral)','Left Upper Extremity','Right Upper Extremity','Left Lower Extremity','Right Lower Extremity','Left Shoulder','Right Shoulder','Pelvis / Hip','Generalized / Diffuse'];
+
+/* ─── Cerner-style iView Bands (Navigator) ───
+ * Each band = collection of rows that appear in the time-scale flowsheet.
+ * Mirrors a typical med-surg PowerChart Adult Systems Assessment band layout.
+ */
+const IVIEW_BANDS=[
+ {group:'Adult Systems Assessment',items:[
+   {id:'vitals',label:'Vital Signs',icon:'fa-heart-pulse'},
+   {id:'neuro',label:'Neurological / GCS',icon:'fa-brain'},
+   {id:'cardio',label:'Cardiovascular',icon:'fa-heart'},
+   {id:'resp',label:'Respiratory',icon:'fa-lungs'},
+   {id:'gi',label:'Gastrointestinal',icon:'fa-utensils'},
+   {id:'gu',label:'Genitourinary',icon:'fa-droplet'},
+   {id:'skin',label:'Integumentary / Skin (Braden)',icon:'fa-hand-dots'},
+   {id:'msk',label:'Musculoskeletal',icon:'fa-person-walking'}
+ ]},
+ {group:'Risk & Safety',items:[
+   {id:'falls',label:'Falls Risk (Morse)',icon:'fa-person-falling'},
+   {id:'pain',label:'Pain Assessment (NRS)',icon:'fa-face-frown'},
+   {id:'nutrition',label:'Nutrition (MUST)',icon:'fa-bowl-food'},
+   {id:'restraint',label:'Restraint / Safety',icon:'fa-shield'}
+ ]},
+ {group:'Lines / Drains / Wounds',items:[
+   {id:'iv_sites',label:'IV Sites (Dynamic Group)',icon:'fa-syringe',dynamic:true},
+   {id:'wounds',label:'Wounds (Dynamic Group)',icon:'fa-bandage',dynamic:true},
+   {id:'lines',label:'Lines / Tubes / Drains',icon:'fa-link'}
+ ]},
+ {group:'Intake / Output',items:[
+   {id:'io',label:'Intake & Output',icon:'fa-arrows-up-down'}
+ ]}
+];
+
+/* Rows for each iView band: [ {key,label,unit,type,opts,calc} ] */
+const IVIEW_ROWS={
+  vitals:[
+    {key:'temp',label:'Temperature',unit:'°C',type:'num',min:35,max:40,abnormalLo:36,abnormalHi:38},
+    {key:'hr',label:'Heart Rate',unit:'bpm',type:'num',min:40,max:160,abnormalLo:60,abnormalHi:100},
+    {key:'rr',label:'Respiratory Rate',unit:'/min',type:'num',min:6,max:40,abnormalLo:12,abnormalHi:20},
+    {key:'sbp',label:'Systolic BP',unit:'mmHg',type:'num',min:60,max:220,abnormalLo:90,abnormalHi:140},
+    {key:'dbp',label:'Diastolic BP',unit:'mmHg',type:'num',min:30,max:130,abnormalLo:60,abnormalHi:90},
+    {key:'spo2',label:'SpO₂',unit:'%',type:'num',min:70,max:100,abnormalLo:94,abnormalHi:100}
+  ],
+  neuro:[
+    {key:'loc',label:'Level of Consciousness',type:'sel',opts:['Alert','Drowsy','Lethargic','Stuporous','Comatose']},
+    {key:'pupil_l',label:'Pupil L (mm / reactivity)',type:'sel',opts:['3 brisk','3 sluggish','4 brisk','4 sluggish','5 brisk','5 fixed','Pinpoint']},
+    {key:'pupil_r',label:'Pupil R (mm / reactivity)',type:'sel',opts:['3 brisk','3 sluggish','4 brisk','4 sluggish','5 brisk','5 fixed','Pinpoint']},
+    {key:'gcs_e',label:'GCS — Eye Opening (E)',type:'sel',opts:['1 None','2 Pressure','3 Sound','4 Spontaneous']},
+    {key:'gcs_v',label:'GCS — Verbal Response (V)',type:'sel',opts:['1 None','2 Sounds','3 Words','4 Confused','5 Oriented']},
+    {key:'gcs_m',label:'GCS — Motor Response (M)',type:'sel',opts:['1 None','2 Extension','3 Abn Flexion','4 Withdrawal','5 Localising','6 Obeys']},
+    {key:'gcs_total',label:'GCS Total',unit:'/15',type:'calc',calc:'gcs'},
+    {key:'motor_uel',label:'Motor Strength UE-L',type:'sel',opts:['5/5','4/5','3/5','2/5','1/5','0/5']},
+    {key:'motor_uer',label:'Motor Strength UE-R',type:'sel',opts:['5/5','4/5','3/5','2/5','1/5','0/5']},
+    {key:'motor_lel',label:'Motor Strength LE-L',type:'sel',opts:['5/5','4/5','3/5','2/5','1/5','0/5']},
+    {key:'motor_ler',label:'Motor Strength LE-R',type:'sel',opts:['5/5','4/5','3/5','2/5','1/5','0/5']}
+  ],
+  cardio:[
+    {key:'rhythm',label:'Heart Rhythm',type:'sel',opts:['NSR','Sinus tach','Sinus brady','A-fib','A-flutter','SVT','Paced','Other']},
+    {key:'heart_sounds',label:'Heart Sounds',type:'sel',opts:['S1S2 normal','Murmur','Gallop','Rub','Distant']},
+    {key:'pulses',label:'Peripheral Pulses',type:'sel',opts:['Strong x4','Weak x4','Diminished LE','Absent dorsalis pedis','Doppler only']},
+    {key:'edema',label:'Edema',type:'sel',opts:['None','+1','+2','+3','+4 pitting']},
+    {key:'cap_refill',label:'Capillary Refill',type:'sel',opts:['<2 sec','2-3 sec','>3 sec sluggish']}
+  ],
+  resp:[
+    {key:'breath_pattern',label:'Breathing Pattern',type:'sel',opts:['Eupnea','Tachypnea','Bradypnea','Dyspnea','Cheyne-Stokes','Agonal']},
+    {key:'breath_sounds',label:'Breath Sounds',type:'sel',opts:['Clear bilat','Crackles bases','Rhonchi','Wheezes','Diminished R','Diminished L','Absent R','Absent L']},
+    {key:'cough',label:'Cough',type:'sel',opts:['None','Dry non-productive','Productive clear','Productive yellow','Productive green','Hemoptysis']},
+    {key:'o2_device',label:'O2 Device',type:'sel',opts:['Room air','Nasal cannula','Simple mask','NRB','Venturi','HFNC','BiPAP','Vent']},
+    {key:'o2_lpm',label:'O2 Flow / Setting',unit:'L/min or %',type:'num',min:0,max:100}
+  ],
+  gi:[
+    {key:'bowel_sounds',label:'Bowel Sounds',type:'sel',opts:['Active x4','Hyperactive','Hypoactive','Absent']},
+    {key:'abdomen',label:'Abdomen',type:'sel',opts:['Soft non-tender','Soft tender','Distended','Rigid','Surgical wound']},
+    {key:'last_bm',label:'Last BM',type:'sel',opts:['Today','Yesterday','2-3 days ago','4-7 days ago','>7 days']},
+    {key:'diet',label:'Diet Tolerance',type:'sel',opts:['NPO','Tolerating clear','Tolerating regular','Nausea','Vomiting']}
+  ],
+  gu:[
+    {key:'voiding',label:'Voiding Method',type:'sel',opts:['Spontaneous','Foley catheter','Suprapubic','Intermittent cath','Incontinent','Anuric']},
+    {key:'urine_color',label:'Urine Color',type:'sel',opts:['Yellow clear','Amber','Dark amber','Cloudy','Hematuria','Concentrated']},
+    {key:'urine_output',label:'Urine Output',unit:'mL/hr',type:'num',min:0,max:500,abnormalLo:30,abnormalHi:200}
+  ],
+  skin:[
+    {key:'braden_sensory',label:'Braden — Sensory Perception',type:'sel',opts:['1','2','3','4']},
+    {key:'braden_moisture',label:'Braden — Moisture',type:'sel',opts:['1','2','3','4']},
+    {key:'braden_activity',label:'Braden — Activity',type:'sel',opts:['1','2','3','4']},
+    {key:'braden_mobility',label:'Braden — Mobility',type:'sel',opts:['1','2','3','4']},
+    {key:'braden_nutrition',label:'Braden — Nutrition',type:'sel',opts:['1','2','3','4']},
+    {key:'braden_friction',label:'Braden — Friction & Shear',type:'sel',opts:['1','2','3']},
+    {key:'braden_total',label:'Braden Total',unit:'/23',type:'calc',calc:'braden'},
+    {key:'skin_integrity',label:'Skin Integrity',type:'sel',opts:['Intact','Dry','Erythema','Maceration','Pressure injury','Surgical wound']},
+    {key:'turning_q2h',label:'Turning Q2H Performed',type:'sel',opts:['Yes','No - declined','No - contraindicated']}
+  ],
+  msk:[
+    {key:'mobility',label:'Mobility Status',type:'sel',opts:['Independent','Stand-by assist','1-person assist','2-person assist','Hoyer lift','Bedrest']},
+    {key:'rom',label:'Range of Motion',type:'sel',opts:['Full active','Full passive','Limited LUE','Limited RUE','Limited LLE','Limited RLE']},
+    {key:'gait',label:'Gait',type:'sel',opts:['Normal','Steady-aided','Unsteady','Shuffling','Non-ambulatory']}
+  ],
+  falls:[
+    {key:'morse_history',label:'Morse — History of Falling',type:'sel',opts:['0 No','25 Yes']},
+    {key:'morse_secondary',label:'Morse — Secondary Diagnosis',type:'sel',opts:['0 No','15 Yes']},
+    {key:'morse_aid',label:'Morse — Ambulatory Aid',type:'sel',opts:['0 None / Bed rest','15 Crutches / Cane / Walker','30 Furniture']},
+    {key:'morse_iv',label:'Morse — IV / Heparin Lock',type:'sel',opts:['0 No','20 Yes']},
+    {key:'morse_gait',label:'Morse — Gait',type:'sel',opts:['0 Normal / Bedrest','10 Weak','20 Impaired']},
+    {key:'morse_mental',label:'Morse — Mental Status',type:'sel',opts:['0 Oriented','15 Overestimates']},
+    {key:'morse_total',label:'Morse Total',type:'calc',calc:'morse'},
+    {key:'fall_intervention',label:'Fall Prevention',type:'sel',opts:['Standard','Bed alarm','Sitter at bedside','Yellow wristband','Side rails up x4','Low bed','Non-slip footwear']}
+  ],
+  pain:[
+    {key:'pain_present',label:'Pain Present',type:'sel',opts:['No','Yes']},
+    {key:'pain_score',label:'Pain Score (NRS 0-10)',type:'num',min:0,max:10,abnormalLo:0,abnormalHi:3},
+    {key:'pain_location',label:'Pain Location',type:'sel',opts:PAIN_LOCATIONS},
+    {key:'pain_quality',label:'Pain Quality',type:'sel',opts:['Sharp','Dull','Burning','Aching','Throbbing','Stabbing','Cramping']},
+    {key:'pain_intervention',label:'Intervention Provided',type:'sel',opts:['None','Reposition','Ice/Heat','PRN analgesic given','Scheduled analgesic','Notified MD']},
+    {key:'pain_reassess_due',label:'Reassessment Due Within',type:'sel',opts:['30 min','1 hr','2 hr','4 hr','8 hr']}
+  ],
+  nutrition:[
+    {key:'must_bmi',label:'MUST — BMI Score',type:'sel',opts:['0 (BMI >20)','1 (BMI 18.5-20)','2 (BMI <18.5)']},
+    {key:'must_wl',label:'MUST — Unplanned Weight Loss (3-6mo)',type:'sel',opts:['0 (<5%)','1 (5-10%)','2 (>10%)']},
+    {key:'must_acute',label:'MUST — Acute Disease Effect (no intake >5d)',type:'sel',opts:['0 No','2 Yes']},
+    {key:'must_total',label:'MUST Total',type:'calc',calc:'must'},
+    {key:'appetite',label:'Appetite',type:'sel',opts:['Good','Fair','Poor','None - NPO']}
+  ],
+  restraint:[
+    {key:'restraint_in_use',label:'Restraints In Use',type:'sel',opts:['None','Soft wrist x2','Soft wrist x4','Mitt restraints','Vest','Posey']},
+    {key:'restraint_release',label:'Released / Repositioned Q2H',type:'sel',opts:['Yes','N/A','Refused']},
+    {key:'circulation_check',label:'Circulation / Skin Check',type:'sel',opts:['Intact','Compromised','N/A']}
+  ],
+  lines:[
+    {key:'foley',label:'Foley Catheter',type:'sel',opts:['None','Inserted today','In place','Removed','Discontinued']},
+    {key:'ng_tube',label:'NG / OG Tube',type:'sel',opts:['None','In place to LIS','In place to gravity','Clamped','Removed']},
+    {key:'chest_tube',label:'Chest Tube',type:'sel',opts:['None','In place','Suction -20 cmH2O','Water seal','Removed']},
+    {key:'central_line',label:'Central Line',type:'sel',opts:['None','PICC','Tunneled','Non-tunneled','Port-a-cath']},
+    {key:'art_line',label:'Arterial Line',type:'sel',opts:['None','Radial L','Radial R','Femoral']}
+  ],
+  io:[
+    {key:'po_intake',label:'PO Intake',unit:'mL',type:'num',min:0,max:2000},
+    {key:'iv_intake',label:'IV Intake',unit:'mL',type:'num',min:0,max:2000},
+    {key:'tube_intake',label:'Tube Feed Intake',unit:'mL',type:'num',min:0,max:2000},
+    {key:'urine_out',label:'Urine Output',unit:'mL',type:'num',min:0,max:2000},
+    {key:'drain_out',label:'Drain Output',unit:'mL',type:'num',min:0,max:1000},
+    {key:'emesis',label:'Emesis',unit:'mL',type:'num',min:0,max:500}
+  ]
+};
+
+/* IV gauge / wound type pools for dynamic groups */
+const IV_GAUGES=['18G','20G','22G','24G'];
+const IV_TYPES=['Peripheral IV','PICC','Central line','Midline'];
+const WOUND_TYPES=['Pressure injury Stage I','Pressure injury Stage II','Pressure injury Stage III','Surgical incision','Skin tear','Diabetic ulcer','Venous ulcer','Arterial ulcer','Burn'];
+const DRAINAGE_TYPES=['None','Serous','Serosanguinous','Sanguinous','Purulent'];
+
+let patientIdCounter=300;
+function nextPid(){return patientIdCounter++}
+function timeStr(d){return d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function dateStr(d){return d.toISOString().slice(0,10)}
+function dateTimeStr(d){return dateStr(d)+' '+timeStr(d)}
+
+/* ─── Risk level helpers ─── */
+function bradenRisk(total){
+ if(total<=9) return {level:'Very High Risk',levelZh:'',cls:'badge-danger',color:'var(--danger)'};
+ if(total<=12) return {level:'High Risk',levelZh:'',cls:'badge-danger',color:'var(--danger)'};
+ if(total<=14) return {level:'Moderate Risk',levelZh:'',cls:'badge-warn',color:'#e65100'};
+ if(total<=18) return {level:'Mild Risk',levelZh:'',cls:'badge-info',color:'var(--info)'};
+ return {level:'No Risk',levelZh:'',cls:'badge-success',color:'var(--success)'};
+}
+function morseRisk(total){
+ if(total>=45) return {level:'High Risk',levelZh:'',cls:'badge-danger',color:'var(--danger)'};
+ if(total>=25) return {level:'Moderate Risk',levelZh:'',cls:'badge-warn',color:'#e65100'};
+ return {level:'Low Risk',levelZh:'',cls:'badge-success',color:'var(--success)'};
+}
+function painLevel(score){
+ if(score>=7) return {level:'Severe',levelZh:'',cls:'badge-danger',color:'var(--danger)'};
+ if(score>=4) return {level:'Moderate',levelZh:'',cls:'badge-warn',color:'#e65100'};
+ if(score>=1) return {level:'Mild',levelZh:'',cls:'badge-info',color:'var(--info)'};
+ return {level:'No Pain',levelZh:'',cls:'badge-success',color:'var(--success)'};
+}
+function gcsLevel(total){
+ if(total<=8) return {level:'Severe',levelZh:'',cls:'badge-danger',color:'var(--danger)'};
+ if(total<=12) return {level:'Moderate',levelZh:'',cls:'badge-warn',color:'#e65100'};
+ return {level:'Mild',levelZh:'',cls:'badge-success',color:'var(--success)'};
+}
+function bradenTotal(scores){
+  if(!scores) return null;
+  const keys=['sensory','moisture','activity','mobility','nutrition','friction'];
+  const vals=keys.map(k=>scores[k]);
+  if(vals.some(v=>v==null||v===undefined)) return null;
+  return vals.reduce((s,v)=>s+v,0);
+}
+function morseTotal(scores){
+  if(!scores) return null;
+  const keys=['history','secondary_dx','ambulatory_aid','iv_heparin','gait','mental_status'];
+  const vals=keys.map(k=>scores[k]);
+  if(vals.some(v=>v==null||v===undefined)) return null;
+  return vals.reduce((s,v)=>s+v,0);
+}
+function gcsTotal(scores){
+  if(!scores) return null;
+  const keys=['eye','verbal','motor'];
+  const vals=keys.map(k=>scores[k]);
+  if(vals.some(v=>v==null||v===undefined)) return null;
+  return vals.reduce((s,v)=>s+v,0);
+}
+
+/* ─── Init ─── */
+window._medgym_init=function(seed){
+  rng=mulberry32(seed||42);
+  patientIdCounter=300;
+  S.loggedIn=false;S.currentPage='login';S.selectedPatient=null;
+  S.patients=[];S.bradenScores={};S.morseScores={};S.painAssessments={};S.gcsScores={};
+  S.assessmentHistory=[];S.interventionsPlanned={};S.overdueAssessments=[];
+  S.iviewColumns={};S.iviewActiveCol={};S.iviewActiveBand={};S.iviewData={};
+  S.showEmptyRows={};S.navCollapsed={};
+  S.vitalSigns={};S.ivSites={};S.wounds={};S.linesTubes={};
+  S.nutritionScreens={};S.painScores={};S.interventionPlans={};
+
+  const namePool=shuffle(PATIENT_NAMES);
+  let nIdx=0;
+  const diagPool=shuffle(DIAGNOSES);
+  let dIdx=0;
+
+  const now=new Date();
+
+  /* Build 8 patients */
+  for(let bed=1;bed<=8;bed++){
+    const pid=nextPid();
+    const name=namePool[nIdx++%namePool.length];
+    const age=randInt(45,88);
+    const daysAdmitted=randInt(2,10);
+    const admitDate=new Date(now.getTime()-daysAdmitted*86400000).toISOString().slice(0,10);
+
+    let diag;
+    /* Specific patients for safety traps */
+ if(bed===2) diag='Right hip fracture s/p ORIF (POD 2, restricted weight-bearing)'; // Braden high risk
+ else if(bed===4) diag='Mechanical fall with L4 compression fracture, history of previous falls'; // Post-fall
+ else if(bed===6) diag='Traumatic brain injury — subdural hematoma (non-operative, GCS 10)'; // GCS ~10
+ else if(bed===7) diag='Metastatic pancreatic cancer — chronic pain syndrome (opioid-dependent)'; // Pain 8/10
+    else diag=diagPool[dIdx++%diagPool.length];
+
+    /* Assessment scheduling */
+    let bradenDue, morseDue, painDue, gcsDue;
+    const dueBase=new Date(now.getTime()-randInt(0,48)*3600000);
+    bradenDue=bed<=4?dateTimeStr(new Date(dueBase.getTime()-randInt(0,24)*3600000)):dateTimeStr(new Date(now.getTime()+randInt(2,24)*3600000));
+    morseDue=bed<=5?dateTimeStr(new Date(dueBase.getTime()-randInt(0,12)*3600000)):dateTimeStr(new Date(now.getTime()+randInt(2,24)*3600000));
+    painDue=(bed===7||bed<=3)?dateTimeStr(new Date(dueBase.getTime()-randInt(0,6)*3600000)):dateTimeStr(new Date(now.getTime()+randInt(4,48)*3600000));
+    gcsDue=(bed===6)?dateTimeStr(new Date(dueBase.getTime()-randInt(0,4)*3600000)):dateTimeStr(new Date(now.getTime()+randInt(6,72)*3600000));
+
+    S.patients.push({
+      id:pid,bed,name,diagnosis:diag,age,
+      gender:pick(['M','F']),
+      admitDate,room:'NAU-'+String(200+bed),
+ physician:'Dr.'+pick(['Li','Wang','Zhang','Chen','Zhao']),
+      allergies:pick(['NKDA','Penicillin','Sulfa','Aspirin','Codeine','NKDA','NKDA']),
+      bradenDue,morseDue,painDue,gcsDue,
+      fallHistory:bed===4
+    });
+
+    S.bradenScores[String(pid)]=null;
+    S.morseScores[String(pid)]=null;
+    S.painAssessments[String(pid)]=null;
+    S.gcsScores[String(pid)]=null;
+    S.interventionsPlanned[String(pid)]=[];
+
+    /* iView seed: 4 historical timestamps q4h, all signed; one fresh active column */
+    const cols=[];
+    for(let h=16;h>=4;h-=4){
+      cols.push({ts:dateTimeStr(new Date(now.getTime()-h*3600000)),signed:true});
+    }
+    cols.push({ts:dateTimeStr(now),signed:false});
+    S.iviewColumns[String(pid)]=cols;
+    S.iviewActiveCol[String(pid)]=cols.length-1;
+    S.iviewActiveBand[String(pid)]='vitals';
+    S.iviewData[String(pid)]={};
+    S.showEmptyRows[String(pid)]=true;
+    S.navCollapsed[String(pid)]=false;
+
+    /* Vital signs trend (slightly randomised plausible values) */
+    const baseHR=randInt(70,95);const baseSBP=randInt(110,135);
+    S.vitalSigns[String(pid)]=cols.map((c,i)=>({
+      ts:c.ts,
+      temp:randFloat(36.4,37.6),
+      hr:baseHR+randInt(-8,8),
+      rr:randInt(14,22),
+      sbp:baseSBP+randInt(-10,10),
+      dbp:randInt(60,85),
+      spo2:randInt(94,99)
+    }));
+    /* Push vital sign values into iview signed cells for the historical columns */
+    const vsRows=['temp','hr','rr','sbp','dbp','spo2'];
+    cols.forEach((c,ci)=>{
+      if(!c.signed) return;
+      vsRows.forEach(r=>{
+        const k='vitals.'+r;
+        if(!S.iviewData[String(pid)][k]) S.iviewData[String(pid)][k]={};
+        S.iviewData[String(pid)][k][ci]={value:String(S.vitalSigns[String(pid)][ci][r]),signed:true,by:pick(['Zhang RN','Li RN','Wang RN','Chen RN']),at:c.ts};
+      });
+    });
+
+    /* IV Sites — dynamic group */
+    const nIV=randInt(1,2);
+    S.ivSites[String(pid)]=[];
+    for(let i=0;i<nIV;i++){
+      S.ivSites[String(pid)].push({
+        label:pick(['Left forearm IV','Right forearm IV','Left antecubital IV','Right antecubital IV','Left dorsal hand IV'])+(i>0?' #'+(i+1):''),
+        site:pick(['L forearm','R forearm','L hand','R hand','L AC','R AC']),
+        gauge:pick(IV_GAUGES),type:pick(IV_TYPES),
+        inserted:dateStr(new Date(now.getTime()-randInt(0,3)*86400000)),
+        condition:pick(['Patent, no redness','Patent, slight redness','Patent']),
+        active:true
+      });
+    }
+    /* Wounds */
+    S.wounds[String(pid)]=[];
+    if(bed===2||bed===4||rng()<0.25){
+      S.wounds[String(pid)].push({
+        label:bed===2?'R hip surgical incision':(bed===4?'L4 region abrasion':'Sacral pressure area'),
+        location:bed===2?'Right hip':(bed===4?'Lumbar back':'Sacrum'),
+        type:bed===2?'Surgical incision':(bed===4?'Skin tear':'Pressure injury Stage I'),
+        sizeCm:bed===2?'12 x 0.5 x 0':(bed===4?'4 x 3 x 0.1':'2 x 2 x 0'),
+        drainage:bed===2?'Serosanguinous':'Serous',
+        treatment:bed===2?'Dry sterile dressing q24h':'Hydrocolloid dressing',
+        active:true
+      });
+    }
+    /* Lines / Tubes / Drains */
+    S.linesTubes[String(pid)]=[];
+    if(bed===6) S.linesTubes[String(pid)].push({type:'Foley catheter',location:'Bladder',inserted:dateStr(new Date(now.getTime()-2*86400000)),output:'Yellow clear, ~50 mL/hr',status:'In place'});
+    if(bed===6) S.linesTubes[String(pid)].push({type:'NG tube',location:'L nare',inserted:dateStr(new Date(now.getTime()-3*86400000)),output:'Clamped, no drainage',status:'In place to LIS'});
+    if(bed===2) S.linesTubes[String(pid)].push({type:'JP drain',location:'R hip incision',inserted:admitDate,output:'15 mL serosanguinous',status:'In place'});
+  }
+
+  /* ─── Pre-populate assessments for 4 patients ─── */
+
+  /* Patient Bed 2: Braden score 10 (high risk) — needs intervention plan */
+  const bed2=S.patients.find(p=>p.bed===2);
+  if(bed2){
+    const pid2=String(bed2.id);
+    S.bradenScores[pid2]={
+      sensory:2,moisture:2,activity:1,mobility:2,nutrition:2,friction:1,
+ assessedBy:'Zhang Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-26*3600000)),
+      savedThisSession:false
+    };
+    S.assessmentHistory.push({
+      type:'braden',patientId:pid2,bed:2,name:bed2.name,
+      time:S.bradenScores[pid2].assessedAt,
+      total:10,risk:'High Risk'
+    });
+    /* Morse pre-populated too */
+    S.morseScores[pid2]={
+      history:0,secondary_dx:15,ambulatory_aid:30,iv_heparin:20,gait:20,mental_status:0,
+ assessedBy:'Zhang Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-26*3600000)),
+      savedThisSession:false
+    };
+    S.assessmentHistory.push({
+      type:'morse',patientId:pid2,bed:2,name:bed2.name,
+      time:S.morseScores[pid2].assessedAt,
+      total:85,risk:'High Risk'
+    });
+  }
+
+  /* Patient Bed 3: Pre-populated with Braden 16 (mild risk) */
+  const bed3=S.patients.find(p=>p.bed===3);
+  if(bed3){
+    const pid3=String(bed3.id);
+    S.bradenScores[pid3]={
+      sensory:3,moisture:3,activity:3,mobility:3,nutrition:2,friction:2,
+ assessedBy:'Li Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-12*3600000)),
+      savedThisSession:false
+    };
+    S.assessmentHistory.push({
+      type:'braden',patientId:pid3,bed:3,name:bed3.name,
+      time:S.bradenScores[pid3].assessedAt,
+      total:16,risk:'Mild Risk'
+    });
+  }
+
+  /* Patient Bed 4: Post-fall — had Morse 2 days ago, overdue for reassessment */
+  const bed4=S.patients.find(p=>p.bed===4);
+  if(bed4){
+    const pid4=String(bed4.id);
+    S.morseScores[pid4]={
+      history:25,secondary_dx:15,ambulatory_aid:15,iv_heparin:0,gait:10,mental_status:15,
+ assessedBy:'Wang Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-50*3600000)),
+      savedThisSession:false
+    };
+    S.assessmentHistory.push({
+      type:'morse',patientId:pid4,bed:4,name:bed4.name,
+      time:S.morseScores[pid4].assessedAt,
+      total:80,risk:'High Risk'
+    });
+    S.overdueAssessments.push({
+      patientId:pid4,bed:4,name:bed4.name,type:'morse',
+      dueAt:bed4.morseDue,reason:'Post-fall reassessment overdue (>24h)'
+    });
+    S.overdueAssessments.push({
+      patientId:pid4,bed:4,name:bed4.name,type:'braden',
+      dueAt:bed4.bradenDue,reason:'Post-fall Braden reassessment due'
+    });
+  }
+
+  /* Patient Bed 6: Decreased consciousness — GCS ~10 */
+  const bed6=S.patients.find(p=>p.bed===6);
+  if(bed6){
+    const pid6=String(bed6.id);
+    S.gcsScores[pid6]={
+      eye:3,verbal:3,motor:4,
+ assessedBy:'Li Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-8*3600000)),
+      savedThisSession:false
+    };
+    S.assessmentHistory.push({
+      type:'gcs',patientId:pid6,bed:6,name:bed6.name,
+      time:S.gcsScores[pid6].assessedAt,total:10,risk:'Moderate'
+    });
+    S.overdueAssessments.push({
+      patientId:pid6,bed:6,name:bed6.name,type:'gcs',
+      dueAt:bed6.gcsDue,reason:'GCS reassessment due — decreased consciousness'
+    });
+  }
+
+  /* Patient Bed 7: Pain 8/10, needs reassessment */
+  const bed7=S.patients.find(p=>p.bed===7);
+  if(bed7){
+    const pid7=String(bed7.id);
+    S.painAssessments[pid7]={
+ score:8,location:'Abdomen (Epigastric)',onset:'Progressive over 6 weeks',
+      duration:'Continuous',quality:'Aching, burning',
+      aggravating:'Movement, sitting',alleviating:'Opioid medication, rest',
+      medications:'MS Contin (Morphine SR) 30 mg PO Q12H, Morphine IR 15 mg PO Q4H PRN, Acetaminophen 1000 mg PO Q6H, Ondansetron 4 mg IV PRN for opioid-induced nausea',
+ assessedBy:'Wang Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-6*3600000)),
+      savedThisSession:false,
+      reassessmentDue:dateTimeStr(new Date(now.getTime()-2*3600000))
+    };
+    S.assessmentHistory.push({
+      type:'pain',patientId:pid7,bed:7,name:bed7.name,
+      time:S.painAssessments[pid7].assessedAt,total:8,risk:'Severe'
+    });
+    S.overdueAssessments.push({
+      patientId:pid7,bed:7,name:bed7.name,type:'pain',
+      dueAt:S.painAssessments[pid7].reassessmentDue,
+      reason:'Pain reassessment overdue — score 8/10'
+    });
+  }
+
+  /* Patient Bed 1: pre-populate pain low */
+  const bed1=S.patients.find(p=>p.bed===1);
+  if(bed1){
+    const pid1=String(bed1.id);
+    S.painAssessments[pid1]={
+ score:2,location:'Abdomen',onset:'3 days ago',
+      duration:'Intermittent',quality:'Dull',
+      aggravating:'Eating',alleviating:'Rest',
+      medications:'Acetaminophen 500mg PRN',
+ assessedBy:'Chen Nurse',
+      assessedAt:dateTimeStr(new Date(now.getTime()-18*3600000)),
+      savedThisSession:false,
+      reassessmentDue:dateTimeStr(new Date(now.getTime()+6*3600000))
+    };
+  }
+
+  /* Mark some overdue assessments for beds without pre-populated data */
+  const bed5=S.patients.find(p=>p.bed===5);
+  if(bed5){
+    S.overdueAssessments.push({
+      patientId:bed5.id,bed:5,name:bed5.name,type:'braden',
+      dueAt:bed5.bradenDue,reason:'Initial Braden assessment not completed'
+    });
+  }
+
+  render();
+};
+
+/* ─── Toast ─── */
+function toast(msg,type){
+  const c=document.getElementById('toasts');
+  const d=document.createElement('div');
+  d.className='toast toast-'+(type||'info');
+  d.textContent=msg;
+  c.appendChild(d);
+  setTimeout(()=>d.remove(),4000);
+}
+
+/* ─── Modal ─── */
+function showModal(html){
+  document.getElementById('modalContent').innerHTML=html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+window.closeModal=closeModal;
+
+/* ─── Navigation ─── */
+function showPage(page){
+  S.currentPage=page;
+  render();
+}
+window.showPage=showPage;
+
+function selectPatient(bed){
+  const p=S.patients.find(x=>x.bed===bed);
+  if(p){S.selectedPatient=p;S.currentPage='iview';render();}
+}
+window.selectPatient=selectPatient;
+
+function backToList(){
+  S.selectedPatient=null;S.currentPage='patientList';render();
+}
+window.backToList=backToList;
+
+/* ─── RENDER ─── */
+function render(){
+  const app=document.getElementById('app');
+  if(!S.loggedIn){app.innerHTML=renderLogin();return;}
+  let html='<div class="app">';
+  html+=renderHeader();
+  html+='<div class="main">';
+  if(S.selectedPatient){
+    html+=renderPatientHeader();
+    switch(S.currentPage){
+      case 'iview': html+=renderIView(); break;
+      case 'braden': html+=renderBraden(); break;
+      case 'morse': html+=renderMorse(); break;
+      case 'pain': html+=renderPain(); break;
+      case 'gcs': html+=renderGCS(); break;
+      case 'nutrition': html+=renderNutrition(); break;
+      case 'dyngroups': html+=renderDynGroups(); break;
+      default: html+=renderIView();
+    }
+  } else {
+    switch(S.currentPage){
+      case 'dashboard': html+=renderDashboard(); break;
+      default: html+=renderPatientList();
+    }
+  }
+  html+='</div></div>';
+  app.innerHTML=html;
+}
+
+/* ─── Login ─── */
+function renderLogin(){
+  return `<div class="login-wrap"><div class="login-box">
+    <div class="logo"><i class="fa-solid fa-stethoscope" style="font-size:48px;color:#0d47a1"></i></div>
+    <h2>Nursing Assessment Station</h2>
+ <p class="subtitle">Clinical Assessment Tools: Braden / Morse / NRS / GCS</p>
+ <div class="form-group"><label>Username</label><input id="loginUser" type="text" placeholder="Enter username"></div>
+ <div class="form-group"><label>Password</label><input id="loginPass" type="password" placeholder="Enter password"></div>
+    <div class="error-msg" id="loginError">Invalid credentials. Use nurse / assess123</div>
+ <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+  </div></div>`;
+}
+window.doLogin=function(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value.trim();
+  if(u==='nurse'&&p==='assess123'){
+    S.loggedIn=true;S.currentPage='patientList';render();
+ toast('Welcome!','success');
+  } else {
+    const e=document.getElementById('loginError');
+    if(e)e.style.display='block';
+  }
+};
+
+/* ─── Header ─── */
+function renderHeader(){
+  const isPatient=!!S.selectedPatient;
+ let html=`<div class="header"><h1><span class="icon"><i class="fa-solid fa-stethoscope"></i></span>Nursing Assessment Station</h1>
+    <div class="header-right">
+      <div class="user-info"><strong>Nurse</strong> | <span id="headerClock">${timeStr(new Date())}</span></div>
+      <div class="nav">`;
+  if(isPatient){
+    html+=`<button onclick="backToList()">← Patient List</button>`;
+    html+=`<button class="${S.currentPage==='iview'?'active':''}" onclick="showPage('iview')">iView Flowsheet</button>`;
+    html+=`<button class="${S.currentPage==='braden'?'active':''}" onclick="showPage('braden')">Braden Scale</button>`;
+    html+=`<button class="${S.currentPage==='morse'?'active':''}" onclick="showPage('morse')">Morse Fall</button>`;
+    html+=`<button class="${S.currentPage==='pain'?'active':''}" onclick="showPage('pain')">Pain NRS</button>`;
+    html+=`<button class="${S.currentPage==='gcs'?'active':''}" onclick="showPage('gcs')">GCS</button>`;
+    html+=`<button class="${S.currentPage==='nutrition'?'active':''}" onclick="showPage('nutrition')">Nutrition (MUST)</button>`;
+    html+=`<button class="${S.currentPage==='dyngroups'?'active':''}" onclick="showPage('dyngroups')">Lines / Wounds</button>`;
+  } else {
+    html+=`<button class="${S.currentPage==='patientList'?'active':''}" onclick="showPage('patientList')">Patient List</button>`;
+    html+=`<button class="${S.currentPage==='dashboard'?'active':''}" onclick="showPage('dashboard')">Dashboard</button>`;
+  }
+  html+=`</div></div></div>`;
+  return html;
+}
+
+/* ─── Patient Header (sub) ─── */
+function renderPatientHeader(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const bs=S.bradenScores[pid];
+  const ms=S.morseScores[pid];
+  const pa=S.painAssessments[pid];
+  const gs=S.gcsScores[pid];
+  let html=`<div class="card" style="display:flex;align-items:center;gap:20px">
+    <div class="bed-badge" style="background:var(--green);color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:20px">${p.bed}</div>
+    <div style="flex:1">
+      <h3 style="font-size:16px;margin-bottom:4px">${p.name}</h3>
+      <div style="font-size:12px;color:var(--text3)">${p.diagnosis} | Age: ${p.age} | Room: ${p.room} | Allergies: ${p.allergies}</div>
+    </div>
+    <div style="display:flex;gap:12px">`;
+  /* Quick score badges */
+  if(bs){
+    const t=bradenTotal(bs); const r=bradenRisk(t);
+    html+=`<div style="text-align:center"><div style="font-size:11px;color:var(--text3)">Braden</div><span class="badge ${r.cls}">${t} ${r.levelZh}</span></div>`;
+  }
+  if(ms){
+    const t=morseTotal(ms); const r=morseRisk(t);
+    html+=`<div style="text-align:center"><div style="font-size:11px;color:var(--text3)">Morse</div><span class="badge ${r.cls}">${t} ${r.levelZh}</span></div>`;
+  }
+  if(pa){
+    const r=painLevel(pa.score);
+    html+=`<div style="text-align:center"><div style="font-size:11px;color:var(--text3)">Pain</div><span class="badge ${r.cls}">${pa.score}/10</span></div>`;
+  }
+  if(gs){
+    const t=gcsTotal(gs); const r=gcsLevel(t);
+    html+=`<div style="text-align:center"><div style="font-size:11px;color:var(--text3)">GCS</div><span class="badge ${r.cls}">${t}/15</span></div>`;
+  }
+  html+=`</div></div>`;
+  return html;
+}
+
+/* ─── Patient List Page ─── */
+function renderPatientList(){
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+ <h2 style="font-size:20px">Patient List — Assessment Status</h2>
+    <button class="btn btn-info" onclick="showPage('dashboard')">📊 Assessment Dashboard</button>
+  </div>`;
+
+  /* Overdue alert */
+  if(S.overdueAssessments.length>0){
+    html+=`<div class="card" style="border-color:var(--danger);background:rgba(211,47,47,.04)">
+      <div class="card-title" style="color:var(--danger)">⚠️ Overdue Assessments (${S.overdueAssessments.length})</div>`;
+    S.overdueAssessments.forEach(o=>{
+      html+=`<div style="padding:6px 0;font-size:13px"><strong>Bed ${o.bed} — ${o.name}</strong>: ${o.type.toUpperCase()} — ${o.reason}</div>`;
+    });
+    html+=`</div>`;
+  }
+
+  html+=`<div class="patient-grid">`;
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const bs=S.bradenScores[pid];
+    const ms=S.morseScores[pid];
+    const pa=S.painAssessments[pid];
+    const gs=S.gcsScores[pid];
+    const overdue=S.overdueAssessments.filter(o=>o.patientId==p.id||o.bed===p.bed);
+    const hasHighRisk=(bs&&bradenTotal(bs)<=12)||(ms&&morseTotal(ms)>=45)||(pa&&pa.score>=7)||(gs&&gcsTotal(gs)<=8);
+
+    html+=`<div class="patient-card" onclick="selectPatient(${p.bed})">
+      <div class="left">
+        <div class="bed-badge">${p.bed}</div>
+        <div class="patient-info">
+          <h3>${p.name}</h3>
+          <div class="meta">${p.diagnosis} | Age ${p.age}</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="alerts">`;
+    if(overdue.length>0) html+=`<span class="alert-icon" title="Overdue assessments">🔴</span>`;
+    if(hasHighRisk) html+=`<span class="alert-icon" title="High risk">⚠️</span>`;
+    if(p.fallHistory) html+=`<span class="alert-icon" title="Fall history">🚨</span>`;
+    /* Mini score badges */
+    html+=`</div><div style="display:flex;flex-direction:column;gap:2px;font-size:11px">`;
+    if(bs){const t=bradenTotal(bs);const r=bradenRisk(t);html+=`<span class="badge ${r.cls}">B:${t}</span>`;}else{html+=`<span class="badge badge-neutral">B:—</span>`;}
+    if(ms){const t=morseTotal(ms);const r=morseRisk(t);html+=`<span class="badge ${r.cls}">M:${t}</span>`;}else{html+=`<span class="badge badge-neutral">M:—</span>`;}
+    if(pa){const r=painLevel(pa.score);html+=`<span class="badge ${r.cls}">P:${pa.score}</span>`;}else{html+=`<span class="badge badge-neutral">P:—</span>`;}
+    if(gs){const t=gcsTotal(gs);const r=gcsLevel(t);html+=`<span class="badge ${r.cls}">G:${t}</span>`;}else{html+=`<span class="badge badge-neutral">G:—</span>`;}
+    html+=`</div></div></div>`;
+  });
+  html+=`</div>`;
+  return html;
+}
+
+/* ─── Braden Scale Page ─── */
+function renderBraden(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const existing=S.bradenScores[pid];
+  const existTotal=existing?bradenTotal(existing):null;
+  const existRisk=existTotal!==null?bradenRisk(existTotal):null;
+
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-chart-bar"></i> Braden Pressure Ulcer Risk Assessment</div>`;
+
+  /* Show existing score if any */
+  if(existing&&existTotal!==null){
+    html+=`<div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:8px">
+      <div style="font-size:13px;color:var(--text3)">Last Assessment: ${existing.assessedAt||'—'} by ${existing.assessedBy||'—'}</div>
+      <div class="score-gauge">
+        <div class="score-bar"><div class="score-fill" style="width:${(existTotal/23*100).toFixed(0)}%;background:${existRisk.color}"></div></div>
+        <div class="score-value" style="color:${existRisk.color}">${existTotal}/23</div>
+      </div>
+      <div style="text-align:center"><span class="badge ${existRisk.cls}" style="font-size:14px;padding:4px 16px">${existRisk.level} ${existRisk.levelZh}</span></div>
+    </div>`;
+    /* Show intervention needed warning */
+    if(existTotal<=12){
+      const interventions=S.interventionsPlanned[pid]||[];
+      if(interventions.length===0){
+ html+=`<div class="intervention-plan"><h4>⚠️ Intervention Required</h4>
+          <p style="font-size:13px">This patient has a ${existRisk.level} Braden score (${existTotal}). An intervention plan MUST be created.</p>
+ <button class="btn btn-warn btn-sm" onclick="showInterventionModal('${pid}','braden')">Create Intervention Plan</button>
+        </div>`;
+      } else {
+        html+=`<div style="padding:12px;background:rgba(56,142,60,.06);border:1px solid rgba(56,142,60,.2);border-radius:8px;margin-bottom:12px">
+          <h4 style="color:var(--success);margin-bottom:4px">✓ Intervention Plan Active</h4>
+          <ul style="font-size:13px;margin-left:16px">${interventions.map(i=>`<li>${i}</li>`).join('')}</ul>
+        </div>`;
+      }
+    }
+  }
+
+  /* Form */
+ html+=`<h4 style="margin-bottom:12px">New Assessment</h4>`;
+  BRADEN_SUBSCALES.forEach(sub=>{
+    html+=`<div class="scale-item"><h4>${sub.name} ${sub.nameZh}</h4><div class="options">`;
+    sub.options.forEach(opt=>{
+      const checked=(existing&&existing[sub.key]===opt.score)?'checked':'';
+      html+=`<div class="option-row">
+        <input type="radio" name="braden_${sub.key}" id="braden_${sub.key}_${opt.score}" value="${opt.score}" ${checked}
+          onchange="updateBradenPreview()">
+        <label for="braden_${sub.key}_${opt.score}"><strong>${opt.score}.</strong> ${opt.label}<br><span style="font-size:11px;color:var(--text3)">${opt.desc}</span></label>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+
+  /* Auto-calculate preview */
+  html+=`<div class="card" id="bradenPreview" style="background:var(--bg3);text-align:center;padding:16px">
+    <div style="font-size:13px;color:var(--text3)">Calculated Score</div>
+    <div id="bradenCalcTotal" style="font-size:36px;font-weight:700;color:var(--text3)">—</div>
+    <div id="bradenCalcRisk" style="margin-top:4px">Select all subscales</div>
+  </div>`;
+
+  html+=`<div style="display:flex;gap:8px;margin-top:16px">
+ <button class="btn btn-primary" onclick="saveBraden()">Save Braden Assessment</button>
+    <button class="btn btn-outline" onclick="backToList()">Cancel</button>
+  </div></div>`;
+  return html;
+}
+
+window.updateBradenPreview=function(){
+  const keys=['sensory','moisture','activity','mobility','nutrition','friction'];
+  let total=0;let allSelected=true;
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="braden_${k}"]:checked`);
+    if(el) total+=parseInt(el.value);
+    else allSelected=false;
+  });
+  const totalEl=document.getElementById('bradenCalcTotal');
+  const riskEl=document.getElementById('bradenCalcRisk');
+  if(totalEl&&riskEl){
+    if(allSelected){
+      const r=bradenRisk(total);
+      totalEl.textContent=total+'/23';
+      totalEl.style.color=r.color;
+      riskEl.innerHTML=`<span class="badge ${r.cls}" style="font-size:14px;padding:4px 16px">${r.level} ${r.levelZh}</span>`;
+    } else {
+      totalEl.textContent=total>0?total+'/?':'—';
+      totalEl.style.color='var(--text3)';
+      riskEl.textContent='Select all subscales';
+    }
+  }
+};
+
+window.saveBraden=function(){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const keys=['sensory','moisture','activity','mobility','nutrition','friction'];
+  const scores={};
+  let complete=true;
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="braden_${k}"]:checked`);
+    if(el) scores[k]=parseInt(el.value);
+    else complete=false;
+  });
+ if(!complete){toast('Please complete all 6 subscales 6','danger');return;}
+  scores.assessedBy='Nurse (Current)';
+  scores.assessedAt=dateTimeStr(new Date());
+  scores.savedThisSession=true;
+  S.bradenScores[pid]=scores;
+  const total=bradenTotal(scores);
+  const risk=bradenRisk(total);
+  S.assessmentHistory.push({
+    type:'braden',patientId:pid,bed:p.bed,name:p.name,
+    time:scores.assessedAt,total,risk:risk.level
+  });
+  /* Remove overdue */
+  S.overdueAssessments=S.overdueAssessments.filter(o=>!(o.bed===p.bed&&o.type==='braden'));
+  toast(`Braden saved: ${total}/23 — ${risk.level}`,'success');
+  render();
+};
+
+/* ─── Morse Fall Scale Page ─── */
+function renderMorse(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const existing=S.morseScores[pid];
+  const existTotal=existing?morseTotal(existing):null;
+  const existRisk=existTotal!==null?morseRisk(existTotal):null;
+
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-person-walking"></i> Morse Fall Scale Assessment</div>`;
+
+  if(existing&&existTotal!==null){
+    html+=`<div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:8px">
+      <div style="font-size:13px;color:var(--text3)">Last Assessment: ${existing.assessedAt||'—'} by ${existing.assessedBy||'—'}</div>
+      <div class="score-gauge">
+        <div class="score-bar"><div class="score-fill" style="width:${Math.min(100,(existTotal/125*100)).toFixed(0)}%;background:${existRisk.color}"></div></div>
+        <div class="score-value" style="color:${existRisk.color}">${existTotal}</div>
+      </div>
+      <div style="text-align:center"><span class="badge ${existRisk.cls}" style="font-size:14px;padding:4px 16px">${existRisk.level} ${existRisk.levelZh}</span></div>
+    </div>`;
+    /* Fall risk alert */
+    if(existTotal>=45){
+      html+=`<div style="padding:12px;background:rgba(211,47,47,.06);border:1px solid rgba(211,47,47,.2);border-radius:8px;margin-bottom:12px">
+        <p style="font-size:13px;color:var(--danger)"><strong>⚠️ High Fall Risk.</strong> Ensure fall prevention interventions are in place: bed alarm, side rails, non-slip footwear, call light within reach.</p>
+      </div>`;
+    }
+    if(p.fallHistory){
+      html+=`<div style="padding:12px;background:rgba(249,168,37,.06);border:1px solid rgba(249,168,37,.2);border-radius:8px;margin-bottom:12px">
+        <p style="font-size:13px;color:#e65100"><strong>🚨 Post-Fall Patient.</strong> This patient has a recent fall history. Reassessment required within 24 hours of fall event.</p>
+      </div>`;
+    }
+  }
+
+ html+=`<h4 style="margin-bottom:12px">New Assessment</h4>`;
+  MORSE_ITEMS.forEach(item=>{
+    html+=`<div class="scale-item"><h4>${item.name} ${item.nameZh}</h4><div class="options">`;
+    item.options.forEach(opt=>{
+      const checked=(existing&&existing[item.key]===opt.score)?'checked':'';
+      html+=`<div class="option-row">
+        <input type="radio" name="morse_${item.key}" id="morse_${item.key}_${opt.score}" value="${opt.score}" ${checked}
+          onchange="updateMorsePreview()">
+        <label for="morse_${item.key}_${opt.score}"><strong>${opt.score}</strong> — ${opt.label}</label>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+
+  html+=`<div class="card" id="morsePreview" style="background:var(--bg3);text-align:center;padding:16px">
+    <div style="font-size:13px;color:var(--text3)">Calculated Score</div>
+    <div id="morseCalcTotal" style="font-size:36px;font-weight:700;color:var(--text3)">—</div>
+    <div id="morseCalcRisk" style="margin-top:4px">Select all items</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text3)">0-24: Low Risk | 25-44: Moderate | ≥45: High Risk</div>
+  </div>`;
+
+  html+=`<div style="display:flex;gap:8px;margin-top:16px">
+ <button class="btn btn-primary" onclick="saveMorse()">Save Morse Assessment</button>
+    <button class="btn btn-outline" onclick="backToList()">Cancel</button>
+  </div></div>`;
+  return html;
+}
+
+window.updateMorsePreview=function(){
+  const keys=['history','secondary_dx','ambulatory_aid','iv_heparin','gait','mental_status'];
+  let total=0;let allSelected=true;
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="morse_${k}"]:checked`);
+    if(el) total+=parseInt(el.value);
+    else allSelected=false;
+  });
+  const totalEl=document.getElementById('morseCalcTotal');
+  const riskEl=document.getElementById('morseCalcRisk');
+  if(totalEl&&riskEl){
+    if(allSelected){
+      const r=morseRisk(total);
+      totalEl.textContent=total;
+      totalEl.style.color=r.color;
+      riskEl.innerHTML=`<span class="badge ${r.cls}" style="font-size:14px;padding:4px 16px">${r.level} ${r.levelZh}</span>`;
+    } else {
+      totalEl.textContent=total>0?total+'/?':'—';
+      totalEl.style.color='var(--text3)';
+      riskEl.textContent='Select all items';
+    }
+  }
+};
+
+window.saveMorse=function(){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const keys=['history','secondary_dx','ambulatory_aid','iv_heparin','gait','mental_status'];
+  const scores={};let complete=true;
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="morse_${k}"]:checked`);
+    if(el) scores[k]=parseInt(el.value);
+    else complete=false;
+  });
+ if(!complete){toast('Please complete all 6 items 6','danger');return;}
+  scores.assessedBy='Nurse (Current)';
+  scores.assessedAt=dateTimeStr(new Date());
+  scores.savedThisSession=true;
+  S.morseScores[pid]=scores;
+  const total=morseTotal(scores);
+  const risk=morseRisk(total);
+  S.assessmentHistory.push({
+    type:'morse',patientId:pid,bed:p.bed,name:p.name,
+    time:scores.assessedAt,total,risk:risk.level
+  });
+  S.overdueAssessments=S.overdueAssessments.filter(o=>!(o.bed===p.bed&&o.type==='morse'));
+  toast(`Morse saved: ${total} — ${risk.level}`,'success');
+  render();
+};
+
+/* ─── Pain Assessment (NRS) Page ─── */
+function renderPain(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const existing=S.painAssessments[pid];
+
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-face-frown"></i> Pain Assessment — Numeric Rating Scale (NRS)</div>`;
+
+  if(existing){
+    const r=painLevel(existing.score);
+    html+=`<div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:8px">
+      <div style="font-size:13px;color:var(--text3)">Last Assessment: ${existing.assessedAt||'—'} by ${existing.assessedBy||'—'}</div>
+      <div class="pain-value" style="color:${r.color}">${existing.score}/10</div>
+      <div style="text-align:center"><span class="badge ${r.cls}" style="font-size:14px;padding:4px 16px">${r.level} ${r.levelZh}</span></div>
+      ${existing.location?`<div style="font-size:13px;margin-top:8px"><strong>Location:</strong> ${existing.location}</div>`:''}
+      ${existing.medications?`<div style="font-size:13px;margin-top:4px"><strong>Current Medications:</strong> ${existing.medications}</div>`:''}
+    </div>`;
+    if(existing.reassessmentDue){
+      const dueTime=new Date(existing.reassessmentDue);
+      const isOverdue=dueTime<new Date();
+      html+=`<div style="padding:8px 12px;background:${isOverdue?'rgba(211,47,47,.06)':'rgba(25,118,210,.06)'};border:1px solid ${isOverdue?'rgba(211,47,47,.2)':'rgba(25,118,210,.2)'};border-radius:8px;margin-bottom:12px;font-size:13px">
+        <strong>${isOverdue?'⚠️ Reassessment OVERDUE':'🕐 Next Reassessment Due'}:</strong> ${existing.reassessmentDue}
+      </div>`;
+    }
+  }
+
+ html+=`<h4 style="margin-bottom:12px">New Pain Assessment</h4>`;
+
+  /* NRS Slider */
+ html+=`<div class="form-group"><label>Pain Score (0-10)</label>
+    <input type="range" id="painScore" min="0" max="10" value="${existing?existing.score:0}" class="pain-slider"
+      oninput="document.getElementById('painScoreVal').textContent=this.value;document.getElementById('painScoreVal').style.color=painColor(this.value)">
+ <div class="pain-labels"><span>0 No Pain</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10 Worst</span></div>
+    <div class="pain-value" id="painScoreVal" style="color:${existing?painLevel(existing.score).color:'var(--success)'}">${existing?existing.score:0}</div>
+  </div>`;
+
+  /* Body location */
+ html+=`<div class="form-group"><label>Pain Location</label>
+    <select id="painLocation"><option value="">— Select Location —</option>`;
+  PAIN_LOCATIONS.forEach(loc=>{
+    const sel=(existing&&existing.location===loc)?'selected':'';
+    html+=`<option value="${loc}" ${sel}>${loc}</option>`;
+  });
+  html+=`</select></div>`;
+
+  /* Characteristics */
+  html+=`<div class="form-row">
+ <div class="form-group"><label>Onset</label><input id="painOnset" type="text" value="${existing?existing.onset||'':''}" placeholder="e.g. 2 hours ago"></div>
+ <div class="form-group"><label>Duration</label><input id="painDuration" type="text" value="${existing?existing.duration||'':''}" placeholder="e.g. Continuous"></div>
+  </div>
+ <div class="form-group"><label>Quality</label><input id="painQuality" type="text" value="${existing?existing.quality||'':''}" placeholder="e.g. Sharp, dull, burning, aching"></div>
+  <div class="form-row">
+ <div class="form-group"><label>Aggravating Factors</label><input id="painAggravating" type="text" value="${existing?existing.aggravating||'':''}" placeholder="e.g. Movement, coughing"></div>
+ <div class="form-group"><label>Alleviating Factors</label><input id="painAlleviating" type="text" value="${existing?existing.alleviating||'':''}" placeholder="e.g. Rest, medication"></div>
+  </div>
+ <div class="form-group"><label>Current Medications</label><textarea id="painMedications" rows="2">${existing?existing.medications||'':''}</textarea></div>`;
+
+  /* Reassessment timer */
+ html+=`<div class="form-group"><label>Reassessment Interval</label>
+    <select id="painReassessInterval">
+      <option value="30">30 minutes</option>
+      <option value="60" selected>1 hour</option>
+      <option value="120">2 hours</option>
+      <option value="240">4 hours</option>
+      <option value="480">8 hours</option>
+    </select></div>`;
+
+  html+=`<div style="display:flex;gap:8px;margin-top:16px">
+ <button class="btn btn-primary" onclick="savePain()">Save Pain Assessment</button>
+    <button class="btn btn-outline" onclick="backToList()">Cancel</button>
+  </div></div>`;
+  return html;
+}
+
+window.painColor=function(score){
+  score=parseInt(score);
+  if(score>=7)return'var(--danger)';
+  if(score>=4)return'#e65100';
+  if(score>=1)return'var(--info)';
+  return'var(--success)';
+};
+
+window.savePain=function(){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const score=parseInt(document.getElementById('painScore').value);
+  const location=document.getElementById('painLocation').value;
+ if(!location){toast('Please select pain location','danger');return;}
+  const interval=parseInt(document.getElementById('painReassessInterval').value);
+  const reassessmentDue=dateTimeStr(new Date(Date.now()+interval*60000));
+
+  S.painAssessments[pid]={
+    score,location,
+    onset:document.getElementById('painOnset').value.trim(),
+    duration:document.getElementById('painDuration').value.trim(),
+    quality:document.getElementById('painQuality').value.trim(),
+    aggravating:document.getElementById('painAggravating').value.trim(),
+    alleviating:document.getElementById('painAlleviating').value.trim(),
+    medications:document.getElementById('painMedications').value.trim(),
+    assessedBy:'Nurse (Current)',
+    assessedAt:dateTimeStr(new Date()),
+    savedThisSession:true,
+    reassessmentDue
+  };
+  /* Mirror to painScores alias for reassessment_bundle checker compatibility */
+  S.painScores[pid]={...S.painAssessments[pid]};
+  const risk=painLevel(score);
+  S.assessmentHistory.push({
+    type:'pain',patientId:pid,bed:p.bed,name:p.name,
+    time:S.painAssessments[pid].assessedAt,total:score,risk:risk.level
+  });
+  S.overdueAssessments=S.overdueAssessments.filter(o=>!(o.bed===p.bed&&o.type==='pain'));
+  toast(`Pain assessment saved: ${score}/10 — ${risk.level}`,'success');
+  render();
+};
+
+/* ─── Glasgow Coma Scale Page ─── */
+function renderGCS(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const existing=S.gcsScores[pid];
+  const existTotal=existing?gcsTotal(existing):null;
+  const existRisk=existTotal!==null?gcsLevel(existTotal):null;
+
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-brain"></i> Glasgow Coma Scale (GCS) Assessment</div>`;
+
+  if(existing&&existTotal!==null){
+    html+=`<div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:8px">
+      <div style="font-size:13px;color:var(--text3)">Last Assessment: ${existing.assessedAt||'—'} by ${existing.assessedBy||'—'}</div>
+      <div class="score-gauge">
+        <div class="score-bar"><div class="score-fill" style="width:${(existTotal/15*100).toFixed(0)}%;background:${existRisk.color}"></div></div>
+        <div class="score-value" style="color:${existRisk.color}">${existTotal}/15</div>
+      </div>
+      <div style="text-align:center"><span class="badge ${existRisk.cls}" style="font-size:14px;padding:4px 16px">${existRisk.level} ${existRisk.levelZh}</span></div>
+      <div style="display:flex;justify-content:space-around;margin-top:8px;font-size:12px;color:var(--text3)">
+        <span>E${existing.eye||'?'}</span><span>V${existing.verbal||'?'}</span><span>M${existing.motor||'?'}</span>
+      </div>
+    </div>`;
+    if(existTotal<=8){
+      html+=`<div style="padding:12px;background:rgba(211,47,47,.06);border:1px solid rgba(211,47,47,.2);border-radius:8px;margin-bottom:12px">
+        <p style="font-size:13px;color:var(--danger)"><strong>⚠️ Severe Brain Injury (GCS ≤8).</strong> Consider intubation and airway protection. Notify physician immediately. Reassess every 30 minutes.</p>
+      </div>`;
+    }
+  }
+
+ html+=`<h4 style="margin-bottom:12px">New GCS Assessment GCS</h4>`;
+
+  GCS_COMPONENTS.forEach(comp=>{
+    html+=`<div class="gcs-component"><h4>${comp.name} ${comp.nameZh} (${comp.key==='eye'?'1-4':comp.key==='verbal'?'1-5':'1-6'})</h4>`;
+    comp.options.forEach(opt=>{
+      const checked=(existing&&existing[comp.key]===opt.score)?'checked':'';
+      html+=`<div class="option-row" style="margin-bottom:6px">
+        <input type="radio" name="gcs_${comp.key}" id="gcs_${comp.key}_${opt.score}" value="${opt.score}" ${checked}
+          onchange="updateGCSPreview()">
+        <label for="gcs_${comp.key}_${opt.score}" style="font-size:13px">
+          <strong>${opt.score}.</strong> ${opt.label}<br>
+          <span style="font-size:11px;color:var(--text3)">${opt.desc}</span>
+        </label>
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+
+  html+=`<div class="card" id="gcsPreview" style="background:var(--bg3);text-align:center;padding:16px">
+    <div style="font-size:13px;color:var(--text3)">Calculated GCS Total</div>
+    <div id="gcsCalcTotal" style="font-size:36px;font-weight:700;color:var(--text3)">—</div>
+    <div id="gcsCalcComponents" style="font-size:12px;margin-top:4px;color:var(--text3)">E? + V? + M?</div>
+    <div id="gcsCalcRisk" style="margin-top:4px">Select all components</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text3)">3-8: Severe | 9-12: Moderate | 13-15: Mild</div>
+  </div>`;
+
+  html+=`<div style="display:flex;gap:8px;margin-top:16px">
+ <button class="btn btn-primary" onclick="saveGCS()">Save GCS Assessment GCS</button>
+    <button class="btn btn-outline" onclick="backToList()">Cancel</button>
+  </div></div>`;
+  return html;
+}
+
+window.updateGCSPreview=function(){
+  const keys=['eye','verbal','motor'];
+  let total=0;let allSelected=true;
+  const vals={};
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="gcs_${k}"]:checked`);
+    if(el){vals[k]=parseInt(el.value);total+=vals[k];}
+    else allSelected=false;
+  });
+  const totalEl=document.getElementById('gcsCalcTotal');
+  const compEl=document.getElementById('gcsCalcComponents');
+  const riskEl=document.getElementById('gcsCalcRisk');
+  if(totalEl&&riskEl&&compEl){
+    if(allSelected){
+      const r=gcsLevel(total);
+      totalEl.textContent=total+'/15';
+      totalEl.style.color=r.color;
+      compEl.textContent=`E${vals.eye} + V${vals.verbal} + M${vals.motor}`;
+      riskEl.innerHTML=`<span class="badge ${r.cls}" style="font-size:14px;padding:4px 16px">${r.level} ${r.levelZh}</span>`;
+    } else {
+      totalEl.textContent=total>0?total+'/?':'—';
+      totalEl.style.color='var(--text3)';
+      compEl.textContent=`E${vals.eye||'?'} + V${vals.verbal||'?'} + M${vals.motor||'?'}`;
+      riskEl.textContent='Select all components';
+    }
+  }
+};
+
+window.saveGCS=function(){
+  const p=S.selectedPatient;if(!p)return;
+  const pid=String(p.id);
+  const keys=['eye','verbal','motor'];
+  const scores={};let complete=true;
+  keys.forEach(k=>{
+    const el=document.querySelector(`input[name="gcs_${k}"]:checked`);
+    if(el) scores[k]=parseInt(el.value);
+    else complete=false;
+  });
+ if(!complete){toast('Please complete all 3 GCS components 3 GCS','danger');return;}
+  /* Validate ranges */
+  if(scores.eye<1||scores.eye>4){toast('Eye opening must be 1-4','danger');return;}
+  if(scores.verbal<1||scores.verbal>5){toast('Verbal response must be 1-5','danger');return;}
+  if(scores.motor<1||scores.motor>6){toast('Motor response must be 1-6','danger');return;}
+
+  scores.assessedBy='Nurse (Current)';
+  scores.assessedAt=dateTimeStr(new Date());
+  scores.savedThisSession=true;
+  S.gcsScores[pid]=scores;
+  const total=gcsTotal(scores);
+  const risk=gcsLevel(total);
+  S.assessmentHistory.push({
+    type:'gcs',patientId:pid,bed:p.bed,name:p.name,
+    time:scores.assessedAt,total,risk:risk.level
+  });
+  S.overdueAssessments=S.overdueAssessments.filter(o=>!(o.bed===p.bed&&o.type==='gcs'));
+  toast(`GCS saved: ${total}/15 (E${scores.eye} V${scores.verbal} M${scores.motor}) — ${risk.level}`,'success');
+  render();
+};
+
+/* ─── Intervention Modal ─── */
+window.showInterventionModal=function(pid,type){
+ let html=`<h3>📝 Intervention Plan</h3>`;
+  if(type==='braden'){
+    html+=`<p style="font-size:13px;margin-bottom:16px">Select interventions for pressure ulcer prevention:</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+ <label><input type="checkbox" class="int-check" value="Reposition patient every 2 hours 2"> Reposition every 2 hours 2</label>
+ <label><input type="checkbox" class="int-check" value="Apply pressure-relieving mattress"> Pressure-relieving mattress</label>
+ <label><input type="checkbox" class="int-check" value="Skin inspection every shift"> Skin inspection every shift</label>
+ <label><input type="checkbox" class="int-check" value="Nutrition consult"> Nutrition consult</label>
+ <label><input type="checkbox" class="int-check" value="Moisture management"> Moisture management</label>
+ <label><input type="checkbox" class="int-check" value="Heel elevation"> Heel elevation</label>
+ <label><input type="checkbox" class="int-check" value="Notify physician of high risk"> Notify physician</label>
+    </div>`;
+  }
+ html+=`<div class="form-group" style="margin-top:16px"><label>Additional Notes</label><textarea id="intNotes" rows="2" placeholder="Any additional interventions..."></textarea></div>`;
+  html+=`<div class="modal-actions">
+    <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+ <button class="btn btn-primary" onclick="saveInterventions('${pid}')">Save Interventions</button>
+  </div>`;
+  showModal(html);
+};
+
+window.saveInterventions=function(pid){
+  const checks=document.querySelectorAll('.int-check:checked');
+  const interventions=Array.from(checks).map(c=>c.value);
+  const notes=document.getElementById('intNotes').value.trim();
+  if(notes) interventions.push(notes);
+ if(interventions.length===0){toast('Select at least one intervention','danger');return;}
+  S.interventionsPlanned[pid]=interventions;
+  /* Mirror to interventionPlans alias for reassessment_bundle checker compatibility */
+  S.interventionPlans[pid]={items:interventions,updatedThisSession:true,updatedAt:dateTimeStr(new Date()),updatedBy:'Nurse (Current)'};
+  closeModal();
+ toast('Intervention plan saved','success');
+  render();
+};
+
+/* ─── iView Cerner-style Flowsheet ─── */
+function renderIView(){
+  const p=S.selectedPatient;
+  const pid=String(p.id);
+  const cols=S.iviewColumns[pid]||[];
+  const activeCol=S.iviewActiveCol[pid]??(cols.length-1);
+  const activeBand=S.iviewActiveBand[pid]||'vitals';
+  const showEmpty=S.showEmptyRows[pid]!==false;
+  const navCollapsed=S.navCollapsed[pid]||false;
+  const data=S.iviewData[pid]||{};
+
+  /* Toolbar */
+  let html=`<div class="iview-toolbar">
+    <button class="iview-tool-btn" title="As Of (refresh)" onclick="iviewRefresh()"><i class="fa-solid fa-rotate-right"></i></button>
+    <button class="iview-tool-btn" title="Insert Date/Time column" onclick="iviewAddColumn()"><i class="fa-solid fa-calendar-plus"></i></button>
+    <button class="iview-tool-btn" title="Show / Hide Empty Rows" onclick="iviewToggleEmpty()"><i class="fa-solid ${showEmpty?'fa-eye':'fa-eye-slash'}"></i></button>
+    <button class="iview-tool-btn" title="Collapse Navigator" onclick="iviewToggleNav()"><i class="fa-solid fa-${navCollapsed?'angles-right':'angles-left'}"></i></button>
+    <div class="iview-tool-divider"></div>
+    <button class="iview-tool-btn" title="Add Dynamic Group" onclick="showPage('dyngroups')"><i class="fa-solid fa-layer-group"></i></button>
+    <button class="iview-tool-btn" title="Review Results" onclick="toast('Marked results as reviewed','info')"><i class="fa-solid fa-bookmark"></i></button>
+    <div class="iview-tool-divider"></div>
+    <button class="iview-tool-btn sign" title="Sign documentation (commit active column)" onclick="iviewSignColumn()"><i class="fa-solid fa-circle-check"></i></button>
+    <button class="iview-tool-btn cancel" title="Cancel unsigned changes in active column" onclick="iviewCancelColumn()"><i class="fa-solid fa-circle-xmark"></i></button>
+    <div class="iview-tool-divider"></div>
+    <button class="iview-tool-btn" title="Print" onclick="window.print()"><i class="fa-solid fa-print"></i></button>
+    <span class="iview-tool-label">Active column: <strong>${cols[activeCol]?cols[activeCol].ts:'\u2014'}</strong>${cols[activeCol]&&cols[activeCol].signed?' (signed)':' (unsigned)'}</span>
+  </div>`;
+
+  /* Legend */
+  html+=`<div class="flowsheet-legend">
+    <span><span class="swatch" style="background:#e3f2fd"></span>Empty (double-click to chart)</span>
+    <span><span class="swatch" style="background:#fff9c4"></span>Active column</span>
+    <span><span class="swatch" style="background:#fff3cd"></span>Unsigned</span>
+    <span><span class="swatch" style="background:#fff"></span>Signed</span>
+    <span><span class="swatch" style="background:#ffebee"></span>Critical / Abnormal</span>
+    <span><i class="fa-solid fa-calculator" style="color:#2e7d32"></i> Auto-calculated</span>
+    <span style="margin-left:auto;color:#37474f">Tip: right-click a cell for Add Comment / Modify / Unchart</span>
+  </div>`;
+
+  html+=`<div class="iview-pane" style="${navCollapsed?'grid-template-columns:0 1fr':''}">`;
+
+  /* Navigator */
+  if(!navCollapsed){
+    html+=`<div class="iview-nav">`;
+    IVIEW_BANDS.forEach(grp=>{
+      html+=`<div class="iview-nav-section">${grp.group}</div>`;
+      grp.items.forEach(b=>{
+        let badge='';
+        if(b.id==='iv_sites'){const n=(S.ivSites[pid]||[]).filter(x=>x.active).length;if(n)badge=`<span class="band-badge">${n}</span>`;}
+        else if(b.id==='wounds'){const n=(S.wounds[pid]||[]).filter(x=>x.active).length;if(n)badge=`<span class="band-badge">${n}</span>`;}
+        else if(b.id==='lines'){const n=(S.linesTubes[pid]||[]).length;if(n)badge=`<span class="band-badge">${n}</span>`;}
+        html+=`<div class="iview-band ${b.id===activeBand?'active':''}" onclick="iviewSelectBand('${b.id}')" data-band="${b.id}">
+          <i class="fa-solid ${b.icon} band-icon"></i>
+          <span>${b.label}</span>${b.dynamic?' <i class="fa-solid fa-layer-group" style="font-size:9px;color:#7e57c2"></i>':''}
+          ${badge}
+        </div>`;
+      });
+    });
+    html+=`</div>`;
+  } else {
+    html+=`<div></div>`;
+  }
+
+  /* Grid */
+  html+=`<div class="iview-grid"><table><thead><tr>
+    <th class="row-label-col">Parameter</th>`;
+  cols.forEach((c,i)=>{
+    html+=`<th class="${i===activeCol?'col-active':''}" oncontextmenu="iviewColumnMenu(event,${i});return false;" onclick="iviewSetActiveCol(${i})" title="${c.signed?'Signed column':'Unsigned column \u2014 click to make active'}">${c.ts.split(' ')[1]||c.ts}<br><small style="font-weight:400;color:#546e7a">${c.ts.split(' ')[0]||''}</small>${c.signed?' <i class="fa-solid fa-circle-check" style="color:#2e7d32;font-size:10px"></i>':''}</th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+
+  /* Find which group the active band belongs to and show only that band's rows + dynamic groups for skin/lines if applicable */
+  const bandObj=IVIEW_BANDS.flatMap(g=>g.items).find(b=>b.id===activeBand);
+  if(bandObj){
+    /* Section header */
+    html+=`<tr class="section-header"><td colspan="${cols.length+1}"><i class="fa-solid ${bandObj.icon}"></i> &nbsp; ${bandObj.label}</td></tr>`;
+
+    if(bandObj.id==='iv_sites'){
+      /* Render IV sites as dynamic group rows (one block per active site) */
+      const sites=(S.ivSites[pid]||[]).filter(s=>s.active);
+      if(sites.length===0){
+        html+=`<tr><td colspan="${cols.length+1}" style="text-align:center;padding:20px;color:#78909c;font-style:italic">No active IV sites. Click <i class="fa-solid fa-layer-group"></i> in toolbar or "Lines / Wounds" tab to add one.</td></tr>`;
+      }
+      sites.forEach((s,si)=>{
+        html+=`<tr class="subsection-header"><td colspan="${cols.length+1}"><i class="fa-solid fa-syringe"></i> ${s.label} \u2014 ${s.type} ${s.gauge}, inserted ${s.inserted} <span style="float:right;font-weight:400;color:#546e7a">${s.condition}</span></td></tr>`;
+        ['Site appearance','Patency check','Dressing intact','Date of last site change'].forEach(rowLbl=>{
+          html+=`<tr><td class="row-label">&bull; ${rowLbl}</td>`;
+          cols.forEach((c,ci)=>{
+            html+=renderIViewCell(pid,'iv_sites_'+si+'.'+rowLbl,ci,activeCol,c.signed,{type:'sel',opts:rowLbl==='Patency check'?['Patent','Sluggish','Occluded']:rowLbl==='Dressing intact'?['Yes','No - changed']:rowLbl==='Site appearance'?['No redness','Slight redness','Erythema','Phlebitis grade 1','Phlebitis grade 2']:['Today','Yesterday','2 days ago','3 days ago']});
+          });
+          html+=`</tr>`;
+        });
+      });
+    } else if(bandObj.id==='wounds'){
+      const wnds=(S.wounds[pid]||[]).filter(w=>w.active);
+      if(wnds.length===0){
+        html+=`<tr><td colspan="${cols.length+1}" style="text-align:center;padding:20px;color:#78909c;font-style:italic">No documented wounds. Use the "Lines / Wounds" tab to add one as a Dynamic Group.</td></tr>`;
+      }
+      wnds.forEach((w,wi)=>{
+        html+=`<tr class="subsection-header"><td colspan="${cols.length+1}"><i class="fa-solid fa-bandage"></i> ${w.label} \u2014 ${w.type} @ ${w.location} <span style="float:right;font-weight:400;color:#546e7a">${w.sizeCm} cm</span></td></tr>`;
+        ['Drainage amount','Drainage type','Wound bed','Periwound skin','Dressing changed'].forEach(rowLbl=>{
+          html+=`<tr><td class="row-label">&bull; ${rowLbl}</td>`;
+          cols.forEach((c,ci)=>{
+            html+=renderIViewCell(pid,'wounds_'+wi+'.'+rowLbl,ci,activeCol,c.signed,{type:'sel',opts:rowLbl==='Drainage amount'?['None','Scant','Small','Moderate','Large']:rowLbl==='Drainage type'?DRAINAGE_TYPES:rowLbl==='Wound bed'?['Pink granulation','Red granulation','Yellow slough','Black eschar','Epithelializing']:rowLbl==='Periwound skin'?['Intact','Erythema','Maceration','Excoriation']:['Yes','Refused','N/A']});
+          });
+          html+=`</tr>`;
+        });
+      });
+    } else if(bandObj.id==='lines'){
+      const lt=S.linesTubes[pid]||[];
+      if(lt.length===0){
+        html+=`<tr><td colspan="${cols.length+1}" style="text-align:center;padding:20px;color:#78909c;font-style:italic">No lines / tubes / drains documented for this patient.</td></tr>`;
+      } else {
+        lt.forEach((line,li)=>{
+          html+=`<tr class="subsection-header"><td colspan="${cols.length+1}"><i class="fa-solid fa-link"></i> ${line.type} \u2014 ${line.location} <span style="float:right;font-weight:400;color:#546e7a">since ${line.inserted} \u2014 ${line.status}</span></td></tr>`;
+          ['Patency','Output volume','Output appearance','Site assessment'].forEach(rowLbl=>{
+            html+=`<tr><td class="row-label">&bull; ${rowLbl}</td>`;
+            cols.forEach((c,ci)=>{
+              html+=renderIViewCell(pid,'line_'+li+'.'+rowLbl,ci,activeCol,c.signed,{type:rowLbl==='Output volume'?'num':'sel',opts:rowLbl==='Patency'?['Patent','Clogged','Resolved']:rowLbl==='Output appearance'?['Clear','Yellow','Bloody','Bilious','Purulent','Serous']:rowLbl==='Site assessment'?['Intact','Erythema','Drainage at site','Dressing changed']:[]});
+            });
+            html+=`</tr>`;
+          });
+        });
+      }
+    } else {
+      const rows=IVIEW_ROWS[bandObj.id]||[];
+      rows.forEach(r=>{
+        const rowKey=bandObj.id+'.'+r.key;
+        /* Filter empty rows if hide-empty is on */
+        if(!showEmpty){
+          const anyValue=cols.some((_,ci)=>data[rowKey]&&data[rowKey][ci]!==undefined);
+          if(!anyValue&&r.type!=='calc') return;
+        }
+        const calcIcon=r.type==='calc'?'<i class="fa-solid fa-calculator calc-icon" title="Auto-calculated"></i>':'';
+        html+=`<tr><td class="row-label">${calcIcon}${r.label}${r.unit?'<span class="row-units">'+r.unit+'</span>':''}</td>`;
+        cols.forEach((c,ci)=>{
+          html+=renderIViewCell(pid,rowKey,ci,activeCol,c.signed,r);
+        });
+        html+=`</tr>`;
+      });
+    }
+  }
+
+  html+=`</tbody></table></div></div>`;
+
+  /* Quick legacy access banner */
+  html+=`<div style="margin-top:10px;padding:8px 12px;background:#fff3e0;border-left:3px solid #ef6c00;border-radius:3px;font-size:12px;color:#5d4037">
+    <i class="fa-solid fa-circle-info"></i>
+    The dedicated <strong>Braden / Morse / Pain / GCS / MUST</strong> assessment tools (with full subscale definitions and risk auto-classification) are available as separate tabs above. Saved scores from those tools also appear in this iView flowsheet.
+  </div>`;
+
+  return html;
+}
+
+/* Render a single iView cell */
+function renderIViewCell(pid,rowKey,colIdx,activeColIdx,colSigned,rowDef){
+  const data=S.iviewData[pid]||{};
+  const cellData=(data[rowKey]||{})[colIdx];
+  const isActive=colIdx===activeColIdx&&!colSigned;
+
+  /* Calculated rows compute live from current column inputs */
+  if(rowDef.type==='calc'){
+    let val='';let cls='cell-signed';
+    if(rowDef.calc==='gcs'){
+      const e=parseInt((data['neuro.gcs_e']||{})[colIdx]?.value||'');
+      const v=parseInt((data['neuro.gcs_v']||{})[colIdx]?.value||'');
+      const m=parseInt((data['neuro.gcs_m']||{})[colIdx]?.value||'');
+      if(!isNaN(e)&&!isNaN(v)&&!isNaN(m)){val=(e+v+m);if(e+v+m<=8)cls='cell-critical';}
+    } else if(rowDef.calc==='braden'){
+      const ks=['braden_sensory','braden_moisture','braden_activity','braden_mobility','braden_nutrition','braden_friction'];
+      const vs=ks.map(k=>parseInt((data['skin.'+k]||{})[colIdx]?.value||''));
+      if(vs.every(v=>!isNaN(v))){val=vs.reduce((a,b)=>a+b,0);if(val<=12)cls='cell-critical';}
+    } else if(rowDef.calc==='morse'){
+      const ks=['morse_history','morse_secondary','morse_aid','morse_iv','morse_gait','morse_mental'];
+      const vs=ks.map(k=>parseInt((data['falls.'+k]||{})[colIdx]?.value||''));
+      if(vs.every(v=>!isNaN(v))){val=vs.reduce((a,b)=>a+b,0);if(val>=45)cls='cell-critical';}
+    } else if(rowDef.calc==='must'){
+      const ks=['must_bmi','must_wl','must_acute'];
+      const vs=ks.map(k=>parseInt((data['nutrition.'+k]||{})[colIdx]?.value||''));
+      if(vs.every(v=>!isNaN(v))){val=vs.reduce((a,b)=>a+b,0);if(val>=2)cls='cell-critical';}
+    }
+    return `<td class="${cls}" style="background:#f1f8e9;font-weight:700;color:#2e7d32">${val!==''?val:'\u2014'}</td>`;
+  }
+
+  /* Empty cell in active column \u2192 input field */
+  if(!cellData&&isActive){
+    if(rowDef.type==='sel'){
+      let html=`<td class="cell-active"><select class="cell-input" onchange="iviewSetCell('${rowKey}',${colIdx},this.value)" oncontextmenu="iviewCellMenu(event,'${rowKey}',${colIdx});return false;"><option value="">\u2014</option>`;
+      (rowDef.opts||[]).forEach(o=>{html+=`<option value="${o}">${o}</option>`;});
+      html+=`</select></td>`;return html;
+    }
+    return `<td class="cell-active"><input type="${rowDef.type==='num'?'number':'text'}" class="cell-input" placeholder="\u2014" onchange="iviewSetCell('${rowKey}',${colIdx},this.value)" oncontextmenu="iviewCellMenu(event,'${rowKey}',${colIdx});return false;"></td>`;
+  }
+  /* Empty unsigned, non-active */
+  if(!cellData) return `<td class="cell-empty" ondblclick="iviewSetActiveCol(${colIdx})" title="Double-click to make this column active"></td>`;
+  /* Has value */
+  let cls=cellData.signed?'cell-signed':'cell-unsigned';
+  /* Abnormal flagging */
+  if(rowDef.type==='num'&&cellData.value!==''){
+    const num=parseFloat(cellData.value);
+    if(rowDef.abnormalLo!==undefined&&(num<rowDef.abnormalLo||num>rowDef.abnormalHi)) cls+=' cell-abnormal';
+  }
+  if(cellData.comment) cls+=' cell-comment';
+  const tt=`${cellData.value}${cellData.comment?' \u2014 '+cellData.comment:''} \u2014 ${cellData.by||''} @ ${cellData.at||''}`;
+  return `<td class="${cls}" oncontextmenu="iviewCellMenu(event,'${rowKey}',${colIdx});return false;" title="${tt.replace(/"/g,'&quot;')}">${cellData.value||''}</td>`;
+}
+
+window.iviewSelectBand=function(b){const pid=String(S.selectedPatient.id);S.iviewActiveBand[pid]=b;render();};
+window.iviewSetActiveCol=function(i){const pid=String(S.selectedPatient.id);const col=S.iviewColumns[pid][i];if(col&&col.signed){toast('Column already signed. Right-click \u2192 Modify to amend.','warn');return;}S.iviewActiveCol[pid]=i;render();};
+window.iviewSetCell=function(rowKey,colIdx,val){
+  const pid=String(S.selectedPatient.id);
+  if(!S.iviewData[pid][rowKey]) S.iviewData[pid][rowKey]={};
+  if(val==='') {delete S.iviewData[pid][rowKey][colIdx];return;}
+  S.iviewData[pid][rowKey][colIdx]={value:val,signed:false,by:'Nurse (Current)',at:dateTimeStr(new Date())};
+};
+window.iviewSignColumn=function(){
+  const pid=String(S.selectedPatient.id);
+  const col=S.iviewActiveCol[pid];
+  const cols=S.iviewColumns[pid];
+  if(!cols[col]) return;
+  let count=0;
+  Object.keys(S.iviewData[pid]||{}).forEach(rk=>{
+    const c=S.iviewData[pid][rk][col];
+    if(c&&!c.signed){c.signed=true;c.at=dateTimeStr(new Date());count++;}
+  });
+  cols[col].signed=true;cols[col].ts=dateTimeStr(new Date());
+  /* Auto-add a new active unsigned column */
+  cols.push({ts:dateTimeStr(new Date()),signed:false});
+  S.iviewActiveCol[pid]=cols.length-1;
+  toast(`Signed ${count} entries in column.`,'success');
+  render();
+};
+window.iviewCancelColumn=function(){
+  const pid=String(S.selectedPatient.id);
+  const col=S.iviewActiveCol[pid];
+  let count=0;
+  Object.keys(S.iviewData[pid]||{}).forEach(rk=>{
+    const c=S.iviewData[pid][rk][col];
+    if(c&&!c.signed){delete S.iviewData[pid][rk][col];count++;}
+  });
+  toast(`Cancelled ${count} unsigned entries.`,'info');
+  render();
+};
+window.iviewAddColumn=function(){
+  const pid=String(S.selectedPatient.id);
+  S.iviewColumns[pid].push({ts:dateTimeStr(new Date()),signed:false});
+  S.iviewActiveCol[pid]=S.iviewColumns[pid].length-1;
+  toast('New time column inserted','info');render();
+};
+window.iviewToggleEmpty=function(){const pid=String(S.selectedPatient.id);S.showEmptyRows[pid]=!(S.showEmptyRows[pid]!==false);render();};
+window.iviewToggleNav=function(){const pid=String(S.selectedPatient.id);S.navCollapsed[pid]=!S.navCollapsed[pid];render();};
+window.iviewRefresh=function(){toast('Display refreshed (As Of: '+timeStr(new Date())+')','info');render();};
+window.iviewCellMenu=function(ev,rowKey,colIdx){
+  ev.preventDefault();
+  closeContextMenu();
+  const m=document.createElement('div');m.className='context-menu';m.id='ctxMenu';
+  m.style.left=ev.clientX+'px';m.style.top=ev.clientY+'px';
+  m.innerHTML=`
+    <div onclick="iviewAddComment('${rowKey}',${colIdx})"><i class="fa-solid fa-comment"></i> Add Comment\u2026</div>
+    <div onclick="iviewModifyCell('${rowKey}',${colIdx})"><i class="fa-solid fa-pen-to-square"></i> Modify</div>
+    <div onclick="iviewUnchart('${rowKey}',${colIdx})"><i class="fa-solid fa-eraser"></i> Unchart</div>
+    <div class="divider"></div>
+    <div onclick="closeContextMenu()"><i class="fa-solid fa-xmark"></i> Close</div>`;
+  document.body.appendChild(m);
+};
+window.iviewColumnMenu=function(ev,colIdx){
+  ev.preventDefault();
+  closeContextMenu();
+  const m=document.createElement('div');m.className='context-menu';m.id='ctxMenu';
+  m.style.left=ev.clientX+'px';m.style.top=ev.clientY+'px';
+  m.innerHTML=`
+    <div onclick="iviewSetActiveCol(${colIdx});closeContextMenu()"><i class="fa-solid fa-arrow-pointer"></i> Make Active Column</div>
+    <div onclick="iviewChangeColumnTime(${colIdx})"><i class="fa-solid fa-clock"></i> Change Date / Time\u2026</div>
+    <div onclick="iviewDeleteColumn(${colIdx})"><i class="fa-solid fa-trash"></i> Delete Column</div>
+    <div class="divider"></div>
+    <div onclick="closeContextMenu()"><i class="fa-solid fa-xmark"></i> Close</div>`;
+  document.body.appendChild(m);
+};
+function closeContextMenu(){const m=document.getElementById('ctxMenu');if(m)m.remove();}
+document.addEventListener('click',e=>{if(!e.target.closest('.context-menu'))closeContextMenu();});
+window.iviewAddComment=function(rowKey,colIdx){
+  closeContextMenu();
+  const pid=String(S.selectedPatient.id);
+  const cur=(S.iviewData[pid][rowKey]||{})[colIdx];
+  const txt=prompt('Add comment:',cur?cur.comment||'':'');
+  if(txt===null) return;
+  if(!cur){toast('Cell is empty \u2014 chart a value first.','warn');return;}
+  cur.comment=txt;toast('Comment added','success');render();
+};
+window.iviewModifyCell=function(rowKey,colIdx){
+  closeContextMenu();
+  const pid=String(S.selectedPatient.id);
+  const cur=(S.iviewData[pid][rowKey]||{})[colIdx];
+  if(!cur){toast('Empty cell \u2014 nothing to modify.','warn');return;}
+  const v=prompt('Modify value:',cur.value);
+  if(v===null) return;
+  cur.value=v;cur.signed=false;cur.at=dateTimeStr(new Date());cur.by='Nurse (Current)';
+  toast('Value modified \u2014 Sign to commit amendment.','info');render();
+};
+window.iviewUnchart=function(rowKey,colIdx){
+  closeContextMenu();
+  const pid=String(S.selectedPatient.id);
+  if(!confirm('Unchart this value? This action is auditable.')) return;
+  if(S.iviewData[pid][rowKey]) delete S.iviewData[pid][rowKey][colIdx];
+  toast('Value uncharted','info');render();
+};
+window.iviewChangeColumnTime=function(colIdx){
+  closeContextMenu();
+  const pid=String(S.selectedPatient.id);
+  const cur=S.iviewColumns[pid][colIdx];
+  const v=prompt('New date/time (YYYY-MM-DD HH:MM):',cur.ts);
+  if(v===null) return;
+  cur.ts=v;toast('Column time changed','success');render();
+};
+window.iviewDeleteColumn=function(colIdx){
+  closeContextMenu();
+  const pid=String(S.selectedPatient.id);
+  if(!confirm('Delete this column and all its entries?')) return;
+  S.iviewColumns[pid].splice(colIdx,1);
+  Object.keys(S.iviewData[pid]).forEach(rk=>{
+    const newMap={};
+    Object.keys(S.iviewData[pid][rk]).forEach(ci=>{
+      const i=parseInt(ci);if(i<colIdx)newMap[i]=S.iviewData[pid][rk][i];
+      else if(i>colIdx)newMap[i-1]=S.iviewData[pid][rk][i];
+    });
+    S.iviewData[pid][rk]=newMap;
+  });
+  if(S.iviewActiveCol[pid]>=S.iviewColumns[pid].length) S.iviewActiveCol[pid]=S.iviewColumns[pid].length-1;
+  render();
+};
+
+/* ─── MUST Nutrition Screening ─── */
+function renderNutrition(){
+  const p=S.selectedPatient;const pid=String(p.id);
+  const ex=S.nutritionScreens[pid];
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-bowl-food"></i> Malnutrition Universal Screening Tool (MUST)</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Reference: BAPEN Malnutrition Advisory Group (2003). Score Step 1 + Step 2 + Step 3 → Total. 0 = Low, 1 = Medium, ≥2 = High malnutrition risk.</p>`;
+
+  if(ex){
+    const totalCls=ex.total>=2?'badge-danger':ex.total===1?'badge-warn':'badge-success';
+    html+=`<div style="padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text3)">Last screened: ${ex.assessedAt} by ${ex.assessedBy}</div>
+      <div class="score-gauge"><div class="score-bar"><div class="score-fill" style="width:${Math.min(100,ex.total*33)}%;background:${ex.total>=2?'var(--danger)':ex.total===1?'#e65100':'var(--success)'}"></div></div>
+        <div class="score-value">${ex.total}</div></div>
+      <div style="text-align:center"><span class="badge ${totalCls}" style="font-size:14px;padding:4px 16px">${ex.risk} Risk</span></div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text2)">BMI: ${ex.bmiScore} &nbsp;|&nbsp; Weight Loss: ${ex.weightLossScore} &nbsp;|&nbsp; Acute Disease: ${ex.acuteDiseaseScore}</div>
+    </div>`;
+  }
+
+  /* Step 1 */
+  html+=`<div class="must-step"><h4><span class="step-num">1</span>BMI Score</h4>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Body Mass Index (kg/m²). Patient measured BMI: <strong>${(20+rng()*8).toFixed(1)}</strong> &nbsp; (Height ${(155+randInt(0,30))} cm / Weight ${(50+randInt(0,40))} kg)</p>
+    <div class="must-options">
+      <label><input type="radio" name="must_bmi" value="0" ${ex&&ex.bmiScore===0?'checked':''}><span>0 — BMI > 20 (>30 obese)</span></label>
+      <label><input type="radio" name="must_bmi" value="1" ${ex&&ex.bmiScore===1?'checked':''}><span>1 — BMI 18.5 – 20.0</span></label>
+      <label><input type="radio" name="must_bmi" value="2" ${ex&&ex.bmiScore===2?'checked':''}><span>2 — BMI < 18.5</span></label>
+    </div>
+  </div>`;
+
+  /* Step 2 */
+  html+=`<div class="must-step"><h4><span class="step-num">2</span>Unplanned Weight Loss (past 3-6 months)</h4>
+    <div class="must-options">
+      <label><input type="radio" name="must_wl" value="0" ${ex&&ex.weightLossScore===0?'checked':''}><span>0 — &lt; 5%</span></label>
+      <label><input type="radio" name="must_wl" value="1" ${ex&&ex.weightLossScore===1?'checked':''}><span>1 — 5 – 10%</span></label>
+      <label><input type="radio" name="must_wl" value="2" ${ex&&ex.weightLossScore===2?'checked':''}><span>2 — &gt; 10%</span></label>
+    </div>
+  </div>`;
+
+  /* Step 3 */
+  html+=`<div class="must-step"><h4><span class="step-num">3</span>Acute Disease Effect</h4>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Patient is acutely ill AND there has been or is likely to be no nutritional intake for &gt;5 days.</p>
+    <div class="must-options">
+      <label><input type="radio" name="must_acute" value="0" ${ex&&ex.acuteDiseaseScore===0?'checked':''}><span>0 — No</span></label>
+      <label><input type="radio" name="must_acute" value="2" ${ex&&ex.acuteDiseaseScore===2?'checked':''}><span>2 — Yes</span></label>
+    </div>
+  </div>`;
+
+  /* Live preview */
+  html+=`<div class="card" style="background:var(--bg3);text-align:center;padding:14px">
+    <div style="font-size:13px;color:var(--text3)">Calculated MUST Total</div>
+    <div id="mustCalcTotal" style="font-size:32px;font-weight:700">—</div>
+    <div id="mustCalcRisk">Select all 3 steps</div>
+  </div>`;
+
+  html+=`<div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn btn-primary" onclick="saveMUST()">Save MUST Assessment</button>
+    <button class="btn btn-outline" onclick="backToList()">Cancel</button>
+  </div></div>`;
+
+  /* Wire live updater */
+  setTimeout(()=>{
+    document.querySelectorAll('input[name^="must_"]').forEach(r=>r.addEventListener('change',updateMUSTPreview));
+    updateMUSTPreview();
+  },50);
+
+  return html;
+}
+window.updateMUSTPreview=function(){
+  const b=document.querySelector('input[name="must_bmi"]:checked');
+  const w=document.querySelector('input[name="must_wl"]:checked');
+  const a=document.querySelector('input[name="must_acute"]:checked');
+  const t=document.getElementById('mustCalcTotal');const r=document.getElementById('mustCalcRisk');
+  if(!t||!r) return;
+  if(b&&w&&a){
+    const total=parseInt(b.value)+parseInt(w.value)+parseInt(a.value);
+    const risk=total>=2?'High':total===1?'Medium':'Low';
+    const cls=total>=2?'badge-danger':total===1?'badge-warn':'badge-success';
+    t.textContent=total;t.style.color=total>=2?'var(--danger)':total===1?'#e65100':'var(--success)';
+    r.innerHTML=`<span class="badge ${cls}" style="font-size:14px;padding:4px 16px">${risk} Risk</span>`;
+  } else {t.textContent='—';t.style.color='var(--text3)';r.textContent='Select all 3 steps';}
+};
+window.saveMUST=function(){
+  const p=S.selectedPatient;if(!p)return;const pid=String(p.id);
+  const b=document.querySelector('input[name="must_bmi"]:checked');
+  const w=document.querySelector('input[name="must_wl"]:checked');
+  const a=document.querySelector('input[name="must_acute"]:checked');
+  if(!b||!w||!a){toast('Please complete all 3 MUST steps','danger');return;}
+  const bmi=parseInt(b.value),wl=parseInt(w.value),ac=parseInt(a.value);
+  const total=bmi+wl+ac;const risk=total>=2?'High':total===1?'Medium':'Low';
+  S.nutritionScreens[pid]={bmiScore:bmi,weightLossScore:wl,acuteDiseaseScore:ac,total,risk,
+    assessedBy:'Nurse (Current)',assessedAt:dateTimeStr(new Date()),savedThisSession:true};
+  S.assessmentHistory.push({type:'must',patientId:pid,bed:p.bed,name:p.name,time:S.nutritionScreens[pid].assessedAt,total,risk:risk+' Risk'});
+  toast(`MUST saved: ${total} — ${risk} Risk`,'success');render();
+};
+
+/* ─── Dynamic Groups (IV Sites + Wounds) management ─── */
+function renderDynGroups(){
+  const p=S.selectedPatient;const pid=String(p.id);
+  const sites=S.ivSites[pid]||[];const wnds=S.wounds[pid]||[];const lt=S.linesTubes[pid]||[];
+
+  let html=`<div class="card"><div class="card-title"><i class="fa-solid fa-layer-group"></i> Dynamic Groups — Lines / Wounds / Drains</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">Cerner iView dynamic groups allow multiple instances of the same data template (e.g. one row of fields per IV site or wound). Each instance gets a unique label and can be inactivated when no longer in use.</p>
+
+    <h4 style="margin:8px 0 8px 0;color:var(--green-dark)"><i class="fa-solid fa-syringe"></i> IV Sites <button class="btn btn-info btn-sm" style="margin-left:8px" onclick="addIVSite()">+ Add IV Site</button></h4>`;
+  if(sites.length===0) html+=`<p style="font-size:12px;color:var(--text3);font-style:italic">No IV sites documented.</p>`;
+  sites.forEach((s,i)=>{
+    html+=`<div class="dyngroup-card" style="opacity:${s.active?1:0.5}">
+      <div class="dg-label">${s.label}${s.active?'':' (Inactivated)'} ${s.active?`<button class="inactivate-btn" onclick="inactivateIV(${i})">Inactivate</button>`:''}</div>
+      <div class="dg-grid">
+        <div class="dg-field"><label>Type</label><select onchange="S.ivSites['${pid}'][${i}].type=this.value">${IV_TYPES.map(t=>`<option ${t===s.type?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="dg-field"><label>Site</label><input value="${s.site}" onchange="S.ivSites['${pid}'][${i}].site=this.value"></div>
+        <div class="dg-field"><label>Gauge</label><select onchange="S.ivSites['${pid}'][${i}].gauge=this.value">${IV_GAUGES.map(g=>`<option ${g===s.gauge?'selected':''}>${g}</option>`).join('')}</select></div>
+        <div class="dg-field"><label>Inserted</label><input type="date" value="${s.inserted}" onchange="S.ivSites['${pid}'][${i}].inserted=this.value"></div>
+        <div class="dg-field" style="grid-column:span 2"><label>Condition</label><input value="${s.condition}" onchange="S.ivSites['${pid}'][${i}].condition=this.value"></div>
+      </div></div>`;
+  });
+
+  html+=`<h4 style="margin:18px 0 8px 0;color:var(--green-dark)"><i class="fa-solid fa-bandage"></i> Wounds <button class="btn btn-info btn-sm" style="margin-left:8px" onclick="addWound()">+ Add Wound</button></h4>`;
+  if(wnds.length===0) html+=`<p style="font-size:12px;color:var(--text3);font-style:italic">No wounds documented.</p>`;
+  wnds.forEach((w,i)=>{
+    html+=`<div class="dyngroup-card" style="opacity:${w.active?1:0.5}">
+      <div class="dg-label">${w.label}${w.active?'':' (Inactivated)'} ${w.active?`<button class="inactivate-btn" onclick="inactivateWound(${i})">Inactivate</button>`:''}</div>
+      <div class="dg-grid">
+        <div class="dg-field"><label>Location</label><input value="${w.location}" onchange="S.wounds['${pid}'][${i}].location=this.value"></div>
+        <div class="dg-field"><label>Type</label><select onchange="S.wounds['${pid}'][${i}].type=this.value">${WOUND_TYPES.map(t=>`<option ${t===w.type?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="dg-field"><label>Size (L×W×D cm)</label><input value="${w.sizeCm}" onchange="S.wounds['${pid}'][${i}].sizeCm=this.value"></div>
+        <div class="dg-field"><label>Drainage</label><select onchange="S.wounds['${pid}'][${i}].drainage=this.value">${DRAINAGE_TYPES.map(t=>`<option ${t===w.drainage?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="dg-field" style="grid-column:span 2"><label>Treatment / Dressing</label><input value="${w.treatment}" onchange="S.wounds['${pid}'][${i}].treatment=this.value"></div>
+      </div></div>`;
+  });
+
+  html+=`<h4 style="margin:18px 0 8px 0;color:var(--green-dark)"><i class="fa-solid fa-link"></i> Lines / Tubes / Drains <button class="btn btn-info btn-sm" style="margin-left:8px" onclick="addLine()">+ Add</button></h4>`;
+  if(lt.length===0) html+=`<p style="font-size:12px;color:var(--text3);font-style:italic">No lines / tubes / drains documented.</p>`;
+  lt.forEach((l,i)=>{
+    html+=`<div class="dyngroup-card" style="background:linear-gradient(to bottom right,#e1f5fe,#fff);border-color:#0288d1">
+      <div class="dg-label" style="color:#01579b;border-color:#0288d1">${l.type} — ${l.location}</div>
+      <div class="dg-grid">
+        <div class="dg-field"><label>Status</label><input value="${l.status}" onchange="S.linesTubes['${pid}'][${i}].status=this.value"></div>
+        <div class="dg-field"><label>Inserted</label><input type="date" value="${l.inserted}" onchange="S.linesTubes['${pid}'][${i}].inserted=this.value"></div>
+        <div class="dg-field" style="grid-column:span 2"><label>Output / Notes</label><input value="${l.output}" onchange="S.linesTubes['${pid}'][${i}].output=this.value"></div>
+      </div></div>`;
+  });
+
+  html+=`</div>`;
+  return html;
+}
+window.addIVSite=function(){
+  const pid=String(S.selectedPatient.id);
+  const lbl=prompt('IV Site label (e.g. "L forearm IV #2"):','New IV site '+(S.ivSites[pid].length+1));
+  if(!lbl) return;
+  S.ivSites[pid].push({label:lbl,site:'',gauge:'20G',type:'Peripheral IV',inserted:dateStr(new Date()),condition:'Patent, no redness',active:true});
+  toast('IV Site added','success');render();
+};
+window.inactivateIV=function(i){
+  const pid=String(S.selectedPatient.id);
+  if(!confirm('Inactivate this IV site? Document discontinuation first.')) return;
+  S.ivSites[pid][i].active=false;toast('IV Site inactivated','info');render();
+};
+window.addWound=function(){
+  const pid=String(S.selectedPatient.id);
+  const lbl=prompt('Wound label:','Wound #'+(S.wounds[pid].length+1));
+  if(!lbl) return;
+  S.wounds[pid].push({label:lbl,location:'',type:'Pressure injury Stage I',sizeCm:'',drainage:'Serous',treatment:'',active:true});
+  toast('Wound added','success');render();
+};
+window.inactivateWound=function(i){
+  const pid=String(S.selectedPatient.id);
+  if(!confirm('Inactivate this wound? Document closure / resolution first.')) return;
+  S.wounds[pid][i].active=false;toast('Wound inactivated','info');render();
+};
+window.addLine=function(){
+  const pid=String(S.selectedPatient.id);
+  const t=prompt('Type (Foley / NG tube / Chest tube / JP drain / Central line ...):','Foley catheter');
+  if(!t) return;
+  S.linesTubes[pid].push({type:t,location:'',inserted:dateStr(new Date()),output:'',status:'In place'});
+  toast('Line / Tube / Drain added','success');render();
+};
+
+/* ─── Assessment Summary Dashboard ─── */
+function renderDashboard(){
+ let html=`<h2 style="font-size:20px;margin-bottom:20px"><i class="fa-solid fa-chart-bar"></i> Assessment Summary Dashboard</h2>`;
+
+  /* Stats bar */
+  const totalPatients=S.patients.length;
+  const bradenDone=S.patients.filter(p=>S.bradenScores[String(p.id)]!==null).length;
+  const morseDone=S.patients.filter(p=>S.morseScores[String(p.id)]!==null).length;
+  const painDone=S.patients.filter(p=>S.painAssessments[String(p.id)]!==null).length;
+  const gcsDone=S.patients.filter(p=>S.gcsScores[String(p.id)]!==null).length;
+  const overdueCount=S.overdueAssessments.length;
+
+  html+=`<div class="stats-bar">
+    <div class="stat-item"><div class="stat-val">${totalPatients}</div><div class="stat-label">Total Patients</div></div>
+    <div class="stat-item"><div class="stat-val">${bradenDone}/${totalPatients}</div><div class="stat-label">Braden Done</div></div>
+    <div class="stat-item"><div class="stat-val">${morseDone}/${totalPatients}</div><div class="stat-label">Morse Done</div></div>
+    <div class="stat-item"><div class="stat-val">${painDone}/${totalPatients}</div><div class="stat-label">Pain Done</div></div>
+    <div class="stat-item"><div class="stat-val">${gcsDone}/${totalPatients}</div><div class="stat-label">GCS Done</div></div>
+    <div class="stat-item" style="border-color:${overdueCount>0?'var(--danger)':'var(--border2)'}"><div class="stat-val" style="color:${overdueCount>0?'var(--danger)':'var(--success)'}">${overdueCount}</div><div class="stat-label">Overdue</div></div>
+  </div>`;
+
+  /* Matrix view */
+ html+=`<div class="card"><div class="card-title">Assessment Matrix</div>
+    <table class="matrix-table"><thead><tr><th>Bed</th><th>Patient</th><th>Braden</th><th>Morse</th><th>Pain NRS</th><th>GCS</th><th>Alerts</th></tr></thead><tbody>`;
+
+  S.patients.forEach(p=>{
+    const pid=String(p.id);
+    const bs=S.bradenScores[pid];
+    const ms=S.morseScores[pid];
+    const pa=S.painAssessments[pid];
+    const gs=S.gcsScores[pid];
+    const overdue=S.overdueAssessments.filter(o=>o.patientId==p.id||o.bed===p.bed);
+
+    /* Braden cell */
+    let bradenCell='<td class="'+(overdue.some(o=>o.type==='braden')?'overdue':'')+'">'; 
+    if(bs){const t=bradenTotal(bs);const r=bradenRisk(t);bradenCell+=`<span class="badge ${r.cls}">${t}</span>`;}
+    else bradenCell+='<span style="color:var(--text3)">—</span>';
+    bradenCell+='</td>';
+
+    /* Morse cell */
+    let morseCell='<td class="'+(overdue.some(o=>o.type==='morse')?'overdue':'')+'">'; 
+    if(ms){const t=morseTotal(ms);const r=morseRisk(t);morseCell+=`<span class="badge ${r.cls}">${t}</span>`;}
+    else morseCell+='<span style="color:var(--text3)">—</span>';
+    morseCell+='</td>';
+
+    /* Pain cell */
+    let painCell='<td class="'+(overdue.some(o=>o.type==='pain')?'overdue':'')+'">'; 
+    if(pa){const r=painLevel(pa.score);painCell+=`<span class="badge ${r.cls}">${pa.score}/10</span>`;}
+    else painCell+='<span style="color:var(--text3)">—</span>';
+    painCell+='</td>';
+
+    /* GCS cell */
+    let gcsCell='<td class="'+(overdue.some(o=>o.type==='gcs')?'overdue':'')+'">'; 
+    if(gs){const t=gcsTotal(gs);const r=gcsLevel(t);gcsCell+=`<span class="badge ${r.cls}">${t}/15</span>`;}
+    else gcsCell+='<span style="color:var(--text3)">—</span>';
+    gcsCell+='</td>';
+
+    /* Alerts */
+    let alerts=[];
+    if(overdue.length>0) alerts.push(`<span style="color:var(--danger)">🔴 ${overdue.length} overdue</span>`);
+    if(bs&&bradenTotal(bs)<=12) alerts.push('<span style="color:var(--danger)">Pressure ulcer risk</span>');
+    if(ms&&morseTotal(ms)>=45) alerts.push('<span style="color:var(--danger)">High fall risk</span>');
+    if(pa&&pa.score>=7) alerts.push('<span style="color:var(--danger)">Severe pain</span>');
+    if(gs&&gcsTotal(gs)<=8) alerts.push('<span style="color:var(--danger)">Severe brain injury</span>');
+    if(p.fallHistory) alerts.push('<span style="color:#e65100">Fall history</span>');
+
+    /* Check interventions for high-risk Braden */
+    if(bs&&bradenTotal(bs)<=12){
+      const intv=S.interventionsPlanned[pid]||[];
+      if(intv.length===0) alerts.push('<span style="color:var(--danger);font-weight:700">⚠️ NO INTERVENTION PLAN</span>');
+    }
+
+    html+=`<tr style="cursor:pointer" onclick="selectPatient(${p.bed})">
+      <td><strong>${p.bed}</strong></td><td>${p.name}</td>
+      ${bradenCell}${morseCell}${painCell}${gcsCell}
+      <td style="font-size:11px">${alerts.join('<br>')||'<span style="color:var(--success)">✓ OK</span>'}</td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table></div>`;
+
+  /* Overdue assessments detail */
+  if(S.overdueAssessments.length>0){
+    html+=`<div class="card" style="border-color:var(--danger)"><div class="card-title" style="color:var(--danger)">⚠️ Overdue Assessments</div>
+      <table><thead><tr><th>Bed</th><th>Patient</th><th>Type</th><th>Due</th><th>Reason</th></tr></thead><tbody>`;
+    S.overdueAssessments.forEach(o=>{
+      html+=`<tr class="overdue"><td>${o.bed}</td><td>${o.name}</td><td>${o.type.toUpperCase()}</td><td>${o.dueAt}</td><td>${o.reason}</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+
+  /* Recent assessment history */
+  if(S.assessmentHistory.length>0){
+    html+=`<div class="card"><div class="card-title">📜 Recent Assessment History</div>
+      <table><thead><tr><th>Time</th><th>Bed</th><th>Patient</th><th>Type</th><th>Score</th><th>Risk</th></tr></thead><tbody>`;
+    S.assessmentHistory.slice().reverse().forEach(h=>{
+      html+=`<tr><td>${h.time}</td><td>${h.bed}</td><td>${h.name}</td><td>${h.type.toUpperCase()}</td><td>${h.total}</td><td>${h.risk}</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+
+  return html;
+}
+
+/* ─── Auto-init with default seed if not called externally ─── */
+if (!window._medgym_init_called) {
+  window._medgym_init(42);
+  window._medgym_init_called = true;
+}
+
+/* ─── Clock ─── */
+setInterval(()=>{
+  const el=document.getElementById('headerClock');
+  if(el)el.textContent=new Date().toLocaleTimeString();
+},1000);
+
+/* ─── Keyboard shortcuts ─── */
+document.addEventListener('keydown',function(e){
+  if(!S.loggedIn)return;
+  if(e.altKey){
+    switch(e.key){
+      case '1': e.preventDefault(); showPage('patientList'); break;
+      case '2': e.preventDefault(); if(S.selectedPatient)showPage('braden'); break;
+      case '3': e.preventDefault(); if(S.selectedPatient)showPage('morse'); break;
+      case '4': e.preventDefault(); if(S.selectedPatient)showPage('pain'); break;
+      case '5': e.preventDefault(); if(S.selectedPatient)showPage('gcs'); break;
+      case '6': e.preventDefault(); showPage('dashboard'); break;
+    }
+  }
+  if(e.key==='Escape') closeModal();
+});
+
+})();
+</script>
+</body>
+</html>

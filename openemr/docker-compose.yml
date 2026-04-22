@@ -1,0 +1,57 @@
+# OpenEMR Docker Compose for MedGym Benchmark
+# Reference: https://github.com/openemr/openemr/blob/master/DOCKER_README.md
+#
+# Usage:
+#   cd browsergym/medgym/openemr
+#   docker compose up -d
+#
+# Access:
+#   OpenEMR UI: http://localhost:8300
+#   Login: admin / pass
+#
+# This setup uses the official OpenEMR Docker image with a MySQL backend.
+# It is configured for development/benchmarking use only.
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mariadb:10.11
+    restart: unless-stopped
+    command: ['mysqld', '--character-set-server=utf8mb4']
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: openemr
+      MYSQL_USER: openemr
+      MYSQL_PASSWORD: openemr
+    volumes:
+      - openemr-db:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  openemr:
+    image: openemr/openemr:7.0.2
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - "8300:80"
+      - "9300:443"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASS: root
+      MYSQL_USER: openemr
+      MYSQL_PASS: openemr
+      MYSQL_DATABASE: openemr
+      OE_USER: admin
+      OE_PASS: pass
+    volumes:
+      - openemr-sites:/var/www/localhost/htdocs/openemr/sites
+      - openemr-logs:/var/log
+      - openemr-vendor:/var/www/localhost/htdocs/openemr/vendor
+
+volumes:
+  openemr-db:
+  openemr-sites:
+  openemr-logs:
+  openemr-vendor:

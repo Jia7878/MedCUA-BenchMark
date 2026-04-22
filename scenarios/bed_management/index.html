@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<!--
+  MedGym Scenario: Bed Management Center — Allscripts Patient Flow™ style
+
+  REAL-WORLD REFERENCES:
+  1. Allscripts Patient Flow 22.1 Bed Management User Guide (Item PF10003J)
+     - Portal View / Unit View / Bed Board / Bed Management Worklist
+     - Patient activity indicators (PA, RM, DA, R, H, PT, PTr, PD, PDx)
+     - Bed-status colors (Available / Dirty / Cleaning / Closed / Occupied M-F)
+     - Bed-cleaning status timers (M / H / D / MO / Y)
+     - Action Required / Pending Arrival / Intra-Unit Activity sections
+     - Common workflows: Direct Admit, Bed Swap, Patient Transfer,
+       Pending Discharge, Ready to Move
+  2. ICU/ward bed-management literature on safety-critical patient placement.
+
+  PAGE DEPTH:
+  - Login page  (admin / bed123)
+  - Portal View — Bed Map across all units (Action Required + Floor Plan)
+  - Direct Admit — register & assign new admission
+  - Patient Transfer — change bed / room with orders verification
+  - Pending Discharge — discharge with checklist & settlement
+  - Bed Management Worklist — queue of pending bed requests
+  - Statistics — occupancy snapshot per unit
+
+  STATE COMPATIBILITY:
+  window._taskState matches the schema consumed by the Python checkers
+  in bed_management.py — do NOT rename fields.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Allscripts Patient Flow™ — Bed Management Center</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;background:#eef2f6;color:#1e293b}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 10px;text-align:left}
+.hidden{display:none!important}
+:root{
+  --bg:#eef2f6;--surface:#fff;
+  --hdr:#0d3b66;--hdr-t:#dbeafe;
+  --pri:#1565c0;--pri-d:#0d3b66;--pri-l:#42a5f5;--pri-ll:#e3f2fd;
+  --acc:#ef6c00;--suc:#2e7d32;--warn:#f9a825;--err:#c62828;
+  --txt:#1e293b;--txt2:#475569;--txt3:#94a3b8;
+  --bdr:#cbd5e1;--bdr-l:#e2e8f0;
+  --row-h:#e3f2fd;--rad:6px;
+  --mono:Consolas,'Courier New',monospace;
+  /* Allscripts patient-tile colors (per PDF) */
+  --bed-avail:#dcedc8;       /* available — green */
+  --bed-avail-bdr:#7cb342;
+  --bed-dirty:#bcaaa4;       /* dirty — brown */
+  --bed-dirty-bdr:#6d4c41;
+  --bed-clean:#fff59d;       /* cleaning — yellow */
+  --bed-clean-bdr:#f9a825;
+  --bed-closed:#37474f;      /* closed — black */
+  --bed-closed-bdr:#212121;
+  --bed-male:#bbdefb;        /* occupied male — blue */
+  --bed-male-bdr:#1976d2;
+  --bed-female:#f8bbd0;      /* occupied female — pink */
+  --bed-female-bdr:#c2185b;
+  --bed-unk:#cfd8dc;         /* unknown gender — grey */
+  --bed-unk-bdr:#607d8b;
+  --bed-dc:#ffe0b2;          /* DC pending — orange */
+  --bed-dc-bdr:#fb8c00;
+  --bdr-iso:#1de9b6;         /* isolation — teal */
+  --bdr-risk:#5c6bc0;         /* at-risk — blue striped */
+}
+/* Login page */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d3b66,#1565c0)}
+.login-box{background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);padding:40px 36px;width:440px}
+.login-box .logo{text-align:center;margin-bottom:22px}
+.login-box .logo .icon{font-size:46px;margin-bottom:8px}
+.login-box .logo .title{font-size:22px;font-weight:700;color:var(--pri-d)}
+.login-box .logo .sub{font-size:11px;color:var(--txt2);margin-top:4px;letter-spacing:.5px}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.fc{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--rad);outline:none;font-size:13px;background:#fafcff}
+.fc:focus{border-color:var(--pri);box-shadow:0 0 0 2px rgba(21,101,192,.18)}
+.err-msg{color:var(--err);font-size:12px;margin-top:6px;display:none}
+.req-mark{color:var(--err);margin-left:2px}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;border:1px solid transparent;border-radius:var(--rad);font-size:12px;font-weight:600;transition:.15s}
+.btn-p{background:var(--pri);color:#fff}.btn-p:hover{background:var(--pri-d)}
+.btn-s{background:var(--suc);color:#fff}.btn-s:hover{background:#1b5e20}
+.btn-w{background:var(--warn);color:#fff}.btn-w:hover{background:#f57f17}
+.btn-d{background:var(--err);color:#fff}.btn-d:hover{background:#a31515}
+.btn-a{background:var(--acc);color:#fff}.btn-a:hover{background:#bf360c}
+.btn-out{background:#fff;border-color:var(--bdr);color:var(--txt)}.btn-out:hover{background:var(--bg)}
+.btn-sm{padding:4px 10px;font-size:11px}.btn-lg{padding:10px 24px;font-size:14px}.btn-block{width:100%}
+.btn-icon{padding:6px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)}
+/* Toast & Modal */
+.toast-container{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:var(--rad);font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.18);animation:slideIn .3s;color:#fff}
+.toast-success{background:var(--suc)}.toast-danger{background:var(--err)}.toast-info{background:var(--pri-l)}.toast-warn{background:var(--warn)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:8px;width:620px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.modal h3{padding:14px 20px;background:var(--pri-d);color:#fff;font-size:14px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}
+.modal h3 .x{background:none;border:none;color:rgba(255,255,255,.85);font-size:18px;cursor:pointer}
+.modal .mb{padding:20px}
+/* Layout */
+#app{min-height:100vh;display:flex;flex-direction:column}
+.header{background:var(--hdr);color:var(--hdr-t);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.header .t{font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.header .t .pf-mark{font-size:10px;background:rgba(255,255,255,.18);padding:2px 6px;border-radius:3px;font-weight:500;letter-spacing:.5px}
+.header .r{display:flex;align-items:center;gap:14px;font-size:11px}
+.header .r .clk{font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.2);padding:3px 8px;border-radius:3px}
+.header .r .uinfo{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+.header .r .uinfo b{font-size:12px}
+/* Body grid: left nav + main */
+.body{display:flex;flex:1;min-height:0}
+.lnav{width:180px;background:#102a43;color:#dbeafe;padding:12px 0;flex-shrink:0;overflow-y:auto}
+.lnav .ngroup{padding:6px 14px;font-size:10px;font-weight:700;color:#7c8fa8;letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+.lnav button{display:flex;width:100%;background:none;border:none;color:rgba(255,255,255,.78);padding:9px 14px;font-size:12px;text-align:left;align-items:center;gap:8px;border-left:3px solid transparent;transition:.15s}
+.lnav button:hover{background:rgba(255,255,255,.06);color:#fff}
+.lnav button.active{background:rgba(66,165,245,.15);color:#fff;border-left-color:var(--acc)}
+.lnav button .nico{font-size:14px;width:18px;text-align:center}
+.lnav .inbox-badge{margin-left:auto;background:var(--err);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+.main{flex:1;padding:14px 18px;overflow-y:auto;min-height:0}
+/* Action toolbar above main content */
+.atoolbar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:8px 12px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.atoolbar .org-sel{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2)}
+.atoolbar .org-sel select{padding:4px 8px;border:1px solid var(--bdr);border-radius:4px;font-size:12px}
+.atoolbar .spacer{flex:1}
+.atoolbar .abtn{background:#f1f5f9;border:1px solid var(--bdr-l);border-radius:4px;padding:5px 10px;font-size:11px;color:var(--txt);transition:.15s;display:inline-flex;align-items:center;gap:4px}
+.atoolbar .abtn:hover{background:var(--pri-ll);border-color:var(--pri-l);color:var(--pri-d)}
+/* Tabs (custom filter tabs) */
+.tabbar{display:flex;align-items:flex-end;border-bottom:2px solid var(--pri);margin-bottom:12px;gap:2px}
+.tabbar .tab{background:#e3edf7;border:1px solid var(--bdr-l);border-bottom:none;padding:7px 14px;font-size:12px;font-weight:600;color:var(--txt2);border-radius:5px 5px 0 0;cursor:pointer}
+.tabbar .tab.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+.tabbar .add-tab{background:none;border:1px dashed var(--bdr);color:var(--txt2);font-size:11px;padding:5px 10px;border-radius:4px;margin-left:6px;margin-bottom:2px}
+/* Cards / tables */
+.card{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);box-shadow:0 1px 2px rgba(0,0,0,.04);margin-bottom:12px}
+.card-h{padding:10px 14px;font-size:13px;font-weight:700;color:var(--pri-d);border-bottom:1px solid var(--bdr-l);display:flex;justify-content:space-between;align-items:center;background:var(--pri-ll)}
+.card-b{padding:14px}
+.dt{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);overflow:hidden}
+.dt thead th{background:var(--pri-ll);color:var(--pri-d);font-size:11px;font-weight:700;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid var(--pri-l)}
+.dt tbody tr{border-bottom:1px solid var(--bdr-l);transition:.12s}
+.dt tbody tr:hover{background:var(--row-h)}
+.dt tbody td{padding:6px 10px;font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.b-occ{background:#fff9c4;color:#f57f17}.b-empty{background:#e8f5e9;color:#2e7d32}.b-maint{background:#efebe9;color:#6d4c41}.b-dc{background:#fff3e0;color:#e65100}.b-crit{background:#fce4ec;color:#c62828}
+.b-info{background:#e3f2fd;color:#1565c0}
+/* Stats */
+.stats{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.stat{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);padding:12px 18px;min-width:130px;flex:1;max-width:200px}
+.stat .sv{font-size:24px;font-weight:700;color:var(--pri-d);line-height:1}
+.stat .sl{font-size:11px;color:var(--txt2);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}
+/* Form rows */
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.vrow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.section-label{font-size:12px;font-weight:700;color:var(--pri-d);margin:14px 0 6px;border-bottom:1px solid var(--bdr-l);padding-bottom:4px;display:flex;align-items:center;gap:6px}
+.section-label::before{content:'';width:3px;height:12px;background:var(--acc);display:inline-block}
+/* Bed grid (Allscripts patient tiles) */
+.unit-section{margin-bottom:18px}
+.unit-title{font-size:13px;font-weight:700;color:var(--pri-d);margin-bottom:8px;padding:6px 10px;background:var(--pri-ll);border-left:4px solid var(--pri);display:flex;justify-content:space-between;align-items:center}
+.unit-title .occ-info{font-size:11px;font-weight:500;color:var(--txt2)}
+.bed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.bed-cell{border:2px solid var(--bdr-l);border-radius:var(--rad);padding:6px 8px 4px;text-align:left;min-height:88px;transition:.12s;cursor:pointer;position:relative;background:#fff;display:flex;flex-direction:column;font-size:11px;overflow:hidden}
+.bed-cell:hover{box-shadow:0 2px 8px rgba(0,0,0,.18);transform:translateY(-1px)}
+.bed-cell.occ-male{background:var(--bed-male);border-color:var(--bed-male-bdr)}
+.bed-cell.occ-female{background:var(--bed-female);border-color:var(--bed-female-bdr)}
+.bed-cell.occ-unk{background:var(--bed-unk);border-color:var(--bed-unk-bdr)}
+.bed-cell.empty{background:var(--bed-avail);border-color:var(--bed-avail-bdr)}
+.bed-cell.dirty{background:var(--bed-dirty);border-color:var(--bed-dirty-bdr)}
+.bed-cell.cleaning{background:var(--bed-clean);border-color:var(--bed-clean-bdr)}
+.bed-cell.closed{background:var(--bed-closed);border-color:var(--bed-closed-bdr);color:#e0e0e0}
+.bed-cell.dc-pending{background:var(--bed-dc);border-color:var(--bed-dc-bdr)}
+.bed-cell.iso{border:3px solid var(--bdr-iso)!important}
+.bed-cell.risk{border:3px dashed var(--bdr-risk)!important}
+.bed-cell .bid{font-weight:700;font-family:var(--mono);font-size:11px;display:flex;justify-content:space-between;align-items:center}
+.bed-cell .bid .gicon{font-size:9px;background:rgba(0,0,0,.12);padding:1px 4px;border-radius:3px}
+.bed-cell .pname{font-size:11px;margin-top:3px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bed-cell .pdx{font-size:10px;color:var(--txt2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bed-cell.closed .pname{color:#e0e0e0}
+.bed-cell .foot{margin-top:auto;display:flex;align-items:center;gap:4px;padding-top:4px}
+.bed-cell .foot .spacer{flex:1}
+.bed-cell .timer{font-size:9px;font-weight:700;background:rgba(0,0,0,.22);color:#fff;padding:1px 5px;border-radius:8px;font-family:var(--mono);letter-spacing:.3px}
+.bed-cell.cleaning .timer{background:var(--err)}
+.bed-cell .actind{font-size:9px;font-weight:700;background:#fff;color:var(--pri-d);padding:1px 4px;border-radius:3px;border:1px solid var(--pri);font-family:var(--mono);letter-spacing:.5px}
+.bed-cell .offfloor{font-size:9px;font-weight:700;background:#9e9e9e;color:#fff;padding:1px 4px;border-radius:3px;font-family:var(--mono)}
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px;padding:8px 12px;background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);font-size:11px;color:var(--txt2)}
+.legend .li{display:inline-flex;align-items:center;gap:4px}
+.legend .sw{width:14px;height:14px;border:1px solid;display:inline-block;border-radius:3px}
+/* Activity sections (per Unit View) */
+.activity-section{background:#fff;border:1px solid var(--bdr-l);border-radius:var(--rad);margin-bottom:10px}
+.activity-section .as-h{padding:7px 12px;background:#fef3e2;border-bottom:1px solid var(--bdr-l);font-size:12px;font-weight:700;color:var(--acc);display:flex;justify-content:space-between;align-items:center}
+.activity-section .as-b{padding:0}
+.activity-section .as-row{padding:8px 12px;border-bottom:1px solid var(--bdr-l);font-size:11px;display:grid;grid-template-columns:80px 1fr 100px 90px;gap:10px;align-items:center}
+.activity-section .as-row:last-child{border-bottom:none}
+.activity-section .as-row:hover{background:var(--row-h)}
+.activity-section.action-required .as-h{background:#fdecea;color:var(--err)}
+.activity-section.pending-arrival .as-h{background:#e3f2fd;color:var(--pri-d)}
+.activity-section.intra-unit .as-h{background:#fff8e1;color:#ef6c00}
+/* Checklist */
+.check-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px}
+.check-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--pri)}
+.check-row label{cursor:pointer;user-select:none}
+/* Patient activity legend */
+.act-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:10px;color:var(--txt2)}
+.act-legend .ai{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:#fff;border:1px solid var(--bdr-l);border-radius:3px}
+.act-legend .ai code{background:var(--pri);color:#fff;padding:0 4px;border-radius:2px;font-family:var(--mono);font-size:10px;font-weight:700}
+.help-banner{background:#fff8e1;border:1px solid #ffe082;border-left:4px solid var(--warn);padding:8px 12px;border-radius:var(--rad);margin-bottom:12px;font-size:12px;color:var(--txt2)}
+.help-banner b{color:#ef6c00}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()"><div class="modal" id="modalContent"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var rng=Math.random;
+function rI(a,b){return Math.floor(rng()*(b-a+1))+a;}
+
+// ── State (schema is consumed by Python checkers — DO NOT rename) ──
+window._taskState={
+  loggedIn:false,currentPage:'login',
+  beds:{},occupancyStats:{},admissions:[],transfers:[],discharges:[],
+  bedAssignments:[],conflicts:[]
+};
+var S=window._taskState;
+
+// ══════════════════════════════════════════════════════════════════════
+// Reference data
+// ══════════════════════════════════════════════════════════════════════
+// "Wards" map onto the Allscripts term "Units"
+var WARDS=[
+  {id:'3A', name:'3A Internal Medicine', service:'Internal Medicine', floor:3},
+  {id:'3B', name:'3B Surgery',           service:'General Surgery',   floor:3},
+  {id:'ICU',name:'ICU — Critical Care',  service:'Critical Care',     floor:4},
+  {id:'4A', name:'4A OB / GYN',          service:'Obstetrics',        floor:4}
+];
+
+var INIT_BEDS=[
+  // Ward 3A — 8 beds
+  {id:'3A-01',wardId:'3A',status:'occupied',gender:'M',patient:'Zhang Wei',  dx:'Community-Acquired Pneumonia',day:5,physician:'Dr. Chen', dcPending:false,actInd:'',offFloor:''},
+  {id:'3A-02',wardId:'3A',status:'occupied',gender:'F',patient:'Li Fang',     dx:'Congestive Heart Failure',    day:4,physician:'Dr. Chen', dcPending:false,actInd:'',offFloor:''},
+  {id:'3A-03',wardId:'3A',status:'occupied',gender:'M',patient:'Wang Jun',    dx:'Type 2 DM with Neuropathy',   day:7,physician:'Dr. Liu',  dcPending:true, actInd:'PD',offFloor:''},
+  {id:'3A-04',wardId:'3A',status:'occupied',gender:'F',patient:'Chen Mei',    dx:'Hypertension Crisis',         day:3,physician:'Dr. Liu',  dcPending:false,actInd:'',offFloor:''},
+  {id:'3A-05',wardId:'3A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'3A-06',wardId:'3A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'PA',offFloor:''},
+  {id:'3A-07',wardId:'3A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'3A-08',wardId:'3A',status:'occupied',gender:'F',patient:'Huang Ying',  dx:'COPD Exacerbation',           day:5,physician:'Dr. Chen', dcPending:false,actInd:'PT',offFloor:'RAD'},
+  // Ward 3B — 6 beds
+  {id:'3B-01',wardId:'3B',status:'occupied',gender:'M',patient:'Zhao Qiang',  dx:'Post-Op Hip Replacement',     day:3,physician:'Dr. Wang', dcPending:false,actInd:'',offFloor:''},
+  {id:'3B-02',wardId:'3B',status:'occupied',gender:'F',patient:'Sun Li',      dx:'Appendicitis Recovery',       day:2,physician:'Dr. Wang', dcPending:true, actInd:'PD',offFloor:''},
+  {id:'3B-03',wardId:'3B',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'3B-04',wardId:'3B',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'3B-05',wardId:'3B',status:'occupied',gender:'M',patient:'Wu Tao',      dx:'Hernia Repair POD 2',         day:2,physician:'Dr. Wang', dcPending:false,actInd:'',offFloor:''},
+  {id:'3B-06',wardId:'3B',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  // ICU — 6 beds
+  {id:'ICU-01',wardId:'ICU',status:'occupied',gender:'F',patient:'Ma Xiao',   dx:'Septic Shock',                day:4,physician:'Dr. Zhang',dcPending:false,actInd:'',offFloor:''},
+  {id:'ICU-02',wardId:'ICU',status:'occupied',gender:'M',patient:'Xu Rui',    dx:'ARDS — Mechanical Vent',      day:6,physician:'Dr. Zhang',dcPending:false,actInd:'',offFloor:''},
+  {id:'ICU-03',wardId:'ICU',status:'empty',   gender:'', patient:'',          dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'ICU-04',wardId:'ICU',status:'empty',   gender:'', patient:'',          dx:'',                            day:0,physician:'',         dcPending:false,actInd:'R',offFloor:''},
+  {id:'ICU-05',wardId:'ICU',status:'empty',   gender:'', patient:'',          dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'ICU-06',wardId:'ICU',status:'maintenance',gender:'',patient:'',        dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  // Ward 4A — 6 beds
+  {id:'4A-01',wardId:'4A',status:'occupied',gender:'F',patient:'Lin Ya',      dx:'Preeclampsia',                day:3,physician:'Dr. Li',   dcPending:false,actInd:'',offFloor:''},
+  {id:'4A-02',wardId:'4A',status:'occupied',gender:'F',patient:'Gao Hui',     dx:'Post-Partum Recovery',        day:2,physician:'Dr. Li',   dcPending:true, actInd:'PD',offFloor:''},
+  {id:'4A-03',wardId:'4A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'4A-04',wardId:'4A',status:'occupied',gender:'F',patient:'He Lan',      dx:'High-Risk Pregnancy',         day:5,physician:'Dr. Li',   dcPending:false,actInd:'',offFloor:''},
+  {id:'4A-05',wardId:'4A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''},
+  {id:'4A-06',wardId:'4A',status:'empty',   gender:'', patient:'',            dx:'',                            day:0,physician:'',         dcPending:false,actInd:'',offFloor:''}
+];
+
+var PHYSICIANS=['Dr. Chen','Dr. Liu','Dr. Wang','Dr. Zhang','Dr. Li','Dr. Zhao'];
+var INSURANCE_TYPES=['Basic Medical','Employee Medical','Commercial','Self-Pay','Military'];
+
+// Bed Management Worklist (pending bed requests / queue)
+var QUEUE=[
+  {name:'Han Lei', priority:'ED Hold',     requestedWard:'3A', dx:'Acute MI — Stabilized', waitHours:4, idNumber:'110101198505201234', insurance:'Employee Medical', contact:'Han (spouse) 13912345678'},
+  {name:'Ding Mei',priority:'Scheduled',   requestedWard:'4A', dx:'Elective C-Section',     waitHours:2, idNumber:'310101199203151234', insurance:'Basic Medical',     contact:'Ding (husband) 13812345678'},
+  {name:'Feng Tao',priority:'Transfer In', requestedWard:'ICU',dx:'Post-Op Monitoring',     waitHours:1, idNumber:'440101198712081234', insurance:'Commercial',        contact:'Feng (son) 13712345678'}
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════════════════
+function nowTS(){var d=new Date();return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});}
+function lengthOfStay(day){
+  // Allscripts-style: M (minutes), H (hours up to 23), D (days), MO (months), Y
+  if(day<=0)return '';
+  if(day<30)return day+'D';
+  if(day<365)return Math.floor(day/30)+'MO';
+  return Math.floor(day/365)+'Y';
+}
+function wardName(id){for(var i=0;i<WARDS.length;i++)if(WARDS[i].id===id)return WARDS[i].name;return id;}
+
+function computeStats(){
+  var total=0,occ=0,empty=0,maint=0,dc=0;
+  var wardStats={};
+  for(var bid in S.beds){
+    total++;var b=S.beds[bid];
+    if(b.status==='occupied'){occ++;if(b.dcPending)dc++;}
+    else if(b.status==='empty')empty++;
+    else if(b.status==='maintenance')maint++;
+    if(!wardStats[b.wardId])wardStats[b.wardId]={total:0,occupied:0,empty:0};
+    wardStats[b.wardId].total++;
+    if(b.status==='occupied')wardStats[b.wardId].occupied++;
+    if(b.status==='empty')wardStats[b.wardId].empty++;
+  }
+  var usable=total-maint;
+  S.occupancyStats={
+    total:total,occupied:occ,empty:empty,maintenance:maint,dcPending:dc,
+    occupancyRate:usable>0?Math.round(occ/usable*100):0,
+    wards:wardStats
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Init (called by base_task.py via window._medgym_init(seed))
+// ══════════════════════════════════════════════════════════════════════
+window._medgym_init=function(seed){
+  seed=seed||42;rng=mulberry32(seed);
+  S.loggedIn=false;S.currentPage='login';S._user='';S._activeTab='all';
+  S.beds={};S.admissions=[];S.transfers=[];S.discharges=[];S.bedAssignments=[];S.conflicts=[];
+  for(var i=0;i<INIT_BEDS.length;i++){
+    var b=JSON.parse(JSON.stringify(INIT_BEDS[i]));
+    S.beds[b.id]=b;
+  }
+  S._queue=JSON.parse(JSON.stringify(QUEUE));
+  computeStats();
+  render();
+};
+
+function toast(m,t){t=t||'info';var el=document.createElement('div');el.className='toast toast-'+t;el.textContent=m;document.getElementById('toasts').appendChild(el);setTimeout(function(){el.remove();},3500);}
+function showModal(h){document.getElementById('modalContent').innerHTML=h;document.getElementById('modalOverlay').classList.add('show');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+window.closeModal=closeModal;
+
+function navigate(page){S.currentPage=page;S._activeTab='all';render();}
+window.navigate=navigate;
+
+// ══════════════════════════════════════════════════════════════════════
+// Render dispatcher
+// ══════════════════════════════════════════════════════════════════════
+function render(){
+  computeStats();
+  var app=document.getElementById('app');
+  if(!S.loggedIn||S.currentPage==='login'){app.innerHTML=renLogin();return;}
+
+  var h='<div class="header"><div class="t">&#x1F6CF; Allscripts Patient Flow <span class="pf-mark">22.1</span> — Bed Management</div>';
+  h+='<div class="r">';
+  h+='<div class="uinfo"><b>'+S._user+'</b><span>System Admin · St. Mary&#39;s Hospital</span></div>';
+  h+='<span class="clk" id="hclk">--:--:--</span>';
+  h+='<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="doLogout()">Log Out</button>';
+  h+='</div></div>';
+
+  // Body: left navigation + main
+  h+='<div class="body">';
+  h+='<div class="lnav">';
+  h+='<div class="ngroup">Bed Management</div>';
+  var navItems=[
+    ['bedmap',     '&#x1F5FA;', 'Portal View'],
+    ['admission',  '&#x1F4DD;', 'Direct Admit'],
+    ['transfer',   '&#x21C4;',  'Patient Transfer'],
+    ['discharge',  '&#x1F3E0;', 'Pending Discharge'],
+    ['queue',      '&#x1F4CB;', 'Worklist'],
+    ['stats',      '&#x1F4CA;', 'Statistics']
+  ];
+  for(var i=0;i<navItems.length;i++){
+    var n=navItems[i];
+    var badge='';
+    if(n[0]==='queue'&&(S._queue||[]).length)badge='<span class="inbox-badge">'+S._queue.length+'</span>';
+    if(n[0]==='discharge'){
+      var dcCount=0;for(var bid in S.beds)if(S.beds[bid].dcPending)dcCount++;
+      if(dcCount)badge='<span class="inbox-badge" style="background:'+(/* DC */ '#fb8c00')+'">'+dcCount+'</span>';
+    }
+    h+='<button class="'+(S.currentPage===n[0]?'active':'')+'" onclick="navigate(\''+n[0]+'\')"><span class="nico">'+n[1]+'</span>'+n[2]+badge+'</button>';
+  }
+  h+='<div class="ngroup">Account</div>';
+  h+='<button onclick="showModal(\'<h3>Account Settings <button class=x onclick=closeModal()>×</button></h3><div class=mb><p><b>User:</b> \'+S._user+\'</p><p><b>Roles:</b> System Admin, Allscripts Admin</p><p><b>Auto check-out:</b> Disabled</p></div>\')"><span class="nico">&#x2699;</span>Settings</button>';
+  h+='<button onclick="toast(\'Help is unavailable in MedGym demo.\',\'info\')"><span class="nico">&#x2753;</span>Help</button>';
+  h+='</div>';
+
+  h+='<div class="main">';
+  // Action toolbar (organization selector + Filter / Refresh / Add-tab buttons per PDF)
+  h+='<div class="atoolbar">';
+  h+='<div class="org-sel"><span>Facility:</span><select><option>St. Mary&#39;s Hospital</option></select></div>';
+  h+='<div class="org-sel" style="margin-left:8px"><span>Unit:</span><select><option>All Units</option><option>3A Internal Medicine</option><option>3B Surgery</option><option>ICU</option><option>4A OB/GYN</option></select></div>';
+  h+='<div class="spacer"></div>';
+  h+='<button class="abtn" onclick="render()" title="Refresh">&#x21BB; Refresh</button>';
+  h+='<button class="abtn" onclick="toast(\'Filter applied to current tab.\',\'info\')" title="Filter">&#x1F50D; Filter</button>';
+  h+='<button class="abtn" onclick="toast(\'Custom tabs are not editable in demo.\',\'info\')" title="Add custom tab">&#x002B; Add Tab</button>';
+  h+='</div>';
+
+  if(S.currentPage==='bedmap')h+=renBedMap();
+  else if(S.currentPage==='admission')h+=renAdmission();
+  else if(S.currentPage==='transfer')h+=renTransfer();
+  else if(S.currentPage==='discharge')h+=renDischarge();
+  else if(S.currentPage==='queue')h+=renQueue();
+  else if(S.currentPage==='stats')h+=renStats();
+  else h+=renBedMap();
+  h+='</div></div>';
+  app.innerHTML=h;
+  var ck=document.getElementById('hclk');if(ck)ck.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});
+}
+setInterval(function(){var e=document.getElementById('hclk');if(e)e.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});},1000);
+
+// ══════════════════════════════════════════════════════════════════════
+// Login (per PDF Chapter 1: Log in to Allscripts Patient Flow)
+// ══════════════════════════════════════════════════════════════════════
+function renLogin(){
+  return '<div class="login-page"><div class="login-box"><div class="logo"><div class="icon">&#x1F6CF;</div><div class="title">Allscripts Patient Flow™</div><div class="sub">BED MANAGEMENT · v22.1</div></div>'
+    +'<div style="background:var(--bg);border:1px solid var(--bdr-l);border-radius:var(--rad);padding:10px 14px;margin-bottom:18px;font-size:11px;color:var(--txt2)">'
+    +'<b>Units:</b> 3A Internal Medicine · 3B Surgery · ICU · 4A OB/GYN<br>'
+    +'Portal View · Direct Admit · Patient Transfer · Pending Discharge · Worklist'
+    +'</div>'
+    +'<form onsubmit="return doLogin()">'
+    +'<div class="fg"><label>Username<span class="req-mark">*</span></label><input class="fc" id="lu" placeholder="Enter username" autocomplete="off"></div>'
+    +'<div class="fg"><label>Password<span class="req-mark">*</span></label><input type="password" class="fc" id="lp" placeholder="Enter password"></div>'
+    +'<div class="fg" style="display:flex;align-items:center;gap:6px;font-size:11px"><input type="checkbox" id="luds" checked style="margin:0"><label for="luds" style="margin:0;font-weight:500">Use Default Session</label></div>'
+    +'<div class="err-msg" id="le">Invalid username or password.</div>'
+    +'<button type="submit" class="btn btn-p btn-block btn-lg">Sign In</button>'
+    +'<div style="text-align:center;margin-top:14px;font-size:10px;color:var(--txt3)">© 2022 Allscripts Healthcare, LLC · Item PF10003J</div>'
+    +'</form></div></div>';
+}
+window.doLogin=function(){
+  var u=document.getElementById('lu').value.trim(),p=document.getElementById('lp').value.trim();
+  document.getElementById('le').style.display='none';
+  if(u==='admin'&&p==='bed123'){
+    S.loggedIn=true;S._user=u;S.currentPage='bedmap';
+    render();toast('Welcome — checked in to Bed Management.','success');
+  }else{
+    document.getElementById('le').style.display='block';
+  }
+  return false;
+};
+window.doLogout=function(){S.loggedIn=false;S.currentPage='login';render();};
+
+// ══════════════════════════════════════════════════════════════════════
+// Portal View / Bed Map (per PDF Chapter 3-5)
+// ══════════════════════════════════════════════════════════════════════
+function renBedMap(){
+  var os=S.occupancyStats;
+  var h='<div class="tabbar"><div class="tab active">All</div><div class="tab">My Units</div><div class="tab">Critical</div><button class="add-tab" onclick="toast(\'Tab editing disabled in demo.\',\'info\')">+ Add Tab</button></div>';
+  h+='<div class="stats">'
+    +'<div class="stat"><div class="sv">'+os.total+'</div><div class="sl">Total Beds</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--warn)">'+os.occupied+'</div><div class="sl">Occupied</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--suc)">'+os.empty+'</div><div class="sl">Available</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--txt3)">'+os.maintenance+'</div><div class="sl">Maintenance</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--acc)">'+os.dcPending+'</div><div class="sl">DC Pending</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--pri)">'+os.occupancyRate+'%</div><div class="sl">Occupancy Rate</div></div>'
+    +'</div>';
+
+  // ── Action Required section (per PDF Unit-View "Action Required") ──
+  var dcPending=[];for(var bid0 in S.beds){if(S.beds[bid0].dcPending)dcPending.push(S.beds[bid0]);}
+  if(dcPending.length){
+    h+='<div class="activity-section action-required"><div class="as-h">&#x26A0; Action Required ('+dcPending.length+')</div><div class="as-b">';
+    for(var i=0;i<dcPending.length;i++){var b=dcPending[i];
+      h+='<div class="as-row"><span><span class="badge b-dc">DC PENDING</span></span>'
+        +'<span><b>'+b.patient+'</b> — '+b.dx+' (Bed '+b.id+')</span>'
+        +'<span style="font-size:10px;color:var(--txt2)">LOS '+lengthOfStay(b.day)+'</span>'
+        +'<button class="btn btn-d btn-sm" onclick="navigate(\'discharge\')">Discharge</button>'
+        +'</div>';
+    }
+    h+='</div></div>';
+  }
+  // ── Pending Arrival section ──
+  var queueLen=(S._queue||[]).length;
+  if(queueLen){
+    h+='<div class="activity-section pending-arrival"><div class="as-h">&#x1F4E5; Pending Arrival ('+queueLen+')</div><div class="as-b">';
+    for(var qi=0;qi<S._queue.length;qi++){var p=S._queue[qi];
+      h+='<div class="as-row"><span><span class="badge '+(p.priority==='ED Hold'?'b-crit':p.priority==='Transfer In'?'b-info':'b-empty')+'">'+p.priority+'</span></span>'
+        +'<span><b>'+p.name+'</b> — '+p.dx+'</span>'
+        +'<span style="font-size:10px;color:var(--txt2)">→ Unit '+p.requestedWard+' · '+p.waitHours+'h wait</span>'
+        +'<button class="btn btn-s btn-sm" onclick="navigate(\'queue\')">Assign</button>'
+        +'</div>';
+    }
+    h+='</div></div>';
+  }
+
+  // ── Legend (status colors per PDF Chapter 2) ──
+  h+='<div class="legend">'
+    +'<span class="li"><span class="sw" style="background:var(--bed-avail);border-color:var(--bed-avail-bdr)"></span>Available</span>'
+    +'<span class="li"><span class="sw" style="background:var(--bed-male);border-color:var(--bed-male-bdr)"></span>Occupied (Male)</span>'
+    +'<span class="li"><span class="sw" style="background:var(--bed-female);border-color:var(--bed-female-bdr)"></span>Occupied (Female)</span>'
+    +'<span class="li"><span class="sw" style="background:var(--bed-dc);border-color:var(--bed-dc-bdr)"></span>DC Pending</span>'
+    +'<span class="li"><span class="sw" style="background:var(--bed-clean);border-color:var(--bed-clean-bdr)"></span>Cleaning</span>'
+    +'<span class="li"><span class="sw" style="background:var(--bed-closed);border-color:var(--bed-closed-bdr)"></span>Closed/Maintenance</span>'
+    +'<span class="li" style="margin-left:8px;font-style:italic">Activity codes:</span>'
+    +'<span class="ai" style="background:#fff;border:1px solid var(--bdr-l);padding:2px 5px;border-radius:3px"><code style="background:var(--pri);color:#fff;padding:0 4px;border-radius:2px;font-family:Consolas;font-size:10px;font-weight:700">PA</code> Pending Admit</span>'
+    +'<span class="ai" style="background:#fff;border:1px solid var(--bdr-l);padding:2px 5px;border-radius:3px"><code style="background:var(--pri);color:#fff;padding:0 4px;border-radius:2px;font-family:Consolas;font-size:10px;font-weight:700">R</code> Reserved</span>'
+    +'<span class="ai" style="background:#fff;border:1px solid var(--bdr-l);padding:2px 5px;border-radius:3px"><code style="background:var(--pri);color:#fff;padding:0 4px;border-radius:2px;font-family:Consolas;font-size:10px;font-weight:700">PT</code> Pending Transport</span>'
+    +'<span class="ai" style="background:#fff;border:1px solid var(--bdr-l);padding:2px 5px;border-radius:3px"><code style="background:var(--pri);color:#fff;padding:0 4px;border-radius:2px;font-family:Consolas;font-size:10px;font-weight:700">PD</code> Pending Discharge</span>'
+    +'</div>';
+
+  // ── Per-unit bed grids ──
+  for(var w=0;w<WARDS.length;w++){
+    var ward=WARDS[w];
+    var ws=os.wards[ward.id]||{total:0,occupied:0,empty:0};
+    h+='<div class="unit-section">'
+      +'<div class="unit-title"><span>&#x1F3E5; '+ward.name+'</span><span class="occ-info">'+ws.occupied+'/'+ws.total+' occupied · '+ws.empty+' available</span></div>'
+      +'<div class="bed-grid">';
+    var wBeds=[];for(var bid in S.beds){if(S.beds[bid].wardId===ward.id)wBeds.push(S.beds[bid]);}
+    wBeds.sort(function(a,b){return a.id<b.id?-1:1;});
+    for(var bi=0;bi<wBeds.length;bi++){
+      var bb=wBeds[bi];
+      var cls='bed-cell ';
+      if(bb.status==='maintenance')cls+='closed';
+      else if(bb.status==='empty')cls+='empty';
+      else if(bb.dcPending)cls+='dc-pending';
+      else if(bb.gender==='M')cls+='occ-male';
+      else if(bb.gender==='F')cls+='occ-female';
+      else cls+='occ-unk';
+      var gicon=bb.gender==='M'?'&#x2642;':bb.gender==='F'?'&#x2640;':'';
+      h+='<div class="'+cls+'" onclick="bedClick(\''+bb.id+'\')">';
+      h+='<div class="bid"><span>'+bb.id+'</span>'+(gicon?'<span class="gicon">'+gicon+'</span>':'')+'</div>';
+      if(bb.status==='occupied'){
+        h+='<div class="pname">'+bb.patient+'</div>';
+        h+='<div class="pdx">'+bb.dx+'</div>';
+        var los=lengthOfStay(bb.day);
+        h+='<div class="foot">';
+        if(bb.offFloor)h+='<span class="offfloor">'+bb.offFloor+'</span>';
+        h+='<span class="spacer"></span>';
+        if(los)h+='<span class="timer" title="Length of Stay">'+los+'</span>';
+        if(bb.actInd)h+='<span class="actind">'+bb.actInd+'</span>';
+        h+='</div>';
+      }else if(bb.status==='empty'){
+        h+='<div class="pname" style="color:var(--suc)">Available</div>';
+        if(bb.actInd)h+='<div class="foot"><span class="spacer"></span><span class="actind">'+bb.actInd+'</span></div>';
+      }else{
+        h+='<div class="pname">Closed</div>';
+        h+='<div class="pdx">Maintenance</div>';
+      }
+      h+='</div>';
+    }
+    h+='</div></div>';
+  }
+  return h;
+}
+
+window.bedClick=function(bid){
+  var b=S.beds[bid];if(!b)return;
+  if(b.status==='empty'){
+    showModal('<h3>Bed '+bid+' — Available <button class="x" onclick="closeModal()">&times;</button></h3>'
+      +'<div class="mb"><p><b>Status:</b> Available for admission</p>'
+      +'<p><b>Unit:</b> '+wardName(b.wardId)+'</p>'
+      +(b.actInd==='PA'?'<p style="color:var(--pri)"><b>&#x1F4E5; Pending Admit</b> — patient en route</p>':'')
+      +(b.actInd==='R'?'<p style="color:var(--pri)"><b>&#x1F512; Reserved</b> for incoming patient</p>':'')
+      +'<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-p" onclick="closeModal();navigate(\'admission\')">Direct Admit</button>'
+      +'<button class="btn btn-out" onclick="closeModal()">Close</button></div></div>');
+  }else if(b.status==='occupied'){
+    showModal('<h3>Bed '+bid+' — '+b.patient+' <button class="x" onclick="closeModal()">&times;</button></h3>'
+      +'<div class="mb"><p><b>Patient:</b> '+b.patient+' ('+(b.gender==='M'?'Male':b.gender==='F'?'Female':'Unknown')+')</p>'
+      +'<p><b>Diagnosis:</b> '+b.dx+'</p>'
+      +'<p><b>Length of Stay:</b> '+b.day+' day(s) — '+lengthOfStay(b.day)+'</p>'
+      +'<p><b>Attending:</b> '+b.physician+'</p>'
+      +(b.dcPending?'<p style="color:var(--acc);font-weight:700">&#x2B50; Discharge Pending — physician orders signed</p>':'')
+      +(b.offFloor?'<p style="color:var(--txt2)"><b>&#x1F6B6; Off Floor:</b> '+b.offFloor+'</p>':'')
+      +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+      +'<button class="btn btn-w" onclick="closeModal();navigate(\'transfer\')">Patient Transfer</button>'
+      +(b.dcPending?'<button class="btn btn-d" onclick="closeModal();navigate(\'discharge\')">Process Discharge</button>':'')
+      +'<button class="btn btn-out" onclick="closeModal()">Close</button></div></div>');
+  }else{
+    showModal('<h3>Bed '+bid+' — Closed <button class="x" onclick="closeModal()">&times;</button></h3>'
+      +'<div class="mb"><p>This bed is closed for maintenance and unavailable for assignment.</p>'
+      +'<button class="btn btn-out" onclick="closeModal()">Close</button></div>');
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Direct Admit (per PDF Chapter 4: Create Direct Admit requests)
+// ══════════════════════════════════════════════════════════════════════
+function renAdmission(){
+  var h='<div class="help-banner"><b>Direct Admit:</b> Register a new admission and reserve a bed. Required fields are marked with <span class="req-mark">*</span>.</div>';
+  h+='<div class="card"><div class="card-h">New Patient — Direct Admit Request</div><div class="card-b">';
+  h+='<div class="vrow">'
+    +'<div class="fg"><label>Patient Name<span class="req-mark">*</span></label><input class="fc" id="adm-name" placeholder="Last, First"></div>'
+    +'<div class="fg"><label>ID Number<span class="req-mark">*</span></label><input class="fc" id="adm-id" placeholder="18-digit national ID"></div>'
+    +'</div>';
+  h+='<div class="vrow">'
+    +'<div class="fg"><label>Insurance Type<span class="req-mark">*</span></label><select class="fc" id="adm-ins"><option value="">— Select —</option>';
+  for(var i=0;i<INSURANCE_TYPES.length;i++)h+='<option>'+INSURANCE_TYPES[i]+'</option>';
+  h+='</select></div>'
+    +'<div class="fg"><label>Admission Diagnosis<span class="req-mark">*</span></label><input class="fc" id="adm-dx" placeholder="Primary diagnosis (ICD term)"></div>'
+    +'</div>';
+  h+='<div class="vrow">'
+    +'<div class="fg"><label>Ward / Bed<span class="req-mark">*</span></label><select class="fc" id="adm-bed"><option value="">— Select Bed —</option>';
+  for(var w=0;w<WARDS.length;w++){
+    var ward=WARDS[w];
+    h+='<optgroup label="'+ward.name+'">';
+    var wBeds=[];for(var bid in S.beds){if(S.beds[bid].wardId===ward.id&&S.beds[bid].status==='empty')wBeds.push(S.beds[bid]);}
+    wBeds.sort(function(a,b){return a.id<b.id?-1:1;});
+    for(var j=0;j<wBeds.length;j++)h+='<option value="'+wBeds[j].id+'">'+wBeds[j].id+' (Available)</option>';
+    h+='</optgroup>';
+  }
+  h+='</select></div>'
+    +'<div class="fg"><label>Attending Physician<span class="req-mark">*</span></label><select class="fc" id="adm-doc"><option value="">— Select —</option>';
+  for(var d=0;d<PHYSICIANS.length;d++)h+='<option>'+PHYSICIANS[d]+'</option>';
+  h+='</select></div></div>';
+  h+='<div class="fg"><label>Emergency Contact<span class="req-mark">*</span></label><input class="fc" id="adm-contact" placeholder="Name (relationship) phone"></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button class="btn btn-s btn-lg" onclick="registerAdmission()">Register Admission</button>'
+    +'<button class="btn btn-out" onclick="navigate(\'bedmap\')">Cancel</button>'
+    +'</div>';
+  h+='</div></div>';
+
+  // Admission history
+  if(S.admissions.length){
+    h+='<div class="card"><div class="card-h">Recent Admissions</div><table class="dt"><thead><tr><th>Patient</th><th>Bed</th><th>Unit</th><th>Diagnosis</th><th>Time</th></tr></thead><tbody>';
+    for(var k=S.admissions.length-1;k>=0;k--){var a=S.admissions[k];
+      h+='<tr><td><b>'+a.name+'</b></td><td><code>'+a.bedId+'</code></td><td>'+wardName(a.wardId)+'</td><td>'+a.dx+'</td><td style="font-size:10px">'+a.time+'</td></tr>';
+    }
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+window.registerAdmission=function(){
+  var name=(document.getElementById('adm-name').value||'').trim();
+  var idNum=(document.getElementById('adm-id').value||'').trim();
+  var ins=document.getElementById('adm-ins').value;
+  var dx=(document.getElementById('adm-dx').value||'').trim();
+  var bedId=document.getElementById('adm-bed').value;
+  var doc=document.getElementById('adm-doc').value;
+  var contact=(document.getElementById('adm-contact').value||'').trim();
+  if(!name){toast('Patient name is required.','danger');return;}
+  if(!dx){toast('Admission diagnosis is required.','danger');return;}
+  if(!bedId){toast('Select a bed.','danger');return;}
+  var bed=S.beds[bedId];
+  if(!bed){toast('Invalid bed.','danger');return;}
+  if(bed.status==='occupied'){
+    S.conflicts.push({type:'occupied_bed_assignment',bedId:bedId,existingPatient:bed.patient,attemptedPatient:name,time:nowTS()});
+    toast('BED CONFLICT: '+bedId+' is already occupied by '+bed.patient+'!','danger');return;
+  }
+  if(bed.status==='maintenance'){
+    S.conflicts.push({type:'transfer_to_maintenance',destBed:bedId,attemptedPatient:name,time:nowTS()});
+    toast('Cannot assign to a closed/maintenance bed ('+bedId+').','danger');return;
+  }
+  bed.status='occupied';bed.patient=name;bed.dx=dx;bed.day=1;bed.physician=doc||'Dr. Chen';bed.dcPending=false;bed.gender='';bed.actInd='';
+  S.admissions.push({name:name,bedId:bedId,wardId:bed.wardId,dx:dx,idNumber:idNum,insurance:ins,physician:doc,contact:contact,time:nowTS()});
+  toast('Patient "'+name+'" admitted to '+bedId+'.','success');
+  computeStats();render();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Patient Transfer (per PDF Chapter 5: Bed Swap / Change Bed Locations)
+// ══════════════════════════════════════════════════════════════════════
+function renTransfer(){
+  var occ=[];for(var bid in S.beds){if(S.beds[bid].status==='occupied')occ.push(S.beds[bid]);}
+  occ.sort(function(a,b){return a.id<b.id?-1:1;});
+  var emp=[];for(var bid2 in S.beds){if(S.beds[bid2].status==='empty')emp.push(S.beds[bid2]);}
+  emp.sort(function(a,b){return a.id<b.id?-1:1;});
+
+  var h='<div class="help-banner"><b>Patient Transfer:</b> Per the orders-verification policy, you must confirm that medication, diet, and nursing-care orders have been reviewed before completing the transfer.</div>';
+  h+='<div class="card"><div class="card-h">Patient Transfer / Change Bed Location</div><div class="card-b">';
+  h+='<div class="vrow">'
+    +'<div class="fg"><label>Select Patient (Source Bed)<span class="req-mark">*</span></label><select class="fc" id="tf-from"><option value="">— Select Patient —</option>';
+  for(var i=0;i<occ.length;i++)h+='<option value="'+occ[i].id+'">'+occ[i].id+' — '+occ[i].patient+' ('+occ[i].dx+')</option>';
+  h+='</select></div>'
+    +'<div class="fg"><label>Destination Bed<span class="req-mark">*</span></label><select class="fc" id="tf-to"><option value="">— Select Destination —</option>';
+  for(var j=0;j<emp.length;j++){
+    var wn=wardName(emp[j].wardId);
+    h+='<option value="'+emp[j].id+'">'+emp[j].id+' ('+wn+')</option>';
+  }
+  h+='</select></div></div>';
+  h+='<div class="fg"><label>Transfer Reason<span class="req-mark">*</span></label><select class="fc" id="tf-reason"><option value="">— Select Reason —</option>'
+    +'<option>Escalation</option><option>Step-Down</option><option>Ward Rearrangement</option>'
+    +'<option>Bed Conflict</option><option>Patient Request</option><option>Clinical Necessity</option></select></div>';
+  h+='<div class="section-label">Orders Verification (required for safety)</div>';
+  h+='<div class="check-row"><input type="checkbox" id="tf-med"><label for="tf-med">Medication orders reviewed</label></div>';
+  h+='<div class="check-row"><input type="checkbox" id="tf-diet"><label for="tf-diet">Diet orders transferred</label></div>';
+  h+='<div class="check-row"><input type="checkbox" id="tf-nurse"><label for="tf-nurse">Nursing care plan updated</label></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:14px">'
+    +'<button class="btn btn-a btn-lg" onclick="completeTransfer()">Complete Transfer</button>'
+    +'<button class="btn btn-out" onclick="navigate(\'bedmap\')">Cancel</button>'
+    +'</div>';
+  h+='</div></div>';
+
+  if(S.transfers.length){
+    h+='<div class="card"><div class="card-h">Transfer History</div><table class="dt"><thead><tr><th>Patient</th><th>From</th><th>To</th><th>Reason</th><th>Orders</th><th>Time</th></tr></thead><tbody>';
+    for(var k=S.transfers.length-1;k>=0;k--){var t=S.transfers[k];
+      h+='<tr><td><b>'+t.patient+'</b></td><td><code>'+t.fromBed+'</code></td><td><code>'+t.toBed+'</code></td><td>'+(t.reason||'—')+'</td>'
+        +'<td>'+(t.ordersVerified?'<span style="color:var(--suc)" title="All orders verified">&#x2713; Verified</span>':'<span style="color:var(--err)" title="Some orders not verified">&#x2717; Incomplete</span>')+'</td>'
+        +'<td style="font-size:10px">'+t.time+'</td></tr>';
+    }
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+window.completeTransfer=function(){
+  var fromId=document.getElementById('tf-from').value;
+  var toId=document.getElementById('tf-to').value;
+  var reason=document.getElementById('tf-reason').value;
+  if(!fromId){toast('Select a patient to transfer.','danger');return;}
+  if(!toId){toast('Select a destination bed.','danger');return;}
+  if(!reason){toast('Select a transfer reason.','danger');return;}
+  var fromBed=S.beds[fromId],toBed=S.beds[toId];
+  if(!fromBed||fromBed.status!=='occupied'){toast('Source bed is not occupied.','danger');return;}
+  if(!toBed){toast('Invalid destination.','danger');return;}
+  if(toBed.status==='occupied'){
+    S.conflicts.push({type:'transfer_to_occupied',fromBed:fromId,destBed:toId,existing:toBed.patient,time:nowTS()});
+    toast('CONFLICT: Destination '+toId+' is occupied by '+toBed.patient+'!','danger');return;
+  }
+  if(toBed.status==='maintenance'){
+    S.conflicts.push({type:'transfer_to_maintenance',destBed:toId,time:nowTS()});
+    toast('Cannot transfer to a closed/maintenance bed.','danger');return;
+  }
+  var med=document.getElementById('tf-med').checked;
+  var diet=document.getElementById('tf-diet').checked;
+  var nurse=document.getElementById('tf-nurse').checked;
+  var ordersVerified=med&&diet&&nurse;
+  var patient=fromBed.patient,dx=fromBed.dx,day=fromBed.day,doc=fromBed.physician,dc=fromBed.dcPending,gender=fromBed.gender;
+  fromBed.status='empty';fromBed.patient='';fromBed.dx='';fromBed.day=0;fromBed.physician='';fromBed.dcPending=false;fromBed.gender='';fromBed.actInd='';fromBed.offFloor='';
+  toBed.status='occupied';toBed.patient=patient;toBed.dx=dx;toBed.day=day;toBed.physician=doc;toBed.dcPending=dc;toBed.gender=gender;
+  S.transfers.push({patient:patient,fromBed:fromId,toBed:toId,reason:reason,ordersVerified:ordersVerified,medOrders:med,dietOrders:diet,nursingPlan:nurse,time:nowTS()});
+  toast('Transfer complete: '+patient+' from '+fromId+' to '+toId+'.','success');
+  computeStats();render();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Pending Discharge (per PDF Chapter 5: Request a pending discharge)
+// ══════════════════════════════════════════════════════════════════════
+function renDischarge(){
+  var dcBeds=[];for(var bid in S.beds){if(S.beds[bid].status==='occupied')dcBeds.push(S.beds[bid]);}
+  dcBeds.sort(function(a,b){var ap=a.dcPending?0:1,bp=b.dcPending?0:1;return ap-bp||a.id.localeCompare(b.id);});
+  var h='<div class="help-banner"><b>Process Discharge:</b> Patients flagged with <span class="badge b-dc">DC PENDING</span> have signed physician orders ready. The full discharge checklist must be completed for a safe discharge.</div>';
+  h+='<div class="card"><div class="card-h">Process Discharge</div><div class="card-b">';
+  h+='<div class="fg"><label>Select Patient<span class="req-mark">*</span></label><select class="fc" id="dc-pt"><option value="">— Select Patient —</option>';
+  for(var i=0;i<dcBeds.length;i++){var b=dcBeds[i];h+='<option value="'+b.id+'">'+(b.dcPending?'\u2B50 DC Pending — ':'')+b.id+' — '+b.patient+' ('+b.dx+')</option>';}
+  h+='</select></div>';
+  h+='<div class="fg"><label>Discharge Type<span class="req-mark">*</span></label><select class="fc" id="dc-type"><option value="">— Select —</option>'
+    +'<option>Home</option><option>Transfer to Another Facility</option><option>Rehabilitation</option>'
+    +'<option>Against Medical Advice</option><option>Deceased</option></select></div>';
+  h+='<div class="card" style="margin:12px 0;background:#fafafa"><div class="card-h" style="font-size:12px;background:#eceff1">Settlement Summary</div>'
+    +'<div class="card-b" style="font-size:12px;color:var(--txt2)">'
+    +'<p><b>Estimated charges:</b> Calculated at time of discharge.</p>'
+    +'<p><b>Insurance verification:</b> Pending patient selection.</p>'
+    +'<p><b>Co-payment:</b> See itemised statement.</p>'
+    +'</div></div>';
+  h+='<div class="section-label">Discharge Checklist (all required)</div>';
+  h+='<div class="check-row"><input type="checkbox" id="dc-medrec"><label for="dc-medrec">Medication reconciliation complete</label></div>';
+  h+='<div class="check-row"><input type="checkbox" id="dc-inst"><label for="dc-inst">Discharge instructions given</label></div>';
+  h+='<div class="check-row"><input type="checkbox" id="dc-followup"><label for="dc-followup">Follow-up appointment scheduled</label></div>';
+  h+='<div class="check-row"><input type="checkbox" id="dc-settle"><label for="dc-settle">Settlement confirmed</label></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:14px">'
+    +'<button class="btn btn-d btn-lg" onclick="processDischarge()">Process Discharge</button>'
+    +'<button class="btn btn-out" onclick="navigate(\'bedmap\')">Cancel</button>'
+    +'</div>';
+  h+='</div></div>';
+
+  if(S.discharges.length){
+    h+='<div class="card"><div class="card-h">Discharge History</div><table class="dt"><thead><tr><th>Patient</th><th>Bed</th><th>Type</th><th>Settlement</th><th>Time</th></tr></thead><tbody>';
+    for(var k=S.discharges.length-1;k>=0;k--){var d=S.discharges[k];
+      h+='<tr><td><b>'+d.patient+'</b></td><td><code>'+d.bedId+'</code></td><td>'+d.dischargeType+'</td>'
+        +'<td>'+(d.settlementComplete?'<span style="color:var(--suc)">&#x2713; Complete</span>':'<span style="color:var(--err)">&#x2717; Incomplete</span>')+'</td>'
+        +'<td style="font-size:10px">'+d.time+'</td></tr>';
+    }
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+window.processDischarge=function(){
+  var bedId=document.getElementById('dc-pt').value;
+  var dcType=document.getElementById('dc-type').value;
+  if(!bedId){toast('Select a patient.','danger');return;}
+  if(!dcType){toast('Select discharge type.','danger');return;}
+  var bed=S.beds[bedId];
+  if(!bed||bed.status!=='occupied'){toast('Invalid bed.','danger');return;}
+  var medrec=document.getElementById('dc-medrec').checked;
+  var inst=document.getElementById('dc-inst').checked;
+  var followup=document.getElementById('dc-followup').checked;
+  var settle=document.getElementById('dc-settle').checked;
+  var allChecked=medrec&&inst&&followup&&settle;
+  if(!allChecked){
+    S.conflicts.push({type:'incomplete_discharge',patient:bed.patient,bedId:bedId,
+      checklist:{medicationReconciliation:medrec,dischargeInstructions:inst,followUpAppointment:followup,settlement:settle},
+      time:nowTS()});
+  }
+  var patient=bed.patient;
+  bed.status='empty';bed.patient='';bed.dx='';bed.day=0;bed.physician='';bed.dcPending=false;bed.gender='';bed.actInd='';bed.offFloor='';
+  S.discharges.push({patient:patient,bedId:bedId,dischargeType:dcType,settlementComplete:allChecked,
+    checklist:{medicationReconciliation:medrec,dischargeInstructions:inst,followUpAppointment:followup,settlement:settle},
+    time:nowTS()});
+  toast('Patient "'+patient+'" discharged from '+bedId+'.','success');
+  computeStats();render();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Bed Management Worklist (per PDF Chapter 7)
+// ══════════════════════════════════════════════════════════════════════
+function renQueue(){
+  var q=S._queue||[];
+  var priOrder={'ED Hold':0,'Transfer In':1,'Scheduled':2};
+  var sorted=q.slice().sort(function(a,b){return(priOrder[a.priority]||9)-(priOrder[b.priority]||9);});
+
+  var h='<div class="tabbar"><div class="tab active">All</div><div class="tab">ED Hold</div><div class="tab">Scheduled</div><button class="add-tab" onclick="toast(\'Tab editing disabled in demo.\',\'info\')">+ Add Tab</button></div>';
+  h+='<div class="help-banner"><b>Bed Management Worklist:</b> Pending bed requests prioritised by status. Process the highest-priority requests (<i>ED Hold</i>) first to relieve emergency-department crowding.</div>';
+  h+='<div class="card"><div class="card-h">Bed Request Queue <span class="badge b-info">'+sorted.length+' waiting</span></div>';
+  h+='<table class="dt"><thead><tr><th>Priority</th><th>Patient</th><th>Diagnosis</th><th>Requested Unit</th><th>Wait</th><th>Actions</th></tr></thead><tbody>';
+  for(var i=0;i<sorted.length;i++){
+    var p=sorted[i];
+    var priClass=p.priority==='ED Hold'?'b-crit':p.priority==='Transfer In'?'b-info':'b-empty';
+    h+='<tr><td><span class="badge '+priClass+'">'+p.priority+'</span></td>'
+      +'<td><b>'+p.name+'</b><br><span style="font-size:10px;color:var(--txt2)">'+(p.idNumber||'').slice(0,6)+'...</span></td>'
+      +'<td>'+p.dx+'</td>'
+      +'<td><b>'+p.requestedWard+'</b> — '+wardName(p.requestedWard).replace(p.requestedWard+' ','')+'</td>'
+      +'<td style="font-family:var(--mono)">'+p.waitHours+'h</td>'
+      +'<td><button class="btn btn-s btn-sm" onclick="assignFromQueue('+i+')">Assign Bed</button></td></tr>';
+  }
+  if(!sorted.length)h+='<tr><td colspan="6" style="text-align:center;color:var(--txt2);padding:20px">No pending bed requests.</td></tr>';
+  h+='</tbody></table></div>';
+
+  if(S.bedAssignments.length){
+    h+='<div class="card"><div class="card-h">Recent Assignments</div><table class="dt"><thead><tr><th>Patient</th><th>Bed</th><th>Requested</th><th>Actual</th><th>Time</th></tr></thead><tbody>';
+    for(var j=S.bedAssignments.length-1;j>=0;j--){var a=S.bedAssignments[j];
+      h+='<tr><td><b>'+a.name+'</b></td><td><code>'+a.assignedBed+'</code></td><td>'+a.requestedWard+'</td><td>'+a.actualWard+'</td><td style="font-size:10px">'+a.time+'</td></tr>';
+    }
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+window.assignFromQueue=function(idx){
+  var q=S._queue||[];
+  var sorted=q.slice().sort(function(a,b){var po={'ED Hold':0,'Transfer In':1,'Scheduled':2};return(po[a.priority]||9)-(po[b.priority]||9);});
+  if(idx>=sorted.length)return;
+  var p=sorted[idx];
+  var avail=[];for(var bid in S.beds){if(S.beds[bid].status==='empty')avail.push(S.beds[bid]);}
+  avail.sort(function(a,b){var aw=a.wardId===p.requestedWard?0:1,bw=b.wardId===p.requestedWard?0:1;return aw-bw||a.id.localeCompare(b.id);});
+  var h='<h3>Assign Bed — '+p.name+' <button class="x" onclick="closeModal()">&times;</button></h3><div class="mb">';
+  h+='<p><b>Priority:</b> <span class="badge '+(p.priority==='ED Hold'?'b-crit':p.priority==='Transfer In'?'b-info':'b-empty')+'">'+p.priority+'</span></p>';
+  h+='<p><b>Diagnosis:</b> '+p.dx+'</p>';
+  h+='<p><b>Requested Ward:</b> '+wardName(p.requestedWard)+'</p>';
+  h+='<p><b>Wait Time:</b> '+p.waitHours+' hours</p>';
+  h+='<div class="fg" style="margin-top:14px"><label>Select Bed<span class="req-mark">*</span></label><select class="fc" id="qa-bed"><option value="">— Select —</option>';
+  for(var i=0;i<avail.length;i++){
+    h+='<option value="'+avail[i].id+'">'+avail[i].id+(avail[i].wardId===p.requestedWard?' \u2605 Requested Unit':' ('+avail[i].wardId+')')+'</option>';
+  }
+  h+='</select></div>';
+  h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
+    +'<button class="btn btn-out" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn btn-s" onclick="confirmQueueAssign(\''+p.name+'\',\''+p.requestedWard+'\',\''+p.dx.replace(/\'/g,'\\\'')+'\',\''+p.insurance+'\',\''+p.idNumber+'\',\''+p.contact.replace(/\'/g,'\\\'')+'\')">Assign &amp; Admit</button>'
+    +'</div></div>';
+  showModal(h);
+};
+
+window.confirmQueueAssign=function(name,reqWard,dx,insurance,idNum,contact){
+  var bedId=document.getElementById('qa-bed').value;
+  if(!bedId){toast('Select a bed.','danger');return;}
+  var bed=S.beds[bedId];
+  if(!bed||bed.status!=='empty'){toast('Selected bed not available.','danger');return;}
+  bed.status='occupied';bed.patient=name;bed.dx=dx;bed.day=1;bed.physician='Dr. Chen';bed.dcPending=false;bed.gender='';bed.actInd='';
+  var actualWard=bed.wardId;
+  S.admissions.push({name:name,bedId:bedId,wardId:actualWard,dx:dx,idNumber:idNum,insurance:insurance,physician:'Dr. Chen',contact:contact,time:nowTS()});
+  S.bedAssignments.push({name:name,assignedBed:bedId,requestedWard:reqWard,actualWard:actualWard,time:nowTS()});
+  var q=S._queue||[];
+  for(var i=q.length-1;i>=0;i--){if(q[i].name===name){q.splice(i,1);break;}}
+  toast(name+' assigned to '+bedId+'.','success');
+  closeModal();computeStats();render();
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// Statistics — facility / unit occupancy (per PDF Chapter 8: Bed Board)
+// ══════════════════════════════════════════════════════════════════════
+function renStats(){
+  var os=S.occupancyStats;
+  var h='<div class="stats">'
+    +'<div class="stat"><div class="sv" style="color:var(--pri-d)">'+os.occupancyRate+'%</div><div class="sl">Overall Occupancy Rate</div></div>'
+    +'<div class="stat"><div class="sv">'+os.total+'</div><div class="sl">Total Beds</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--warn)">'+os.occupied+'</div><div class="sl">Occupied</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--suc)">'+os.empty+'</div><div class="sl">Available</div></div>'
+    +'</div>';
+  h+='<div class="card"><div class="card-h">Unit Breakdown</div><table class="dt"><thead><tr><th>Unit</th><th>Service</th><th>Total</th><th>Occupied</th><th>Available</th><th>Occupancy</th></tr></thead><tbody>';
+  for(var w=0;w<WARDS.length;w++){
+    var ward=WARDS[w],ws=os.wards[ward.id]||{total:0,occupied:0,empty:0};
+    var wr=ws.total>0?Math.round(ws.occupied/ws.total*100):0;
+    var wColor=wr>=90?'var(--err)':wr>=70?'var(--warn)':'var(--suc)';
+    h+='<tr><td><b>'+ward.name+'</b></td><td>'+ward.service+'</td><td>'+ws.total+'</td><td>'+ws.occupied+'</td><td>'+ws.empty+'</td>'
+      +'<td><span style="color:'+wColor+';font-weight:700">'+wr+'%</span></td></tr>';
+  }
+  h+='</tbody></table></div>';
+  h+='<div class="card"><div class="card-h">Activity Summary (Today)</div><div class="card-b">'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">'
+    +'<div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase">Admissions</div><div style="font-size:22px;font-weight:700;color:var(--suc)">'+S.admissions.length+'</div></div>'
+    +'<div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase">Transfers</div><div style="font-size:22px;font-weight:700;color:var(--acc)">'+S.transfers.length+'</div></div>'
+    +'<div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase">Discharges</div><div style="font-size:22px;font-weight:700;color:var(--pri)">'+S.discharges.length+'</div></div>'
+    +'<div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase">Queue Length</div><div style="font-size:22px;font-weight:700;color:var(--warn)">'+(S._queue||[]).length+'</div></div>'
+    +'</div>'
+    +(S.conflicts.length?'<p style="color:var(--err);margin-top:12px;padding:8px;background:#fef2f2;border-left:3px solid var(--err);border-radius:3px"><b>&#x26A0; Bed Conflicts Logged:</b> '+S.conflicts.length+' (review for safety audit)</p>':'')
+    +'</div></div>';
+  return h;
+}
+
+// ── Default init for direct file:// loading ──
+if(!window._medgym_init_called){window._medgym_init(42);window._medgym_init_called=true;}
+})();
+</script>
+</body>
+</html>

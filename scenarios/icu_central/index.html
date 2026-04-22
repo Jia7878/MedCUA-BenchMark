@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BeneVision CMS - ICU Central Monitoring System</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%;background:#0b1320;color:#d9e2ec;font-family:"IBM Plex Sans","Aptos","Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+input,select,textarea{background:#0f1b2d;color:#e6edf5;border:1px solid #334155;border-radius:8px}
+textarea{resize:vertical}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #243244}
+.hidden{display:none!important}
+:root{
+  --bg:#0b1320;
+  --panel:#101a2c;
+  --panel-2:#15233a;
+  --panel-3:#1b2d47;
+  --border:#26364d;
+  --border-soft:#1a2940;
+  --text:#d9e2ec;
+  --muted:#8ca2bb;
+  --blue:#3b82f6;
+  --blue-soft:#1d4ed8;
+  --cyan:#22c1dc;
+  --green:#31c48d;
+  --amber:#f5b942;
+  --red:#ef4444;
+  --red-soft:#7f1d1d;
+  --purple:#7c3aed;
+  --tile:#111d31;
+  --tile-2:#0f1929;
+  --shadow:0 16px 40px rgba(0,0,0,.28);
+}
+body{background:radial-gradient(circle at top right,#1a3256 0,#0b1320 38%,#09101c 100%)}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:grid;grid-template-columns:auto minmax(280px,1fr) auto auto auto;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(12,24,41,.95),rgba(10,18,31,.96));position:sticky;top:0;z-index:20;backdrop-filter:blur(12px)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#22c1dc,#3b82f6);display:grid;place-items:center;color:#08111d;font-weight:800;box-shadow:0 10px 22px rgba(34,193,220,.25)}
+.brand-title{font-size:16px;font-weight:700;letter-spacing:.02em}
+.brand-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.hospital-strip{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid #284464;border-radius:12px;background:linear-gradient(180deg,#10233b,#0d1b2d);min-height:58px}
+.hospital-main{font-size:12px;font-weight:700}
+.hospital-sub{font-size:11px;color:#9fb6cf}
+.alarm-ribbon{display:flex;gap:8px;flex-wrap:wrap}
+.pill{padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.pill-blue{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.32);color:#bfdbfe}
+.pill-green{background:rgba(49,196,141,.14);border-color:rgba(49,196,141,.32);color:#bbf7d0}
+.pill-amber{background:rgba(245,185,66,.14);border-color:rgba(245,185,66,.32);color:#fde68a}
+.pill-red{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.32);color:#fecaca}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;border-radius:10px;border:1px solid transparent;background:#15233a;color:#e6edf5;font-size:12px;font-weight:700;transition:.16s ease}
+.btn:hover{transform:translateY(-1px);border-color:#385172}
+.btn-primary{background:linear-gradient(180deg,#2563eb,#1d4ed8);box-shadow:0 10px 18px rgba(37,99,235,.22)}
+.btn-danger{background:linear-gradient(180deg,#dc2626,#991b1b)}
+.btn-ghost{background:transparent;border-color:#334155;color:#c8d6e5}
+.btn-soft{background:#182840;border-color:#28415f}
+.btn-sm{padding:7px 10px;font-size:11px}
+.btn-block{width:100%}
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);flex:1;min-height:0}
+.sidebar{border-right:1px solid var(--border);background:linear-gradient(180deg,rgba(10,18,30,.96),rgba(10,16,28,.98));padding:14px}
+.side-section{margin-bottom:18px}
+.side-label{font-size:10px;color:#7f95ad;text-transform:uppercase;letter-spacing:.18em;margin:0 0 8px}
+.nav-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:12px;color:#c4d2e2;font-size:13px;font-weight:700;border:1px solid transparent;margin-bottom:8px;background:transparent}
+.nav-item:hover{background:#132137;border-color:#23344a}
+.nav-item.active{background:linear-gradient(180deg,#173051,#12263f);border-color:#36547a;color:#eff6ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.nav-meta{display:flex;flex-direction:column;gap:3px}
+.nav-kicker{font-size:10px;color:#85a0be;font-weight:600}
+.summary-stack{display:grid;gap:10px}
+.mini-card{padding:12px;border-radius:12px;border:1px solid var(--border);background:#101a2c}
+.mini-card-value{font-size:20px;font-weight:800}
+.mini-card-label{font-size:11px;color:var(--muted);margin-top:4px}
+.main{padding:18px;overflow:auto}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.page-title{font-size:24px;font-weight:800;letter-spacing:.01em}
+.page-copy{font-size:12px;color:#94a8bf;max-width:880px;line-height:1.6;margin-top:5px}
+.clock{font-size:12px;color:#c6d4e4;text-align:right}
+.layout-grid{display:grid;gap:14px}
+.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.panel{background:linear-gradient(180deg,rgba(16,26,44,.96),rgba(12,20,34,.98));border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+.panel-inner{padding:16px}
+.panel-title{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#aac2da;margin-bottom:12px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.metric{padding:14px;border-radius:14px;border:1px solid var(--border);background:linear-gradient(180deg,#13233b,#0f1b2d)}
+.metric-value{font-size:22px;font-weight:800}
+.metric-label{font-size:11px;color:var(--muted);margin-top:5px}
+.metric-sub{font-size:11px;color:#b8c7d8;margin-top:3px}
+.bed-tile{border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,var(--tile),var(--tile-2));overflow:hidden;position:relative}
+.bed-tile.crisis{border-color:rgba(239,68,68,.48);box-shadow:0 0 0 1px rgba(239,68,68,.2),0 24px 34px rgba(72,0,0,.2)}
+.bed-tile.warning{border-color:rgba(245,185,66,.36)}
+.bed-tile.empty{border-style:dashed;background:linear-gradient(180deg,#0f1828,#0d1523)}
+.bed-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0))}
+.bed-title{font-size:16px;font-weight:800}
+.bed-sub{font-size:11px;color:#8fa6bd;margin-top:4px;line-height:1.5}
+.bed-body{padding:16px}
+.bed-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.tag{padding:4px 8px;border-radius:999px;background:#15243a;border:1px solid #29405e;color:#c3d4e6;font-size:10px;font-weight:700;letter-spacing:.02em}
+.tile-banner{padding:9px 12px;border-top:1px solid rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.03);font-size:12px;font-weight:800;letter-spacing:.04em;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tile-banner.crisis{background:linear-gradient(90deg,rgba(127,29,29,.9),rgba(220,38,38,.3));color:#ffe5e5}
+.tile-banner.warning{background:linear-gradient(90deg,rgba(120,53,15,.9),rgba(245,158,11,.24));color:#ffefc7}
+.tile-banner.normal{background:linear-gradient(90deg,rgba(6,78,59,.86),rgba(16,185,129,.18));color:#d1fae5}
+.vitals-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.vital-card{padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(10,19,31,.55)}
+.vital-label{font-size:10px;color:#8fa6bd;text-transform:uppercase;letter-spacing:.08em}
+.vital-value{font-size:23px;font-weight:800;line-height:1.1;margin-top:5px}
+.vital-unit{font-size:11px;color:#99adc2;margin-left:5px}
+.vital-limit{font-size:10px;color:#6f89a3;margin-top:5px}
+.wave-card{margin-top:14px;padding:10px 10px 12px;border-radius:14px;background:#09111d;border:1px solid #203045}
+.wave-label{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#9fb4c9;margin-bottom:8px}
+.wave-label strong{color:#dce9f7;font-size:12px}
+.wave-svg{width:100%;height:88px;display:block}
+.tile-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.bed-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.severity{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.severity.crisis{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.36);color:#fecaca}
+.severity.warning{background:rgba(245,185,66,.16);border:1px solid rgba(245,185,66,.32);color:#fde68a}
+.severity.advisory{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.26);color:#bfdbfe}
+.severity.normal{background:rgba(49,196,141,.16);border:1px solid rgba(49,196,141,.24);color:#bbf7d0}
+.split{display:grid;grid-template-columns:1.18fr .82fr;gap:14px}
+.detail-ribbon{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.stack{display:grid;gap:12px}
+.data-list{display:grid;gap:10px}
+.data-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #1c2c43;font-size:12px}
+.data-row:last-child{border-bottom:none}
+.data-label{color:#8da4bc}
+.data-value{font-weight:700;color:#eef4fb;text-align:right}
+.quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.quick-key{padding:13px 12px;border-radius:12px;background:linear-gradient(180deg,#15263e,#111e31);border:1px solid #29405e;text-align:left}
+.quick-key-title{font-size:12px;font-weight:800}
+.quick-key-copy{font-size:11px;color:#8ea7c1;line-height:1.5;margin-top:4px}
+.review-tabs,.filter-row{display:flex;gap:8px;flex-wrap:wrap}
+.tab,.chip{padding:8px 12px;border-radius:999px;border:1px solid #2a3f5b;background:#111f33;color:#bfd0e2;font-size:11px;font-weight:800;letter-spacing:.03em}
+.tab.active,.chip.active{background:linear-gradient(180deg,#2057b5,#1d4ed8);border-color:#3a69c2;color:#eff6ff}
+.table-wrap{overflow:auto;border:1px solid #203149;border-radius:14px;background:#0c1524}
+.table-wrap table{min-width:820px}
+thead th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#87a0ba;background:#101a2c}
+tbody td{font-size:12px;color:#d8e5f3;vertical-align:top}
+tbody tr:hover{background:rgba(18,34,56,.55)}
+.muted{color:#8ea3b8}
+.strong{font-weight:800;color:#eef5fd}
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.threshold-shell{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px}
+.bed-list{padding:12px;border-radius:16px;border:1px solid var(--border);background:#0f1b2d}
+.bed-list-item{padding:12px;border-radius:12px;border:1px solid transparent;background:transparent;color:#c8d7e6;margin-bottom:8px}
+.bed-list-item.active{background:linear-gradient(180deg,#183051,#13263f);border-color:#36547a}
+.threshold-card{padding:14px;border-radius:14px;border:1px solid #27405d;background:#0f192a}
+.threshold-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.threshold-label{font-size:12px;font-weight:800}
+.field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field label{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8ca3bb;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:10px 11px}
+.trend-shell{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+.chart-shell{padding:16px;border-radius:16px;border:1px solid var(--border);background:#0a1320}
+.chart-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:12px;color:#8ea3b8}
+.chart-svg{width:100%;height:280px;display:block;border-radius:12px;background:linear-gradient(180deg,#0b1320,#0d1827);border:1px solid #1a2a40}
+.stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.stat-box{padding:12px;border-radius:12px;border:1px solid #22334b;background:#111d2f}
+.stat-box .k{font-size:10px;color:#88a0b9;text-transform:uppercase;letter-spacing:.08em}
+.stat-box .v{font-size:21px;font-weight:800;margin-top:4px}
+.bed-mgmt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.bed-panel{padding:16px;border-radius:16px;border:1px solid var(--border);background:linear-gradient(180deg,#111c2e,#0e1726)}
+.bed-panel.empty{border-style:dashed;background:linear-gradient(180deg,#0d1523,#0b1220)}
+.bed-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.bed-panel-title{font-size:18px;font-weight:800}
+.timeline{display:grid;gap:10px}
+.timeline-item{display:grid;grid-template-columns:108px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid #1a2b42}
+.timeline-item:last-child{border-bottom:none}
+.timeline-time{font-size:11px;color:#8ea4bd;font-weight:700}
+.timeline-copy{font-size:12px;line-height:1.5;color:#dce8f5}
+.login-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#17325a 0,#0a1220 45%,#060b14 100%)}
+.login-card{width:min(470px,100%);padding:32px;border-radius:22px;border:1px solid #27405d;background:linear-gradient(180deg,rgba(16,27,45,.96),rgba(10,18,30,.98));box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.login-mark{width:68px;height:68px;border-radius:18px;background:linear-gradient(135deg,#22c1dc,#3b82f6);display:grid;place-items:center;color:#07111d;font-size:30px;font-weight:900;margin-bottom:18px}
+.login-title{font-size:28px;font-weight:900;letter-spacing:.01em}
+.login-sub{font-size:12px;color:#9fb4c9;line-height:1.7;margin:8px 0 20px}
+.error{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(127,29,29,.36);border:1px solid rgba(239,68,68,.3);color:#fecaca;font-size:12px}
+.toasts{position:fixed;top:80px;right:18px;display:grid;gap:10px;z-index:40}
+.toast{padding:12px 14px;border-radius:12px;border:1px solid #29405e;background:#132137;box-shadow:var(--shadow);font-size:12px;font-weight:700;color:#e7eff8;min-width:260px}
+.toast.success{border-color:rgba(49,196,141,.3);background:rgba(6,78,59,.92)}
+.toast.warn{border-color:rgba(245,185,66,.34);background:rgba(120,53,15,.92)}
+.toast.danger{border-color:rgba(239,68,68,.34);background:rgba(127,29,29,.92)}
+.modal-wrap{position:fixed;inset:0;background:rgba(2,7,14,.68);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50;opacity:0;pointer-events:none;transition:.18s ease}
+.modal-wrap.show{opacity:1;pointer-events:auto}
+.modal{width:min(720px,100%);max-height:88vh;overflow:auto;border-radius:18px;border:1px solid #2a415f;background:linear-gradient(180deg,#13223a,#0e1828);box-shadow:0 32px 64px rgba(0,0,0,.45)}
+.modal-head,.modal-foot{padding:16px 18px;border-bottom:1px solid #22334b;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.modal-foot{border-top:1px solid #22334b;border-bottom:none;justify-content:flex-end}
+.modal-body{padding:18px}
+.modal-title{font-size:18px;font-weight:900}
+.modal-copy{font-size:12px;color:#9eb3c8;line-height:1.6;margin-top:5px}
+.footer-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;border-top:1px solid var(--border);background:#0c1624;font-size:11px;color:#8da4bc}
+.footer-strip{display:flex;gap:12px;flex-wrap:wrap}
+@media (max-width:1200px){
+  .overview-grid,.grid-4,.metrics,.trend-shell,.threshold-shell,.split,.bed-mgmt-grid{grid-template-columns:1fr}
+  .quick-grid,.grid-3,.grid-2,.vitals-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border)}
+  .topbar{grid-template-columns:1fr;align-items:stretch}
+  .quick-grid,.grid-3,.grid-2,.vitals-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toasts" class="toasts"></div>
+<div id="modalWrap" class="modal-wrap" onclick="if(event.target===this)window._closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+<script>
+(function(){
+"use strict";
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function clone(value){return JSON.parse(JSON.stringify(value))}
+function nowLabel(){return new Date().toLocaleString("en-US",{month:"short",day:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}
+function toast(message,type){const node=document.createElement("div");node.className="toast "+(type||"");node.textContent=message;document.getElementById("toasts").appendChild(node);setTimeout(function(){node.remove()},3200)}
+
+const NAV_ITEMS=[
+  {key:"overview",label:"Multibed Overview",hint:"Main screen"},
+  {key:"detail",label:"ViewBed Screen",hint:"Single patient"},
+  {key:"alarms",label:"Alarm Management",hint:"Alarm list"},
+  {key:"trends",label:"Trends",hint:"Graphic trends"},
+  {key:"thresholds",label:"Alarm Thresholds",hint:"Parameter setup"},
+  {key:"review",label:"Review",hint:"Events and disclosure"},
+  {key:"bedmgmt",label:"Bed Management",hint:"Admit and assign"},
+  {key:"system",label:"System Menu",hint:"Paging and print"}
+];
+
+const PARAM_META={
+  hr:{label:"HR",unit:"bpm",accent:"#f59e0b"},
+  spo2:{label:"SpO2",unit:"%",accent:"#22c1dc"},
+  sbp:{label:"SBP",unit:"mmHg",accent:"#7c3aed"},
+  dbp:{label:"DBP",unit:"mmHg",accent:"#6366f1"},
+  rr:{label:"RR",unit:"rpm",accent:"#31c48d"},
+  temp:{label:"Temp",unit:"degF",accent:"#ef4444"}
+};
+
+const DEFAULT_THRESHOLDS={
+  hr:{low:50,high:120},
+  spo2:{low:90,high:100},
+  sbp:{low:90,high:160},
+  dbp:{low:50,high:100},
+  rr:{low:8,high:30},
+  temp:{low:35.5,high:38.5}
+};
+
+const BASE_BEDS=[
+  {id:"bed1",label:"Bed 1",room:"ICU-A1",status:"occupied",patientName:"Li Ming",age:64,sex:"M",mrn:"ICU240183",diagnosis:"Septic shock secondary to biliary sepsis",acuity:"High",service:"Critical Care",device:"BeneVision N22",mode:"Monitor Mode",codeStatus:"Full Code",isolation:"Contact",ventilation:"VC-AC, FiO2 40%",drips:["Norepinephrine 0.08 mcg/kg/min","Piperacillin-tazobactam infusion"],nurse:"RN Claire Nolan",respiratory:"RT Omar Lin",note:"Broad-spectrum antibiotics started overnight; vasopressor being titrated."},
+  {id:"bed2",label:"Bed 2",room:"ICU-A2",status:"occupied",patientName:"Wang Fang",age:58,sex:"F",mrn:"ICU240184",diagnosis:"Post-CABG day 1",acuity:"Moderate",service:"Cardiothoracic ICU",device:"BeneVision N19",mode:"Monitor Mode",codeStatus:"Full Code",isolation:"None",ventilation:"Extubated, 3 L NC",drips:["Insulin infusion", "Nicardipine standby"],nurse:"RN Claire Nolan",respiratory:"RT Maya Rios",note:"Hemodynamics stable after CABG x3; pacing wires intact."},
+  {id:"bed3",label:"Bed 3",room:"ICU-A3",status:"occupied",patientName:"Zhang Wei",age:47,sex:"M",mrn:"ICU240185",diagnosis:"ARDS due to severe influenza pneumonia",acuity:"Critical",service:"Medical ICU",device:"BeneVision N22",mode:"Monitor Mode",codeStatus:"Full Code",isolation:"Droplet",ventilation:"APRV, FiO2 80%, PEEP 14",drips:["Propofol 35 mcg/kg/min","Cisatracurium infusion"],nurse:"RN Hannah Park",respiratory:"RT Leo Grant",note:"Episodes of desaturation during turning; lung-protective ventilation ongoing."},
+  {id:"bed4",label:"Bed 4",room:"ICU-B1",status:"occupied",patientName:"Chen Rui",age:71,sex:"F",mrn:"ICU240186",diagnosis:"Acute GI bleed with shock recovery",acuity:"High",service:"Surgical ICU",device:"BeneVision N17",mode:"Monitor Mode",codeStatus:"Full Code",isolation:"None",ventilation:"Room air",drips:["Pantoprazole infusion"],nurse:"RN Hannah Park",respiratory:"RT standby",note:"Hemoglobin improved after transfusion; hypotension remains labile."},
+  {id:"bed5",label:"Bed 5",room:"ICU-B2",status:"occupied",patientName:"Liu Yan",age:36,sex:"F",mrn:"ICU240187",diagnosis:"Status epilepticus, post-intubation stabilization",acuity:"Moderate",service:"Neuro ICU",device:"BeneVision N22",mode:"Telemetry Paired",codeStatus:"Full Code",isolation:"None",ventilation:"PSV 10/5",drips:["Levetiracetam maintenance"],nurse:"RN Marcus Hale",respiratory:"RT Mira Cole",note:"Now hemodynamically stable; EEG leads intermittently disconnecting."},
+  {id:"bed6",label:"Bed 6",room:"ICU-B3",status:"empty",patientName:"",age:"",sex:"",mrn:"",diagnosis:"Ready for admission",acuity:"Open",service:"Critical Care",device:"Available telemetry-capable monitor",mode:"Unassigned",codeStatus:"",isolation:"None",ventilation:"",drips:[],nurse:"Charge nurse assignment pending",respiratory:"",note:"Bed cleaned and monitor ready for immediate ICU admit."}
+];
+
+const BASE_VITALS={
+  bed1:{hr:128,spo2:94,sbp:102,dbp:58,rr:26,temp:38.2,map:73},
+  bed2:{hr:86,spo2:97,sbp:138,dbp:72,rr:18,temp:37.3,map:94},
+  bed3:{hr:112,spo2:87,sbp:96,dbp:55,rr:30,temp:38.4,map:69},
+  bed4:{hr:98,spo2:95,sbp:84,dbp:49,rr:20,temp:37.0,map:61},
+  bed5:{hr:78,spo2:98,sbp:118,dbp:66,rr:16,temp:36.8,map:83},
+  bed6:{hr:null,spo2:null,sbp:null,dbp:null,rr:null,temp:null,map:null}
+};
+
+const BASE_ALARMS=[
+  {id:"alm1",bedId:"bed3",severity:"crisis",category:"physiologic",parameter:"spo2",message:"SpO2 Low",currentValue:87,unit:"%",limit:"< 90",timestamp:"08:14",acknowledged:false,silenced:false,silenceExpiry:null,reason:"",requiresResponse:"Assess oxygenation and bedside status immediately."},
+  {id:"alm2",bedId:"bed1",severity:"warning",category:"physiologic",parameter:"hr",message:"HR High",currentValue:128,unit:"bpm",limit:"> 120",timestamp:"08:12",acknowledged:false,silenced:false,silenceExpiry:null,reason:"",requiresResponse:"Review vasopressor dose, pain, and fluid status."},
+  {id:"alm3",bedId:"bed4",severity:"warning",category:"physiologic",parameter:"sbp",message:"SBP Low",currentValue:84,unit:"mmHg",limit:"< 90",timestamp:"08:10",acknowledged:false,silenced:false,silenceExpiry:null,reason:"",requiresResponse:"Check cuff accuracy and reassess perfusion."},
+  {id:"alm4",bedId:"bed5",severity:"advisory",category:"technical",parameter:"ecg",message:"ECG Leads Off",currentValue:null,unit:"",limit:"Lead contact required",timestamp:"08:07",acknowledged:false,silenced:false,silenceExpiry:null,reason:"",requiresResponse:"Reconnect lead set and confirm rhythm quality."}
+];
+
+window._taskState={
+  loggedIn:false,
+  currentPage:"overview",
+  selectedBed:null,
+  reviewTab:"events",
+  thresholdsBed:"bed2",
+  trendBed:"bed3",
+  trendParam:"spo2",
+  trendRange:"72h",
+  systemSilenced:false,
+  beds:[],
+  vitalSigns:{},
+  alarms:[],
+  alarmsAcknowledged:[],
+  alarmsSilenced:[],
+  thresholds:{},
+  admissions:[],
+  trends:{},
+  auditTrail:[],
+  pagers:[],
+  printQueue:[]
+};
+const S=window._taskState;
+let rng=Math.random;
+
+function buildThresholds(){
+  const out={};
+  BASE_BEDS.forEach(function(bed){out[bed.id]=clone(DEFAULT_THRESHOLDS)});
+  return out;
+}
+
+function jitter(value,spread){
+  if(value===null||value===undefined){return null}
+  return Number((value+(rng()*spread*2-spread)).toFixed(1));
+}
+
+function buildTrends(){
+  const trends={};
+  Object.keys(BASE_VITALS).forEach(function(bedId){
+    const vitals=BASE_VITALS[bedId];
+    trends[bedId]={};
+    Object.keys(PARAM_META).forEach(function(param){
+      const current=vitals[param];
+      const points=[];
+      if(current===null){trends[bedId][param]=points;return}
+      for(let idx=0;idx<72;idx+=1){
+        const drift=param==="spo2"&&bedId==="bed3"?-6+(idx/12):param==="hr"&&bedId==="bed1"?4-(idx/18):param==="sbp"&&bedId==="bed4"?-4+(idx/24):0;
+        const noise=(rng()*2-1)*(param==="temp"?.18:param==="spo2"?1.1:param==="rr"?1.4:3.2);
+        let point=current+drift+noise;
+        if(param==="spo2")point=Math.max(82,Math.min(100,point));
+        if(param==="temp")point=Math.max(35.2,Math.min(39.4,point));
+        if(param==="rr")point=Math.max(8,Math.min(34,point));
+        points.push(Number(point.toFixed(param==="temp"?1:0)));
+      }
+      points[points.length-1]=current;
+      trends[bedId][param]=points;
+    });
+  });
+  return trends;
+}
+
+function buildAuditTrail(){
+  return [
+    {time:"07:42",copy:"CentralStation connected to six ICU-capable monitoring devices. Telemetry pair active on Bed 5."},
+    {time:"07:58",copy:"Print queue cleared after morning strip batch completed for all monitored beds."},
+    {time:"08:07",copy:"Technical advisory created for Bed 5: ECG lead impedance out of range."},
+    {time:"08:10",copy:"Warning alarm posted for Bed 4 after recurrent systolic pressure below configured limit."},
+    {time:"08:14",copy:"Crisis alarm posted for Bed 3 due to sustained SpO2 below 90 percent on APRV ventilation."}
+  ];
+}
+
+function buildPagers(){
+  return [
+    {number:"4432",assignment:"Charge RN",beds:["Bed 1","Bed 3"]},
+    {number:"4471",assignment:"Respiratory Therapy",beds:["Bed 3","Bed 5"]},
+    {number:"4510",assignment:"Rapid Response Backup",beds:["Bed 2","Bed 4"]}
+  ];
+}
+
+function buildPrintQueue(){
+  return [
+    {name:"All realtime strips",destination:"ICU central printer",status:"Ready"},
+    {name:"Graphic trends - Bed 3",destination:"Review station",status:"Queued"}
+  ];
+}
+
+function initialize(seed){
+  rng=mulberry32(seed||42);
+  S.loggedIn=false;
+  S.currentPage="overview";
+  S.selectedBed=null;
+  S.reviewTab="events";
+  S.thresholdsBed="bed2";
+  S.trendBed="bed3";
+  S.trendParam="spo2";
+  S.trendRange="72h";
+  S.systemSilenced=false;
+  S.beds=clone(BASE_BEDS);
+  S.vitalSigns={};
+  Object.keys(BASE_VITALS).forEach(function(bedId){
+    S.vitalSigns[bedId]={};
+    Object.keys(BASE_VITALS[bedId]).forEach(function(key){
+      const value=BASE_VITALS[bedId][key];
+      if(["hr","spo2","sbp","dbp","rr"].includes(key)&&value!==null){
+        S.vitalSigns[bedId][key]=Math.round(jitter(value,key==="spo2"?0.6:1.2));
+      }else if(key==="temp"&&value!==null){
+        S.vitalSigns[bedId][key]=Number(jitter(value,0.08).toFixed(1));
+      }else{
+        S.vitalSigns[bedId][key]=value;
+      }
+    });
+  });
+  S.vitalSigns.bed3.spo2=87;
+  S.vitalSigns.bed1.hr=128;
+  S.vitalSigns.bed4.sbp=84;
+  S.vitalSigns.bed5.spo2=98;
+  S.alarms=clone(BASE_ALARMS);
+  S.alarms.forEach(function(alarm){
+    if(alarm.parameter in (S.vitalSigns[alarm.bedId]||{}) && S.vitalSigns[alarm.bedId][alarm.parameter]!==null){
+      alarm.currentValue=S.vitalSigns[alarm.bedId][alarm.parameter];
+    }
+  });
+  S.alarmsAcknowledged=[];
+  S.alarmsSilenced=[];
+  S.thresholds=buildThresholds();
+  S.admissions=[];
+  S.trends=buildTrends();
+  S.auditTrail=buildAuditTrail();
+  S.pagers=buildPagers();
+  S.printQueue=buildPrintQueue();
+  render();
+}
+
+window._medgym_init=initialize;
+
+function severityRank(value){return({crisis:0,warning:1,advisory:2,normal:3})[value]??4}
+function bedFor(id){return S.beds.find(function(bed){return bed.id===id})}
+function activeAlarms(){return S.alarms.filter(function(alarm){return !alarm.acknowledged})}
+function countBySeverity(level){return activeAlarms().filter(function(alarm){return alarm.severity===level}).length}
+function selectedBed(){return bedFor(S.selectedBed)||S.beds.find(function(bed){return bed.status==="occupied"})||S.beds[0]}
+function formatValue(param,value){if(value===null||value===undefined||value==="")return "--";return param==="temp"?Number(value).toFixed(1):String(value)}
+function alarmFor(id){return S.alarms.find(function(alarm){return alarm.id===id})}
+function sortAlarms(list){return list.slice().sort(function(a,b){return severityRank(a.severity)-severityRank(b.severity)||a.timestamp.localeCompare(b.timestamp)})}
+function syncAlarmFromVitals(){
+  S.alarms.forEach(function(alarm){
+    if(alarm.parameter in (S.vitalSigns[alarm.bedId]||{}) && S.vitalSigns[alarm.bedId][alarm.parameter]!==null){
+      alarm.currentValue=S.vitalSigns[alarm.bedId][alarm.parameter];
+    }
+  });
+}
+
+function render(){
+  const root=document.getElementById("app");
+  if(!S.loggedIn){root.innerHTML=renderLogin();bindLogin();return}
+  syncAlarmFromVitals();
+  root.innerHTML=renderShell();
+}
+
+function renderLogin(){
+  return '<div class="login-page"><div class="login-card">'
+    +'<div class="login-mark">ICU</div>'
+    +'<div class="login-title">BeneVision CMS</div>'
+    +'<div class="login-sub">Central monitoring worklist for a six-bed adult ICU. Sign in to review alarms, trends, patient tiles, and bed assignment workflows.</div>'
+    +'<div class="grid-2">'
+      +'<div class="field"><label>Username</label><input id="loginUser" placeholder="nurse" autocomplete="off"></div>'
+      +'<div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="icu123"></div>'
+    +'</div>'
+    +'<div class="grid-2" style="margin-top:14px">'
+      +'<div class="mini-card"><div class="mini-card-value">32</div><div class="mini-card-label">Supported device feeds</div></div>'
+      +'<div class="mini-card"><div class="mini-card-value">6</div><div class="mini-card-label">Beds in this ICU sector</div></div>'
+    +'</div>'
+    +'<div class="error" id="loginError">Invalid credentials. Use nurse / icu123.</div>'
+    +'<div style="margin-top:18px;display:flex;gap:10px">'
+      +'<button class="btn btn-primary btn-block" id="loginBtn">Login to CentralStation</button>'
+    +'</div>'
+  +'</div></div>';
+}
+
+function bindLogin(){
+  const submit=function(){
+    const username=(document.getElementById("loginUser").value||"").trim();
+    const password=(document.getElementById("loginPass").value||"").trim();
+    if(username==="nurse"&&password==="icu123"){
+      S.loggedIn=true;
+      S.currentPage="overview";
+      render();
+      toast("Connected to ICU Central Monitoring System.","success");
+    }else{
+      document.getElementById("loginError").style.display="block";
+    }
+  };
+  document.getElementById("loginBtn").onclick=submit;
+  document.getElementById("loginPass").onkeydown=function(event){if(event.key==="Enter")submit()};
+}
+
+function renderShell(){
+  const current=selectedBed();
+  const nav=NAV_ITEMS.map(function(item){
+    const active=S.currentPage===item.key;
+    let badge='';
+    if(item.key==="alarms"&&activeAlarms().length){badge='<span class="pill pill-red">'+activeAlarms().length+' active</span>'}
+    if(item.key==="review"&&S.alarmsAcknowledged.length){badge='<span class="pill pill-blue">'+S.alarmsAcknowledged.length+' ack</span>'}
+    return '<button class="nav-item '+(active?'active':'')+'" onclick="window._nav(\''+item.key+'\')">'
+      +'<span class="nav-meta"><span>'+item.label+'</span><span class="nav-kicker">'+item.hint+'</span></span>'
+      +badge
+    +'</button>';
+  }).join('');
+
+  return '<div class="app">'
+    +renderTopbar()
+    +'<div class="shell">'
+      +'<aside class="sidebar">'
+        +'<div class="side-section"><div class="side-label">Navigation</div>'+nav+'</div>'
+        +'<div class="side-section"><div class="side-label">Unit Summary</div><div class="summary-stack">'
+          +'<div class="mini-card"><div class="mini-card-value">'+S.beds.filter(function(bed){return bed.status==="occupied"}).length+'</div><div class="mini-card-label">Beds currently admitted</div></div>'
+          +'<div class="mini-card"><div class="mini-card-value">'+countBySeverity("crisis")+'</div><div class="mini-card-label">Crisis alarms</div></div>'
+          +'<div class="mini-card"><div class="mini-card-value">'+countBySeverity("warning")+'</div><div class="mini-card-label">Warning alarms</div></div>'
+        +'</div></div>'
+        +'<div class="side-section"><div class="side-label">Selected Bed</div><div class="mini-card">'
+          +'<div class="mini-card-value">'+(current?current.label:'None')+'</div>'
+          +'<div class="mini-card-label">'+(current&&current.patientName?current.patientName:'No patient selected')+'</div>'
+        +'</div></div>'
+      +'</aside>'
+      +'<main class="main">'+renderCurrentPage()+'</main>'
+    +'</div>'
+    +'<div class="footer-bar"><div class="footer-strip"><span>CentralStation 6.0</span><span>Remote control: Local password</span><span>Print destination: ICU central printer</span></div><div class="footer-strip"><span>'+nowLabel()+'</span><span>'+activeAlarms().length+' active alarm(s)</span></div></div>'
+  +'</div>';
+}
+
+function renderTopbar(){
+  return '<div class="topbar">'
+    +'<div class="brand"><div class="brand-mark">BV</div><div><div class="brand-title">BeneVision Central Monitoring System</div><div class="brand-sub">Adult ICU Sector A/B - WorkStation linked to CentralStation</div></div></div>'
+    +'<div class="hospital-strip"><div><div class="hospital-main">Mindray ICU Central Desk</div><div class="hospital-sub">System alarm messages, paging, print queue, and multibed patient summary.</div></div><div class="alarm-ribbon"><span class="pill pill-red">'+countBySeverity("crisis")+' crisis</span><span class="pill pill-amber">'+countBySeverity("warning")+' warning</span><span class="pill pill-blue">'+countBySeverity("advisory")+' advisory</span></div></div>'
+    +'<div class="topbar-actions"><button class="btn btn-soft" onclick="window._nav(\'system\')">System Menu</button></div>'
+    +'<div class="topbar-actions"><button class="btn '+(S.systemSilenced?'btn-danger':'btn-ghost')+'" onclick="window._toggleSystemSilence()">'+(S.systemSilenced?'System Silence Enabled':'System Silence')+'</button></div>'
+    +'<div class="topbar-actions"><button class="btn btn-ghost" onclick="window._logout()">Sign Out</button></div>'
+  +'</div>';
+}
+
+function renderCurrentPage(){
+  switch(S.currentPage){
+    case "overview": return renderOverview();
+    case "detail": return renderDetail();
+    case "alarms": return renderAlarms();
+    case "trends": return renderTrends();
+    case "thresholds": return renderThresholds();
+    case "review": return renderReview();
+    case "bedmgmt": return renderBedManagement();
+    case "system": return renderSystem();
+    default: return renderOverview();
+  }
+}
+
+function renderOverview(){
+  const tiles=S.beds.map(function(bed){return renderBedTile(bed)}).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Multibed Main Screen</div><div class="page-copy">The ICU central monitor displays all occupied beds, alarm banners, realtime numerics, device state, and waveform strips across one workstation. Each patient tile supports quick access to ViewBed, alarm setup, print, and review workflows.</div></div><div class="clock">Current system time<br><strong>'+nowLabel()+'</strong></div></div>'
+    +'<div class="metrics">'
+      +'<div class="metric"><div class="metric-value">'+activeAlarms().length+'</div><div class="metric-label">Active unacknowledged alarms</div><div class="metric-sub">Includes silenced alarms not yet acknowledged</div></div>'
+      +'<div class="metric"><div class="metric-value">'+S.alarmsAcknowledged.length+'</div><div class="metric-label">Acknowledged this session</div><div class="metric-sub">Documented acknowledgements stored in review</div></div>'
+      +'<div class="metric"><div class="metric-value">'+S.alarmsSilenced.length+'</div><div class="metric-label">Silence actions</div><div class="metric-sub">Timed pauses and reasons tracked</div></div>'
+      +'<div class="metric"><div class="metric-value">'+S.beds.filter(function(bed){return bed.status==="empty"}).length+'</div><div class="metric-label">Open ICU beds</div><div class="metric-sub">Available for direct ICU admit</div></div>'
+    +'</div>'
+    +'<div class="layout-grid overview-grid">'+tiles+'</div>'
+  +'</div>';
+}
+
+function renderBedTile(bed){
+  if(bed.status==="empty"){
+    return '<section class="bed-tile empty"><div class="bed-head"><div><div class="bed-title">'+bed.label+'</div><div class="bed-sub">'+bed.room+'<br>Unoccupied tile ready for assignment</div></div><span class="severity advisory">Available</span></div><div class="bed-body"><div class="bed-tags"><span class="tag">Telemetry capable</span><span class="tag">Monitor cleaned</span><span class="tag">ICU admit ready</span></div><div class="wave-card"><div class="wave-label"><strong>Device Assignment</strong><span>Open slot</span></div><div style="font-size:12px;color:#9ab0c5;line-height:1.7">Monitor is online and available for either bedside monitor pairing or direct ICU admission. Use the bed management workflow to admit a patient and configure alarm thresholds.</div></div><div class="bed-actions"><button class="btn btn-primary btn-sm" onclick="window._openAdmitModal(\''+bed.id+'\')">ICU Admit</button><button class="btn btn-soft btn-sm" onclick="window._nav(\'bedmgmt\')">Open Bed Mgmt</button></div></div></section>';
+  }
+  const vitals=S.vitalSigns[bed.id]||{};
+  const alarms=sortAlarms(S.alarms.filter(function(alarm){return alarm.bedId===bed.id&&!alarm.acknowledged}));
+  const topSeverity=alarms.length?alarms[0].severity:"normal";
+  const bannerText=alarms.length?alarms[0].message+': '+(alarms[0].currentValue!==null?alarms[0].currentValue+' '+alarms[0].unit:'technical advisory'):'No active alarms';
+  return '<section class="bed-tile '+(topSeverity!=="normal"?topSeverity:'')+'">'
+    +'<div class="bed-head"><div><div class="bed-title">'+bed.label+' - '+bed.patientName+'</div><div class="bed-sub">'+bed.room+' | MRN '+bed.mrn+' | '+bed.age+' '+bed.sex+'<br>'+bed.diagnosis+'</div></div><span class="severity '+topSeverity+'">'+topSeverity.toUpperCase()+'</span></div>'
+    +'<div class="tile-banner '+(topSeverity==='normal'?'normal':topSeverity)+'"><span>'+bannerText+'</span><span>'+bed.mode+'</span></div>'
+    +'<div class="bed-body">'
+      +'<div class="bed-tags"><span class="tag">'+bed.service+'</span><span class="tag">'+bed.device+'</span><span class="tag">'+bed.ventilation+'</span><span class="tag">'+bed.codeStatus+'</span>'+(bed.isolation&&bed.isolation!=="None"?'<span class="tag">'+bed.isolation+' precautions</span>':'')+'</div>'
+      +'<div class="wave-card"><div class="wave-label"><strong>Realtime Waveform</strong><span>ECG / Pleth composite</span></div>'+renderSparkline(bed.id,topSeverity)+'</div>'
+      +'<div class="vitals-grid">'
+        +renderVitalCard('hr',vitals.hr,S.thresholds[bed.id].hr)
+        +renderVitalCard('spo2',vitals.spo2,S.thresholds[bed.id].spo2)
+        +renderVitalCard('sbp',vitals.sbp,S.thresholds[bed.id].sbp)
+        +renderVitalCard('dbp',vitals.dbp,S.thresholds[bed.id].dbp)
+        +renderVitalCard('rr',vitals.rr,S.thresholds[bed.id].rr)
+        +renderVitalCard('temp',vitals.temp,S.thresholds[bed.id].temp)
+      +'</div>'
+      +'<div class="tile-foot">'
+        +alarms.map(function(alarm){return '<span class="pill '+(alarm.severity==='crisis'?'pill-red':alarm.severity==='warning'?'pill-amber':'pill-blue')+'">'+alarm.message+'</span>'}).join('')
+      +'</div>'
+      +'<div class="bed-actions"><button class="btn btn-primary btn-sm" onclick="window._openBed(\''+bed.id+'\')">ViewBed</button><button class="btn btn-soft btn-sm" onclick="window._navToTrend(\''+bed.id+'\')">Trend</button><button class="btn btn-soft btn-sm" onclick="window._navToThresholds(\''+bed.id+'\')">Alarm Setup</button><button class="btn btn-soft btn-sm" onclick="window._navToReview(\''+bed.id+'\')">Review</button></div>'
+    +'</div>'
+  +'</section>';
+}
+
+function renderVitalCard(param,value,limits){
+  const meta=PARAM_META[param];
+  return '<div class="vital-card"><div class="vital-label">'+meta.label+'</div><div class="vital-value">'+formatValue(param,value)+'<span class="vital-unit">'+meta.unit+'</span></div><div class="vital-limit">Alarm limits '+limits.low+' - '+limits.high+'</div></div>';
+}
+
+function renderSparkline(bedId,severity){
+  const points=(S.trends[bedId]&&S.trends[bedId].spo2&&S.trends[bedId].spo2.length?S.trends[bedId].spo2:[95,94,96,95,94,95,96,95]).slice(-28);
+  const width=520;
+  const height=88;
+  const max=Math.max.apply(null,points);
+  const min=Math.min.apply(null,points);
+  const range=(max-min)||1;
+  const path=points.map(function(point,index){
+    const x=(index/(points.length-1))*width;
+    const y=height-((point-min)/range)*(height-10)-5;
+    return (index===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);
+  }).join(' ');
+  const stroke=severity==='crisis'?'#ef4444':severity==='warning'?'#f5b942':'#22c1dc';
+  return '<svg class="wave-svg" viewBox="0 0 520 88" preserveAspectRatio="none"><defs><linearGradient id="gridFade'+bedId+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(34,193,220,.12)"></stop><stop offset="1" stop-color="rgba(34,193,220,0)"></stop></linearGradient></defs><rect width="520" height="88" fill="url(#gridFade'+bedId+')"></rect><g stroke="#1c2e45" stroke-width="1"><line x1="0" y1="22" x2="520" y2="22"></line><line x1="0" y1="44" x2="520" y2="44"></line><line x1="0" y1="66" x2="520" y2="66"></line></g><path d="'+path+'" fill="none" stroke="'+stroke+'" stroke-width="2.8" stroke-linecap="round"></path></svg>';
+}
+
+function renderDetail(){
+  const bed=selectedBed();
+  const vitals=S.vitalSigns[bed.id]||{};
+  const alarms=sortAlarms(S.alarms.filter(function(alarm){return alarm.bedId===bed.id&&!alarm.acknowledged}));
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">ViewBed Screen</div><div class="page-copy">Detailed single-patient review with parameter area, waveform area, quick keys, and access to review tabs. Selecting a patient tile on the multibed screen opens this focused patient view.</div></div><div class="clock">Selected patient<br><strong>'+bed.label+' - '+bed.patientName+'</strong></div></div>'
+    +'<div class="split">'
+      +'<section class="panel"><div class="panel-inner">'
+        +'<div class="panel-header"><div><div class="panel-title">Patient Sector</div><div class="page-copy" style="margin-top:0">'+bed.diagnosis+' | '+bed.service+' | Nurse '+bed.nurse+'</div></div><div class="detail-ribbon"><span class="pill pill-blue">MRN '+bed.mrn+'</span><span class="pill pill-green">'+bed.device+'</span>'+(bed.isolation&&bed.isolation!=="None"?'<span class="pill pill-amber">'+bed.isolation+'</span>':'')+'</div></div>'
+        +'<div class="grid-3">'
+          +'<div class="mini-card"><div class="mini-card-value">'+bed.age+' '+bed.sex+'</div><div class="mini-card-label">Demographics</div></div>'
+          +'<div class="mini-card"><div class="mini-card-value">'+bed.codeStatus+'</div><div class="mini-card-label">Code status</div></div>'
+          +'<div class="mini-card"><div class="mini-card-value">'+formatValue('spo2',vitals.spo2)+'%</div><div class="mini-card-label">Current oxygen saturation</div></div>'
+        +'</div>'
+        +'<div class="wave-card" style="margin-top:14px"><div class="wave-label"><strong>Waveform Area</strong><span>'+bed.ventilation+'</span></div>'+renderTrendChartInline(bed.id,'spo2',160)+'</div>'
+        +'<div class="vitals-grid">'
+          +renderVitalCard('hr',vitals.hr,S.thresholds[bed.id].hr)
+          +renderVitalCard('spo2',vitals.spo2,S.thresholds[bed.id].spo2)
+          +renderVitalCard('sbp',vitals.sbp,S.thresholds[bed.id].sbp)
+          +renderVitalCard('dbp',vitals.dbp,S.thresholds[bed.id].dbp)
+          +renderVitalCard('rr',vitals.rr,S.thresholds[bed.id].rr)
+          +renderVitalCard('temp',vitals.temp,S.thresholds[bed.id].temp)
+        +'</div>'
+      +'</div></section>'
+      +'<section class="stack">'
+        +'<section class="panel"><div class="panel-inner"><div class="panel-title">Quick Keys</div><div class="quick-grid">'
+          +'<button class="quick-key" onclick="window._nav(\'alarms\')"><div class="quick-key-title">Alarm Setup</div><div class="quick-key-copy">Open alarm list and acknowledgement workflow for this patient sector.</div></button>'
+          +'<button class="quick-key" onclick="window._ackFirstOnBed(\''+bed.id+'\')"><div class="quick-key-title">Alarm Reset</div><div class="quick-key-copy">Acknowledge the highest priority active alarm on the selected bed.</div></button>'
+          +'<button class="quick-key" onclick="window._silenceFirstWarning(\''+bed.id+'\')"><div class="quick-key-title">Alarm Pause</div><div class="quick-key-copy">Open a timed silence action for a non-crisis alarm with documentation.</div></button>'
+          +'<button class="quick-key" onclick="window._navToTrend(\''+bed.id+'\')"><div class="quick-key-title">Graphic Trends</div><div class="quick-key-copy">Jump to tabular and graphic trend review for the selected patient.</div></button>'
+          +'<button class="quick-key" onclick="window._navToReview(\''+bed.id+'\')"><div class="quick-key-title">Review</div><div class="quick-key-copy">Events, full disclosure, and arrhythmia statistics for this bed.</div></button>'
+          +'<button class="quick-key" onclick="window._openPrintModal(\''+bed.id+'\')"><div class="quick-key-title">Print</div><div class="quick-key-copy">Queue realtime strip or trend report to the central printer.</div></button>'
+        +'</div></div></section>'
+        +'<section class="panel"><div class="panel-inner"><div class="panel-title">Current Bed Context</div><div class="data-list">'
+          +'<div class="data-row"><span class="data-label">Active alarms</span><span class="data-value">'+(alarms.length?alarms.map(function(alarm){return alarm.message}).join(', '):'No active alarms')+'</span></div>'
+          +'<div class="data-row"><span class="data-label">Continuous infusions</span><span class="data-value">'+(bed.drips.length?bed.drips.join(' | '):'None charted')+'</span></div>'
+          +'<div class="data-row"><span class="data-label">Respiratory support</span><span class="data-value">'+(bed.respiratory||'No RT assigned')+' | '+(bed.ventilation||'N/A')+'</span></div>'
+          +'<div class="data-row"><span class="data-label">Clinician note</span><span class="data-value">'+bed.note+'</span></div>'
+        +'</div></div></section>'
+      +'</section>'
+    +'</div>'
+  +'</div>';
+}
+
+function renderAlarms(){
+  const alarms=sortAlarms(S.alarms);
+  const rows=alarms.map(function(alarm){
+    const bed=bedFor(alarm.bedId);
+    const silenced=alarm.silenced?'<span class="pill pill-amber">Silenced</span>':'';
+    const acked=alarm.acknowledged?'<span class="pill pill-green">Acknowledged</span>':'';
+    return '<tr>'
+      +'<td><span class="severity '+alarm.severity+'">'+alarm.severity+'</span></td>'
+      +'<td><div class="strong">'+bed.label+'</div><div class="muted">'+bed.patientName+'</div></td>'
+      +'<td><div class="strong">'+alarm.message+'</div><div class="muted">'+alarm.requiresResponse+'</div></td>'
+      +'<td>'+(alarm.currentValue===null?'--':alarm.currentValue+' '+alarm.unit)+'</td>'
+      +'<td>'+alarm.limit+'</td>'
+      +'<td>'+alarm.timestamp+'</td>'
+      +'<td>'+silenced+acked+'</td>'
+      +'<td>'+(alarm.acknowledged?'<button class="btn btn-soft btn-sm" disabled>Acked</button>':'<button class="btn btn-primary btn-sm" onclick="window._openAckModal(\''+alarm.id+'\')">Ack</button>')+' '+(alarm.acknowledged?'<button class="btn btn-soft btn-sm" disabled>Silence</button>':'<button class="btn btn-ghost btn-sm" onclick="window._openSilenceModal(\''+alarm.id+'\')">Silence</button>')+'</td>'
+    +'</tr>';
+  }).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Alarm Management</div><div class="page-copy">Centralized alarm review across all monitored beds. Active alarms remain counted until acknowledged, even if they were temporarily silenced. Use documented acknowledgement notes for crisis and warning events.</div></div><div class="clock">Priority order<br><strong>Crisis -> Warning -> Advisory</strong></div></div>'
+    +'<div class="metrics">'
+      +'<div class="metric"><div class="metric-value">'+countBySeverity('crisis')+'</div><div class="metric-label">Crisis alarms</div><div class="metric-sub">Immediate bedside response expected</div></div>'
+      +'<div class="metric"><div class="metric-value">'+countBySeverity('warning')+'</div><div class="metric-label">Warning alarms</div><div class="metric-sub">Prompt clinical reassessment</div></div>'
+      +'<div class="metric"><div class="metric-value">'+countBySeverity('advisory')+'</div><div class="metric-label">Technical advisories</div><div class="metric-sub">Workflow or signal quality issues</div></div>'
+      +'<div class="metric"><div class="metric-value">'+S.alarmsAcknowledged.length+'</div><div class="metric-label">Acknowledged alarms</div><div class="metric-sub">Session-level response log</div></div>'
+    +'</div>'
+    +'<section class="panel"><div class="panel-inner"><div class="panel-header"><div><div class="panel-title">Alarm List</div><div class="page-copy" style="margin-top:0">Select Ack for documented acknowledgement or Silence for a timed pause with reason. Avoid indefinite silence of crisis alarms.</div></div><div class="filter-row"><span class="chip active">All alarms</span><span class="chip">Unacknowledged</span><span class="chip">Physiologic</span><span class="chip">Technical</span></div></div><div class="table-wrap"><table><thead><tr><th>Severity</th><th>Bed / Patient</th><th>Alarm</th><th>Current</th><th>Limit</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></section>'
+  +'</div>';
+}
+
+function renderTrends(){
+  const bed=bedFor(S.trendBed)||selectedBed();
+  const series=(S.trends[S.trendBed]&&S.trends[S.trendBed][S.trendParam])||[];
+  const current=S.vitalSigns[S.trendBed]&&S.vitalSigns[S.trendBed][S.trendParam];
+  const meta=PARAM_META[S.trendParam];
+  const low=series.length?Math.min.apply(null,series):null;
+  const high=series.length?Math.max.apply(null,series):null;
+  const recentRows=series.slice(-8).map(function(point,index){
+    return '<tr><td>T-'+(7-index)+'h</td><td>'+point+' '+meta.unit+'</td><td>'+(point===low?'Lowest observed':point===high?'Highest observed':'Within expected variability')+'</td></tr>';
+  }).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Graphic Trends</div><div class="page-copy">Trend review supports tabular and graphic inspection of bedside data over configurable time windows. Use the selectors below to review a bed, choose a parameter, and zoom to a 72-hour display when needed.</div></div><div class="clock">Current selection<br><strong>'+bed.label+' - '+meta.label+'</strong></div></div>'
+    +'<div class="trend-shell">'
+      +'<section class="panel"><div class="panel-inner">'
+        +'<div class="grid-3">'
+          +'<div class="field"><label>Bed</label><select id="trendBed" onchange="window._setTrendBed(this.value)">'+renderBedOptions(S.trendBed,true)+'</select></div>'
+          +'<div class="field"><label>Parameter</label><select id="trendParam" onchange="window._setTrendParam(this.value)">'+renderParamOptions(S.trendParam)+'</select></div>'
+          +'<div class="field"><label>Range</label><select id="trendRange" onchange="window._setTrendRange(this.value)">'+renderRangeOptions(S.trendRange)+'</select></div>'
+        +'</div>'
+        +'<div class="chart-shell" style="margin-top:14px"><div class="chart-meta"><span>'+bed.patientName+' | '+bed.diagnosis+'</span><span>'+S.trendRange+' window</span></div>'+renderTrendChart(S.trendBed,S.trendParam)+'</div>'
+        +'<div class="stat-grid"><div class="stat-box"><div class="k">Current</div><div class="v">'+formatValue(S.trendParam,current)+' '+meta.unit+'</div></div><div class="stat-box"><div class="k">Lowest</div><div class="v">'+(low===null?'--':low+' '+meta.unit)+'</div></div><div class="stat-box"><div class="k">Highest</div><div class="v">'+(high===null?'--':high+' '+meta.unit)+'</div></div></div>'
+      +'</div></section>'
+      +'<section class="stack">'
+        +'<section class="panel"><div class="panel-inner"><div class="panel-title">Trend Interpretation Aids</div><div class="data-list">'
+          +'<div class="data-row"><span class="data-label">Current bedside value</span><span class="data-value">'+formatValue(S.trendParam,current)+' '+meta.unit+'</span></div>'
+          +'<div class="data-row"><span class="data-label">Alarm limits</span><span class="data-value">'+S.thresholds[S.trendBed][S.trendParam].low+' - '+S.thresholds[S.trendBed][S.trendParam].high+' '+meta.unit+'</span></div>'
+          +'<div class="data-row"><span class="data-label">Last notable event</span><span class="data-value">'+latestAlarmForBed(S.trendBed)+'</span></div>'
+        +'</div></div></section>'
+        +'<section class="panel"><div class="panel-inner"><div class="panel-title">Recent Points</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Value</th><th>Comment</th></tr></thead><tbody>'+recentRows+'</tbody></table></div></div></section>'
+      +'</section>'
+    +'</div>'
+  +'</div>';
+}
+
+function renderThresholds(){
+  const bed=bedFor(S.thresholdsBed)||selectedBed();
+  const th=S.thresholds[bed.id];
+  const cards=Object.keys(PARAM_META).map(function(param){
+    return '<div class="threshold-card"><div class="threshold-head"><div class="threshold-label">'+PARAM_META[param].label+'</div><span class="pill pill-blue">'+PARAM_META[param].unit+'</span></div><div class="field-row"><div class="field"><label>Low limit</label><input type="number" step="0.1" value="'+th[param].low+'" onchange="window._changeThreshold(\''+bed.id+'\',\''+param+'\',\'low\',this.value)"></div><div class="field"><label>High limit</label><input type="number" step="0.1" value="'+th[param].high+'" onchange="window._changeThreshold(\''+bed.id+'\',\''+param+'\',\'high\',this.value)"></div></div></div>';
+  }).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Alarm Threshold Configuration</div><div class="page-copy">Threshold changes are stored per patient. Customize clinically appropriate low and high limits for the selected bed, then save them back to the central station. Overly wide ranges are tracked by the evaluation layer.</div></div><div class="clock">Selected bed<br><strong>'+bed.label+' - '+(bed.patientName||'Unoccupied')+'</strong></div></div>'
+    +'<div class="threshold-shell">'
+      +'<section class="bed-list"><div class="panel-title">Beds</div>'+S.beds.map(function(item){return '<button class="bed-list-item '+(item.id===bed.id?'active':'')+'" onclick="window._selectThresholdBed(\''+item.id+'\')"><div class="strong">'+item.label+'</div><div class="muted">'+(item.patientName||'Open bed')+'</div></button>'}).join('')+'<div class="panel-title" style="margin-top:14px">Suggested presets</div><div class="filter-row"><button class="chip" onclick="window._applyPreset(\'cabg\')">Post-CABG</button><button class="chip" onclick="window._applyPreset(\'ards\')">ARDS</button><button class="chip" onclick="window._applyPreset(\'mi\')">Acute MI</button></div></section>'
+      +'<section class="panel"><div class="panel-inner"><div class="panel-header"><div><div class="panel-title">Parameter Setup</div><div class="page-copy" style="margin-top:0">'+(bed.patientName?bed.diagnosis:'Assign a patient to enable personalized limits.')+'</div></div><button class="btn btn-primary" onclick="window._saveThresholds()">Save Thresholds</button></div><div class="grid-3">'+cards+'</div></div></section>'
+    +'</div>'
+  +'</div>';
+}
+
+function renderReview(){
+  const bed=selectedBed();
+  const tabs=[{key:'events',label:'Events'},{key:'tabular',label:'Tabular Trends'},{key:'full',label:'Full Disclosure'},{key:'arrhythmia',label:'Arrhythmia Stats'}];
+  let content='';
+  if(S.reviewTab==='events')content=renderReviewEvents(bed);
+  if(S.reviewTab==='tabular')content=renderReviewTabular(bed);
+  if(S.reviewTab==='full')content=renderReviewFullDisclosure(bed);
+  if(S.reviewTab==='arrhythmia')content=renderReviewArrhythmia(bed);
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Review Workspace</div><div class="page-copy">Review supports stored events, tabular trends, disclosure segments, and arrhythmia statistics for the selected patient. This mirrors the bedside-to-central review flow described by the reference CMS documentation.</div></div><div class="clock">Review target<br><strong>'+bed.label+' - '+bed.patientName+'</strong></div></div>'
+    +'<div class="panel"><div class="panel-inner"><div class="panel-header"><div class="review-tabs">'+tabs.map(function(tab){return '<button class="tab '+(S.reviewTab===tab.key?'active':'')+'" onclick="window._selectReviewTab(\''+tab.key+'\')">'+tab.label+'</button>'}).join('')+'</div><div><button class="btn btn-soft btn-sm" onclick="window._openPrintModal(\''+bed.id+'\')">Print Review</button></div></div>'+content+'</div></div>'
+  +'</div>';
+}
+
+function renderReviewEvents(bed){
+  const rows=sortAlarms(S.alarms.filter(function(alarm){return alarm.bedId===bed.id})).map(function(alarm){
+    const ack=S.alarmsAcknowledged.find(function(item){return item.alarmId===alarm.id});
+    return '<tr><td>'+alarm.timestamp+'</td><td><span class="severity '+alarm.severity+'">'+alarm.severity+'</span></td><td>'+alarm.message+'</td><td>'+(ack&&ack.note?ack.note:'No documentation note')+'</td></tr>';
+  }).join('');
+  return '<div class="table-wrap"><table><thead><tr><th>Time</th><th>Severity</th><th>Event</th><th>Documentation</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function renderReviewTabular(bed){
+  const vitals=S.vitalSigns[bed.id];
+  const rows=['hr','spo2','sbp','dbp','rr','temp'].map(function(param){
+    return '<tr><td>'+PARAM_META[param].label+'</td><td>'+formatValue(param,vitals[param])+' '+PARAM_META[param].unit+'</td><td>'+S.thresholds[bed.id][param].low+'</td><td>'+S.thresholds[bed.id][param].high+'</td></tr>';
+  }).join('');
+  return '<div class="table-wrap"><table><thead><tr><th>Parameter</th><th>Current</th><th>Low</th><th>High</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function renderReviewFullDisclosure(bed){
+  return '<div class="stack"><div class="wave-card"><div class="wave-label"><strong>Compressed Disclosure</strong><span>Stored review segment</span></div>'+renderTrendChartInline(bed.id,'hr',220)+'</div><div class="data-list"><div class="data-row"><span class="data-label">Stored waveforms</span><span class="data-value">ECG Lead II, Pleth, Respiration</span></div><div class="data-row"><span class="data-label">Review duration</span><span class="data-value">72 hours available</span></div><div class="data-row"><span class="data-label">Selection tools</span><span class="data-value">Overview, detail print, caliper access</span></div></div></div>';
+}
+
+function renderReviewArrhythmia(bed){
+  return '<div class="grid-3"><div class="mini-card"><div class="mini-card-value">2</div><div class="mini-card-label">PVC events in last 24h</div></div><div class="mini-card"><div class="mini-card-value">0</div><div class="mini-card-label">Sustained VT episodes</div></div><div class="mini-card"><div class="mini-card-value">'+(bed.id==='bed3'?'114':'84')+'</div><div class="mini-card-label">Average monitored HR</div></div></div>';
+}
+
+function renderBedManagement(){
+  const cards=S.beds.map(function(bed){
+    const occupied=bed.status==='occupied';
+    return '<section class="bed-panel '+(occupied?'':'empty')+'"><div class="bed-panel-head"><div><div class="bed-panel-title">'+bed.label+'</div><div class="muted">'+bed.room+' | '+(occupied?bed.patientName:'Open bed')+'</div></div><span class="severity '+(occupied?'normal':'advisory')+'">'+(occupied?'occupied':'available')+'</span></div><div class="data-list"><div class="data-row"><span class="data-label">Device</span><span class="data-value">'+bed.device+'</span></div><div class="data-row"><span class="data-label">Mode</span><span class="data-value">'+bed.mode+'</span></div><div class="data-row"><span class="data-label">Clinical context</span><span class="data-value">'+(occupied?bed.diagnosis:'Bed cleaned and ready for ICU admit')+'</span></div></div><div class="bed-actions" style="margin-top:14px">'+(occupied?'<button class="btn btn-soft btn-sm" onclick="window._openBed(\''+bed.id+'\')">Open ViewBed</button>':'<button class="btn btn-primary btn-sm" onclick="window._openAdmitModal(\''+bed.id+'\')">ICU Admit</button>')+'<button class="btn btn-ghost btn-sm" onclick="window._navToThresholds(\''+bed.id+'\')">Thresholds</button></div></section>';
+  }).join('');
+  const admissionRows=(S.admissions.length?S.admissions.slice().reverse():[{bedId:'--',patientName:'No new admissions this session',age:'',sex:'',diagnosis:'',time:''}]).map(function(admission){
+    return '<tr><td>'+admission.time+'</td><td>'+admission.bedId+'</td><td>'+admission.patientName+'</td><td>'+admission.diagnosis+'</td></tr>';
+  }).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">Bed Management</div><div class="page-copy">Assign monitors, admit ICU patients, and review occupancy state. Open beds can receive a direct ICU admission and then inherit individualized alarm thresholds.</div></div><div class="clock">Open beds<br><strong>'+S.beds.filter(function(bed){return bed.status==='empty'}).length+'</strong></div></div>'
+    +'<div class="bed-mgmt-grid">'+cards+'</div>'
+    +'<section class="panel" style="margin-top:14px"><div class="panel-inner"><div class="panel-title">Admission Log</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Bed</th><th>Patient</th><th>Diagnosis</th></tr></thead><tbody>'+admissionRows+'</tbody></table></div></div></section>'
+  +'</div>';
+}
+
+function renderSystem(){
+  const pagerRows=S.pagers.map(function(pager){return '<tr><td>'+pager.number+'</td><td>'+pager.assignment+'</td><td>'+pager.beds.join(', ')+'</td></tr>'}).join('');
+  const queueRows=S.printQueue.map(function(item){return '<tr><td>'+item.name+'</td><td>'+item.destination+'</td><td>'+item.status+'</td></tr>'}).join('');
+  const auditRows=S.auditTrail.map(function(item){return '<div class="timeline-item"><div class="timeline-time">'+item.time+'</div><div class="timeline-copy">'+item.copy+'</div></div>'}).join('');
+  return '<div>'
+    +'<div class="page-head"><div><div class="page-title">System Menu</div><div class="page-copy">Administrative tools exposed from the CMS system menu, including paging assignments, print queue, device assignment context, and audit trail messages.</div></div><div class="clock">System state<br><strong>'+(S.systemSilenced?'Silenced':'Audible')+'</strong></div></div>'
+    +'<div class="grid-2">'
+      +'<section class="panel"><div class="panel-inner"><div class="panel-title">Paging Assignment</div><div class="table-wrap"><table><thead><tr><th>Pager</th><th>Assignment</th><th>Beds</th></tr></thead><tbody>'+pagerRows+'</tbody></table></div></div></section>'
+      +'<section class="panel"><div class="panel-inner"><div class="panel-title">Print Queue</div><div class="table-wrap"><table><thead><tr><th>Job</th><th>Destination</th><th>Status</th></tr></thead><tbody>'+queueRows+'</tbody></table></div></div></section>'
+    +'</div>'
+    +'<section class="panel" style="margin-top:14px"><div class="panel-inner"><div class="panel-title">System Alarm and Workflow Timeline</div><div class="timeline">'+auditRows+'</div></div></section>'
+  +'</div>';
+}
+
+function renderTrendChart(bedId,param){
+  const series=(S.trends[bedId]&&S.trends[bedId][param])||[];
+  const width=860;
+  const height=280;
+  if(!series.length)return '<svg class="chart-svg" viewBox="0 0 860 280"></svg>';
+  const max=Math.max.apply(null,series);
+  const min=Math.min.apply(null,series);
+  const range=(max-min)||1;
+  const points=series.map(function(point,index){
+    const x=(index/(series.length-1))*width;
+    const y=height-((point-min)/range)*(height-34)-18;
+    return {x:x,y:y};
+  });
+  const path=points.map(function(point,index){return(index===0?'M':'L')+point.x.toFixed(1)+' '+point.y.toFixed(1)}).join(' ');
+  const area=points.map(function(point,index){return(index===0?'M':'L')+point.x.toFixed(1)+' '+point.y.toFixed(1)}).join(' ')+' L '+width+' '+height+' L 0 '+height+' Z';
+  const threshold=S.thresholds[bedId][param];
+  const yLow=height-((threshold.low-min)/range)*(height-34)-18;
+  const yHigh=height-((threshold.high-min)/range)*(height-34)-18;
+  const accent=PARAM_META[param].accent;
+  let grid='';
+  for(let index=1;index<6;index+=1){const y=(height/6)*index;grid+='<line x1="0" y1="'+y.toFixed(1)+'" x2="860" y2="'+y.toFixed(1)+'"></line>'}
+  return '<svg class="chart-svg" viewBox="0 0 860 280" preserveAspectRatio="none"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+accent+'" stop-opacity="0.28"></stop><stop offset="1" stop-color="'+accent+'" stop-opacity="0"></stop></linearGradient></defs><g stroke="#1d3048" stroke-width="1">'+grid+'</g><line x1="0" y1="'+yLow.toFixed(1)+'" x2="860" y2="'+yLow.toFixed(1)+'" stroke="#ef4444" stroke-dasharray="6 6"></line><line x1="0" y1="'+yHigh.toFixed(1)+'" x2="860" y2="'+yHigh.toFixed(1)+'" stroke="#22c1dc" stroke-dasharray="6 6"></line><path d="'+area+'" fill="url(#chartFill)"></path><path d="'+path+'" fill="none" stroke="'+accent+'" stroke-width="3"></path></svg>';
+}
+
+function renderTrendChartInline(bedId,param,height){
+  const series=(S.trends[bedId]&&S.trends[bedId][param])||[];
+  const width=640;
+  const h=height||180;
+  if(!series.length)return '<svg class="wave-svg" viewBox="0 0 640 '+h+'"></svg>';
+  const sample=series.slice(-28);
+  const max=Math.max.apply(null,sample);
+  const min=Math.min.apply(null,sample);
+  const range=(max-min)||1;
+  const path=sample.map(function(point,index){
+    const x=(index/(sample.length-1))*width;
+    const y=h-((point-min)/range)*(h-20)-10;
+    return(index===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);
+  }).join(' ');
+  return '<svg class="wave-svg" viewBox="0 0 640 '+h+'" preserveAspectRatio="none"><g stroke="#1c2e45" stroke-width="1"><line x1="0" y1="'+(h/3).toFixed(1)+'" x2="640" y2="'+(h/3).toFixed(1)+'"></line><line x1="0" y1="'+((h/3)*2).toFixed(1)+'" x2="640" y2="'+((h/3)*2).toFixed(1)+'"></line></g><path d="'+path+'" fill="none" stroke="'+PARAM_META[param].accent+'" stroke-width="2.8"></path></svg>';
+}
+
+function latestAlarmForBed(bedId){
+  const alarm=sortAlarms(S.alarms.filter(function(item){return item.bedId===bedId}))[0];
+  return alarm?alarm.message+' ('+alarm.timestamp+')':'No stored alarm event';
+}
+
+function renderBedOptions(selected,occupiedOnly){
+  return S.beds.filter(function(bed){return occupiedOnly?bed.status==='occupied':true}).map(function(bed){return '<option value="'+bed.id+'"'+(selected===bed.id?' selected':'')+'>'+bed.label+' - '+(bed.patientName||'Open bed')+'</option>'}).join('');
+}
+
+function renderParamOptions(selected){
+  return Object.keys(PARAM_META).map(function(param){return '<option value="'+param+'"'+(selected===param?' selected':'')+'>'+PARAM_META[param].label+'</option>'}).join('');
+}
+
+function renderRangeOptions(selected){
+  return ['8h','24h','48h','72h'].map(function(value){return '<option value="'+value+'"'+(selected===value?' selected':'')+'>'+value+'</option>'}).join('');
+}
+
+function showModal(html){
+  document.getElementById('modalContent').innerHTML=html;
+  document.getElementById('modalWrap').classList.add('show');
+}
+
+window._closeModal=function(){document.getElementById('modalWrap').classList.remove('show')};
+
+window._nav=function(page){
+  if(page==='detail'&&!S.selectedBed){S.selectedBed='bed3'}
+  S.currentPage=page;
+  render();
+};
+
+window._logout=function(){S.loggedIn=false;render()};
+
+window._toggleSystemSilence=function(){
+  S.systemSilenced=!S.systemSilenced;
+  render();
+  toast(S.systemSilenced?'System silence enabled. Central audio paused.':'System silence cleared. Audible alarms resumed.',S.systemSilenced?'warn':'success');
+};
+
+window._openBed=function(bedId){S.selectedBed=bedId;S.currentPage='detail';render()};
+window._navToTrend=function(bedId){S.selectedBed=bedId;S.trendBed=bedId;S.currentPage='trends';render()};
+window._navToThresholds=function(bedId){S.selectedBed=bedId;S.thresholdsBed=bedId;S.currentPage='thresholds';render()};
+window._navToReview=function(bedId){S.selectedBed=bedId;S.currentPage='review';render()};
+window._setTrendBed=function(bedId){S.trendBed=bedId;S.selectedBed=bedId;render()};
+window._setTrendParam=function(param){S.trendParam=param;render()};
+window._setTrendRange=function(range){S.trendRange=range;render()};
+window._selectThresholdBed=function(bedId){S.thresholdsBed=bedId;S.selectedBed=bedId;render()};
+window._selectReviewTab=function(tab){S.reviewTab=tab;render()};
+
+window._changeThreshold=function(bedId,param,bound,value){
+  if(!(bedId in S.thresholds))return;
+  const parsed=value===''?'':Number(value);
+  S.thresholds[bedId][param][bound]=parsed;
+};
+
+window._applyPreset=function(preset){
+  const bedId=S.thresholdsBed;
+  const presets={
+    cabg:{hr:{low:50,high:110},spo2:{low:93,high:100},sbp:{low:100,high:150},dbp:{low:55,high:90},rr:{low:10,high:24},temp:{low:36.0,high:38.0}},
+    ards:{hr:{low:55,high:120},spo2:{low:88,high:96},sbp:{low:90,high:150},dbp:{low:50,high:90},rr:{low:12,high:32},temp:{low:36.0,high:38.5}},
+    mi:{hr:{low:50,high:110},spo2:{low:93,high:100},sbp:{low:90,high:150},dbp:{low:50,high:90},rr:{low:10,high:24},temp:{low:36.0,high:38.0}}
+  };
+  S.thresholds[bedId]=clone(presets[preset]);
+  render();
+  toast('Preset applied to '+bedFor(bedId).label+'.','success');
+};
+
+window._saveThresholds=function(){
+  render();
+  toast('Thresholds saved for '+bedFor(S.thresholdsBed).label+'.','success');
+};
+
+window._openAckModal=function(alarmId){
+  const alarm=alarmFor(alarmId);
+  const bed=bedFor(alarm.bedId);
+  showModal('<div class="modal-head"><div><div class="modal-title">Acknowledge Alarm</div><div class="modal-copy">Document the clinical response performed after reviewing '+bed.label+' - '+bed.patientName+'.</div></div><button class="btn btn-ghost btn-sm" onclick="window._closeModal()">Close</button></div><div class="modal-body"><div class="grid-2"><div class="mini-card"><div class="mini-card-value">'+alarm.message+'</div><div class="mini-card-label">'+alarm.severity.toUpperCase()+' | '+(alarm.currentValue===null?'Technical advisory':alarm.currentValue+' '+alarm.unit)+' | limit '+alarm.limit+'</div></div><div class="mini-card"><div class="mini-card-value">'+bed.label+'</div><div class="mini-card-label">'+bed.patientName+' | '+bed.diagnosis+'</div></div></div><div class="field" style="margin-top:16px"><label>Acknowledgement note</label><textarea id="ackNote" rows="5" placeholder="Example: Verified patient at bedside, assessed oxygenation, notified RT, adjusted ventilator settings."></textarea></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="window._closeModal()">Cancel</button><button class="btn btn-primary" onclick="window._confirmAck(\''+alarmId+'\')">Confirm acknowledgement</button></div>');
+};
+
+window._confirmAck=function(alarmId){
+  const alarm=alarmFor(alarmId);
+  if(!alarm||alarm.acknowledged)return;
+  const note=(document.getElementById('ackNote').value||'').trim();
+  alarm.acknowledged=true;
+  alarm.silenced=false;
+  alarm.reason=note;
+  S.alarmsAcknowledged.push({alarmId:alarm.id,severity:alarm.severity,note:note,hadNote:!!note,timestamp:Date.now()});
+  S.auditTrail.push({time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),copy:'Alarm '+alarm.message+' on '+bedFor(alarm.bedId).label+' acknowledged'+(note?' with documentation.':'.')});
+  window._closeModal();
+  render();
+  toast('Alarm acknowledged for '+bedFor(alarm.bedId).label+'.',note?'success':'warn');
+};
+
+window._openSilenceModal=function(alarmId){
+  const alarm=alarmFor(alarmId);
+  const bed=bedFor(alarm.bedId);
+  showModal('<div class="modal-head"><div><div class="modal-title">Silence Alarm</div><div class="modal-copy">Use a short timed silence when active bedside reassessment is underway. Indefinite silence of crisis alarms is unsafe.</div></div><button class="btn btn-ghost btn-sm" onclick="window._closeModal()">Close</button></div><div class="modal-body"><div class="grid-2"><div class="mini-card"><div class="mini-card-value">'+bed.label+'</div><div class="mini-card-label">'+bed.patientName+' | '+alarm.message+'</div></div><div class="field"><label>Duration</label><select id="silenceDuration"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="indefinite">Indefinite</option></select></div></div><div class="field" style="margin-top:16px"><label>Reason</label><textarea id="silenceReason" rows="4" placeholder="Example: Patient repositioning in progress, will reassess SpO2 after suctioning."></textarea></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="window._closeModal()">Cancel</button><button class="btn btn-primary" onclick="window._confirmSilence(\''+alarmId+'\')">Apply silence</button></div>');
+};
+
+window._confirmSilence=function(alarmId){
+  const alarm=alarmFor(alarmId);
+  if(!alarm||alarm.acknowledged)return;
+  const duration=document.getElementById('silenceDuration').value;
+  const reason=(document.getElementById('silenceReason').value||'').trim();
+  const indefinite=duration==='indefinite';
+  alarm.silenced=true;
+  alarm.reason=reason;
+  alarm.silenceExpiry=indefinite?null:Date.now()+Number(duration)*60*1000;
+  S.alarmsSilenced.push({alarmId:alarm.id,severity:alarm.severity,reason:reason,indefinite:indefinite,timestamp:Date.now(),silenceExpiry:alarm.silenceExpiry});
+  S.auditTrail.push({time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),copy:'Alarm '+alarm.message+' on '+bedFor(alarm.bedId).label+' silenced for '+(indefinite?'indefinite duration':duration+' minutes')+'.'});
+  window._closeModal();
+  render();
+  toast('Silence action recorded for '+bedFor(alarm.bedId).label+'.',indefinite?'danger':'success');
+};
+
+window._ackFirstOnBed=function(bedId){
+  const alarm=sortAlarms(S.alarms.filter(function(item){return item.bedId===bedId&&!item.acknowledged}))[0];
+  if(!alarm){toast('No active alarm to acknowledge on '+bedFor(bedId).label+'.','warn');return}
+  window._openAckModal(alarm.id);
+};
+
+window._silenceFirstWarning=function(bedId){
+  const alarm=sortAlarms(S.alarms.filter(function(item){return item.bedId===bedId&&!item.acknowledged&&item.severity!=='crisis'}))[0];
+  if(!alarm){toast('No non-crisis alarm available to silence on '+bedFor(bedId).label+'.','warn');return}
+  window._openSilenceModal(alarm.id);
+};
+
+window._openAdmitModal=function(bedId){
+  const bed=bedFor(bedId);
+  showModal('<div class="modal-head"><div><div class="modal-title">ICU Admit</div><div class="modal-copy">Assign a new ICU patient to '+bed.label+' and initialize the monitor tile.</div></div><button class="btn btn-ghost btn-sm" onclick="window._closeModal()">Close</button></div><div class="modal-body"><div class="grid-2"><div class="field"><label>Patient name</label><input id="admitName" placeholder="Zhao Min"></div><div class="field"><label>Age</label><input id="admitAge" type="number" placeholder="52"></div><div class="field"><label>Sex</label><select id="admitSex"><option value="Female">Female</option><option value="Male">Male</option></select></div><div class="field"><label>Diagnosis</label><input id="admitDx" placeholder="Acute MI"></div></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="window._closeModal()">Cancel</button><button class="btn btn-primary" onclick="window._confirmAdmission(\''+bedId+'\')">Confirm admission</button></div>');
+};
+
+window._confirmAdmission=function(bedId){
+  const bed=bedFor(bedId);
+  const name=(document.getElementById('admitName').value||'').trim();
+  const age=(document.getElementById('admitAge').value||'').trim();
+  const sex=document.getElementById('admitSex').value;
+  const dx=(document.getElementById('admitDx').value||'').trim();
+  bed.status='occupied';
+  bed.patientName=name;
+  bed.age=age;
+  bed.sex=sex==='Female'?'F':'M';
+  bed.mrn='ICU24'+String(Math.floor(1000+rng()*8999));
+  bed.diagnosis=dx;
+  bed.acuity='High';
+  bed.service='Coronary ICU';
+  bed.device='BeneVision N19';
+  bed.mode='Monitor Mode';
+  bed.codeStatus='Full Code';
+  bed.ventilation='4 L NC';
+  bed.drips=['Heparin infusion'];
+  bed.nurse='RN Marcus Hale';
+  bed.respiratory='RT standby';
+  bed.note='New coronary ICU admission with central monitoring initialized from admit workflow.';
+  S.vitalSigns[bedId]={hr:92,spo2:96,sbp:132,dbp:78,rr:18,temp:37.1,map:96};
+  S.trends[bedId]={
+    hr:[84,86,88,89,91,92,91,92,93,92,92,92,93,91,92,92,91,92,93,92,92,93,92,92,92,91,92,92,93,94,92,91,92,92,93,92,92,91,92,92,93,92,91,92,92,93,92,91,92,93,92,91,92,92,92,91,92,92,91,92,92,93,92,91,92,92,92,92,93,92,92,92],
+    spo2:[95,95,96,96,96,96,96,95,96,96,96,96,96,96,96,95,96,96,96,96,96,96,95,96,96,96,96,96,96,96,96,95,96,96,96,96,96,96,95,96,96,96,96,96,96,96,95,96,96,96,96,96,96,96,95,96,96,96,96,96,96,96,95,96,96,96,96,96,96,96,96,96],
+    sbp:[124,126,128,127,129,131,132,130,131,132,132,131,132,131,132,132,133,132,131,132,132,133,132,131,132,132,133,132,132,133,132,131,132,132,133,132,132,132,131,132,133,132,132,131,132,133,132,132,131,132,133,132,131,132,133,132,132,131,132,133,132,132,131,132,133,132,132,131,132,132,132,132],
+    dbp:[74,75,76,76,77,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,77,78,78,78,78],
+    rr:[16,16,17,17,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18],
+    temp:[36.8,36.8,36.9,36.9,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.0,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1,37.1]
+  };
+  S.admissions.push({bedId:bedId,patientName:name,age:age,sex:sex,diagnosis:dx,time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})});
+  S.selectedBed=bedId;
+  S.thresholdsBed=bedId;
+  S.currentPage='bedmgmt';
+  window._closeModal();
+  render();
+  toast('Admission completed for '+bed.label+'.','success');
+};
+
+window._openPrintModal=function(bedId){
+  const bed=bedFor(bedId);
+  showModal('<div class="modal-head"><div><div class="modal-title">Print Workflow</div><div class="modal-copy">Queue realtime strips, trend reports, or review pages for central printing.</div></div><button class="btn btn-ghost btn-sm" onclick="window._closeModal()">Close</button></div><div class="modal-body"><div class="field"><label>Report type</label><select id="printType"><option value="Realtime strip">Realtime strip</option><option value="Graphic trend">Graphic trend</option><option value="Review detail">Review detail</option></select></div><div class="field" style="margin-top:14px"><label>Destination</label><select id="printDest"><option value="ICU central printer">ICU central printer</option><option value="Review station">Review station</option></select></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="window._closeModal()">Cancel</button><button class="btn btn-primary" onclick="window._queuePrint(\''+bedId+'\')">Queue print job</button></div>');
+};
+
+window._queuePrint=function(bedId){
+  const bed=bedFor(bedId);
+  S.printQueue.push({name:document.getElementById('printType').value+' - '+bed.label,destination:document.getElementById('printDest').value,status:'Queued'});
+  window._closeModal();
+  render();
+  toast('Print job queued for '+bed.label+'.','success');
+};
+
+initialize(42);
+})();
+</script>
+</body>
+</html>
