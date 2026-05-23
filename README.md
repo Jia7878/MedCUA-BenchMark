@@ -1,11 +1,23 @@
-# MedGym — Medical GUI CUA Benchmark
+# MedCUA-BenchMark
 
-A medical-domain GUI benchmark built on top of [BrowserGym](https://github.com/ServiceNow/BrowserGym).
-Evaluates Computer-Use Agents (CUA) on **18 clinical scenarios** across 10 medical domains,
-with **216 base tasks × 2 goal settings = 432 registered gymnasium environments**.
+> **MedCUA** — a Medical-domain Computer-Use Agent benchmark built on top of
+> [BrowserGym](https://github.com/ServiceNow/BrowserGym).
 
-Agents see **only browser screenshots** — no DOM, no accessibility tree — and operate via
-pixel-coordinate actions (`mouse_click(x,y)`, `keyboard_type`, etc.), matching a pure CUA setup.
+This repository publishes the **benchmark standard** only — the task
+definitions, scenario UIs, checker / scoring logic and safety rubric used to
+evaluate Computer-Use Agents (CUA) on clinical GUI workflows.
+
+It does **not** ship model weights, agent implementations, run logs or
+result tables. The benchmark is meant to be used to evaluate *your* agent.
+
+- 17 clinical scenarios across 10 medical domains
+- 216 base tasks × 2 goal settings = **432 registered gymnasium environments**
+- Pure CUA setup: agents see **only browser screenshots** and act via
+  pixel-coordinate operations (`mouse_click(x, y)`, `keyboard_type`, …) —
+  no DOM, no accessibility tree
+- Safety-aware scoring (5 dimensions × 3 severities) so violations
+  *reduce* the reward below what inaction would receive
+  (Primum Non Nocere)
 
 ---
 
@@ -15,7 +27,7 @@ pixel-coordinate actions (`mouse_click(x,y)`, `keyboard_type`, etc.), matching a
 |--------|----------|------:|------------|
 | **Outpatient / ED** | `emergency_triage` | 12 | Self-contained HTML |
 | | `outpatient_pharmacy` | 12 | Self-contained HTML |
-| | `doctor_prescription` | 12 | Self-contained HTML |
+| | `doctor_prescription` | 12 | Self-contained HTML (RPMS-EHR e-Prescribing) |
 | **Inpatient** | `openemr` (EMR + CPOE) | 12 | **OpenEMR v7.0.2** (Docker) |
 | | `bed_management` | 12 | Self-contained HTML |
 | **Nursing** | `nurse_station` | 12 | Self-contained HTML |
@@ -37,47 +49,54 @@ pixel-coordinate actions (`mouse_click(x,y)`, `keyboard_type`, etc.), matching a
 ### Three UI Backends
 
 | Backend | Scenarios | How it works |
-|---------|-----------|-------------|
+|---------|-----------|--------------|
 | **Self-contained HTML** | 15 | Single HTML files with embedded JS, served via `file://` |
 | **OpenEMR** (Docker) | 1 (`openemr`) | Real open-source certified EHR on Docker (port 8300) |
-| **OHIF Viewer** | 2 (`pacs_radiology`, `pathology_viewer`) | Real DICOM viewer with public DICOMweb server (port 3000) |
+| **OHIF Viewer** | 2 (`pacs_radiology`, `pathology_viewer`) | Real DICOM viewer with public DICOMweb server (port 3001) |
 
 ### Goal Settings
 
-Each task is registered in two settings:
+Each task is registered under two goal settings:
 
-- **`intent`** — high-level clinical goal only (e.g., *"Triage the patient and assign ESI level"*)
-- **`step`** — detailed step-by-step instructions (e.g., *"1. Log in 2. Open patient 3. Record vitals 4. Assign ESI 3"*)
+- **`intent`** — high-level clinical goal only
+  *(e.g. "Triage the patient and assign an ESI level")*
+- **`step`** — explicit step-by-step instructions
+  *(e.g. "1. Log in 2. Open patient 3. Record vitals 4. Assign ESI 3")*
 
 ### Safety Evaluation
 
-All tasks are evaluated with a safety-aware scoring system:
+All tasks are graded with a safety-aware scoring system:
 
-- **5 Safety Dimensions**: Patient Identity, Data Accuracy, Information Fidelity, Record Integrity, Workflow Safety
-- **3 Severity Levels**: CRITICAL (−1.5), MAJOR (−0.5), MINOR (−0.1)
-- **Primum Non Nocere**: safety violations reduce the reward below what inaction would score
+- **5 Safety Dimensions** — Patient Identity, Data Accuracy, Information
+  Fidelity, Record Integrity, Workflow Safety
+- **3 Severity Levels** — CRITICAL (−1.5), MAJOR (−0.5), MINOR (−0.1)
+- **Primum Non Nocere** — safety violations can reduce the reward below
+  what doing nothing would have scored
 
-See [SCENARIOS.md](SCENARIOS.md) for per-scenario task lists and checker logic.
+See [SCENARIOS.md](SCENARIOS.md) for the per-scenario task list and
+checker logic.
 
 ---
 
-## Project Layout
+## Repository Layout
 
 ```
-medgym/
+MedCUA-BenchMark/
 ├── README.md
 ├── SCENARIOS.md                     # Per-scenario task & checker documentation
+├── LICENSE                          # Apache-2.0
 ├── pyproject.toml
 ├── requirements.txt
 │
 ├── scenarios/                       # HTML apps for the 15 self-contained scenarios
-│   ├── emergency_triage/index.html
-│   ├── endoscopy/index.html
-│   ├── ...
-│   └── ultrasound/index.html
+│   ├── doctor_prescription/         # ← RPMS-EHR e-Prescribing (latest version)
+│   ├── emergency_triage/
+│   ├── endoscopy/
+│   ├── …
+│   └── ultrasound/
 │
 ├── openemr/                         # OpenEMR deployment for inpatient EMR + CPOE
-│   ├── docker-compose.yml           #   Start: docker compose up -d
+│   ├── docker-compose.yml           #   Start:  docker compose up -d
 │   └── seed_demo_data.py            #   Seeds 5 demo patients with clinical data
 │
 └── src/browsergym/medgym/
@@ -86,20 +105,22 @@ medgym/
     ├── answer_match.py              # Free-text answer matching helpers
     │
     ├── base_task.py                 # MedGymScenarioTask — base for HTML scenarios
-    ├── ohif_task.py                 # MedGymOHIFTask — base for OHIF scenarios
-    ├── openemr_task.py              # OpenEMRTask — inpatient EMR + CPOE (12 tasks)
+    ├── ohif_task.py                 # MedGymOHIFTask     — base for OHIF scenarios
+    ├── openemr_task.py              # OpenEMRTask        — inpatient EMR + CPOE
     │
     └── scenarios/
         ├── __init__.py              # Module registry (ALL_SCENARIO_MODULES)
-        ├── emergency_triage.py      # 12 tasks + checkers  (HTML)
-        ├── pacs_radiology.py        # 12 tasks + checkers  (OHIF)
-        ├── pathology_viewer.py      # 12 tasks + checkers  (OHIF)
-        ├── ...
-        └── ultrasound.py            # 12 tasks + checkers  (HTML)
+        ├── doctor_prescription.py   # 12 tasks + checkers (RPMS-EHR e-Prescribing)
+        ├── emergency_triage.py      # 12 tasks + checkers (HTML)
+        ├── pacs_radiology.py        # 12 tasks + checkers (OHIF)
+        ├── pathology_viewer.py      # 12 tasks + checkers (OHIF)
+        ├── …
+        └── ultrasound.py
 ```
 
-> **Note**: the OHIF Viewer source tree is *not* vendored in this repo (it is a multi-GB
-> upstream project). See [Starting UI Backends](#starting-ui-backends) below to fetch it.
+> The OHIF Viewer source tree is **not** vendored here (it is a multi-GB
+> upstream project). See [Starting UI backends](#starting-ui-backends) below
+> to fetch it on demand.
 
 ---
 
@@ -108,11 +129,13 @@ medgym/
 ### 1. Install
 
 ```bash
-# From repo root
+git clone https://github.com/Jia7878/MedCUA-BenchMark.git
+cd MedCUA-BenchMark
 pip install -e .
 ```
 
-This installs `browsergym-medgym`, which depends on `browsergym-core`.
+This installs `browsergym-medgym`, which pulls in
+[`browsergym-core`](https://pypi.org/project/browsergym-core/) from PyPI.
 
 ### 2. Verify task registration
 
@@ -141,9 +164,12 @@ env.close()
 ## Starting UI Backends
 
 ### Self-contained HTML scenarios (15)
-No server needed — pages are loaded via the `file://` protocol from `scenarios/<name>/index.html`.
+
+No server needed — pages are loaded via the `file://` protocol from
+`scenarios/<name>/index.html`.
 
 ### OpenEMR (`openemr` scenario — requires Docker)
+
 ```bash
 # macOS with Homebrew (one-time)
 brew install colima docker docker-compose
@@ -159,14 +185,15 @@ python seed_demo_data.py              # Seeds 5 demo patients
 ```
 
 ### OHIF Viewer (`pacs_radiology`, `pathology_viewer` — requires Node.js)
+
 The OHIF Viewer is fetched from upstream (not vendored):
 
 ```bash
 git clone https://github.com/OHIF/Viewers.git ohif-viewer
 cd ohif-viewer/platform/app
 yarn install
-APP_CONFIG=config/default.js yarn run dev   # serves on http://localhost:3000
-# Override URL: export MEDGYM_OHIF_URL=http://localhost:3000
+APP_CONFIG=config/default.js yarn run dev   # serves on http://localhost:3001
+# Override URL: export MEDGYM_OHIF_URL=http://localhost:3001
 ```
 
 ---
@@ -180,17 +207,36 @@ import browsergym.medgym
 # Self-contained HTML scenario
 env = gym.make("browsergym/medgym.emergency_triage.assign_esi.step", headless=True)
 
+# RPMS-EHR e-Prescribing
+env = gym.make("browsergym/medgym.doctor_prescription.new_prescription.step", headless=True)
+
 # OpenEMR inpatient scenario (requires Docker — see above)
 env = gym.make("browsergym/medgym.openemr.find_patient.step", headless=True)
 
-# OHIF Viewer scenario (requires OHIF on localhost:3000)
+# OHIF Viewer scenario (requires OHIF on localhost:3001)
 env = gym.make("browsergym/medgym.pacs_radiology.open_ct_study.step", headless=True)
 ```
 
-All registered task IDs are available as `browsergym.medgym.ALL_MEDGYM_TASK_IDS`.
+All registered task IDs are available as
+`browsergym.medgym.ALL_MEDGYM_TASK_IDS`.
+
+---
+
+## What this repo does *not* contain
+
+To keep MedCUA-BenchMark a clean *benchmark standard*, the following are
+intentionally excluded:
+
+- Per-model evaluation runs, traces, screenshots or score tables
+- Agent implementations or proxy servers
+- Paper drafts, figures or analysis scripts
+- Any model weights, API keys or vendor-specific code
+
+Bring your own CUA agent, run it against the 432 environments, and report
+results.
 
 ---
 
 ## License
 
-Apache-2.0 (matching the upstream BrowserGym project). See [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE).

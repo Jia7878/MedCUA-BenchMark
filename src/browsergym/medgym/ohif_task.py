@@ -7,7 +7,7 @@ Used by scenarios that deploy the real OHIF DICOM Viewer:
   - pathology_viewer (microscopy mode)
   - ecg_diagnosis   (ECG waveform mode)
 
-The OHIF Viewer must be running (default: http://localhost:3000).
+The OHIF Viewer must be running (default: http://localhost:3001).
 Set MEDGYM_OHIF_URL to override.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .safety import SafetyEvalResult
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_OHIF_URL = "http://localhost:3000"
+_DEFAULT_OHIF_URL = "http://localhost:3001"
 
 
 class MedGymOHIFTask(AbstractBrowserTask):
@@ -115,6 +115,10 @@ class MedGymOHIFTask(AbstractBrowserTask):
             self._expected,
         )
 
+        # Inject setting so step-setting partial-credit applies before
+        # final_reward is computed.
+        result.setting = self.setting
+
         # Inject task metadata for downstream aggregation
         result.task_metadata = {
             "task_id": self.task_id,
@@ -127,11 +131,22 @@ class MedGymOHIFTask(AbstractBrowserTask):
             "n_page_navigations": len(self._page_history),
         }
 
+        # ----- Reward shaping (Plan A: terminal-only reward) ---------------
+        # See base_task.MedGymScenarioTask.validate for full rationale.
+        # Only emit a non-zero reward when the episode terminates; otherwise
+        # return 0 to prevent the same stateful violation from being
+        # accumulated across every step into ``cum_reward``. Full info
+        # (final_reward, partial_completion_score, progress, etc.) is
+        # still exposed through the info dict.
+        info_dict = result.to_info_dict()
+        info_dict["terminal_reward"] = result.final_reward if result.done else 0.0
+        emitted_reward = info_dict["terminal_reward"]
+
         return (
-            result.final_reward,
+            emitted_reward,
             result.done,
             result.summary_message,
-            result.to_info_dict(),
+            info_dict,
         )
 
     def teardown(self) -> None:

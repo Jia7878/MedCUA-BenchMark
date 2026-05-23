@@ -1,16 +1,37 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.egg-info/
+*$py.class
+
+# Distribution / packaging
+.Python
 build/
 dist/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Virtual environments
 .venv/
-.env
-.vscode/
-.idea/
+venv/
+env/
+ENV/
+
+# OS / editor
 .DS_Store
-*.log
-results/
-runs/
-outputs/
+.idea/
+.vscode/
+*.swp
+
+# Backups
+*.bak
+*.orig
+
+# OHIF Viewer is fetched on demand (multi-GB upstream project)
 ohif-viewer/
-third_party/
+
+# Optional cache / logs
+.pytest_cache/
+.cache/
+*.log
+logs/

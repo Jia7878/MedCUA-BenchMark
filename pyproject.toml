@@ -11,6 +11,7 @@ authors = [
 readme = "README.md"
 requires-python = ">3.9"
 license = {text = "Apache-2.0"}
+version = "0.1.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
@@ -18,13 +19,11 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dynamic = ["dependencies", "version"]
+dynamic = ["dependencies"]
 
 [project.urls]
-homepage = "https://github.com/ServiceNow/BrowserGym"
-
-[tool.hatch.version]
-path = "../core/src/browsergym/core/__init__.py"
+homepage = "https://github.com/Jia7878/MedCUA-BenchMark"
+repository = "https://github.com/Jia7878/MedCUA-BenchMark"
 
 [tool.hatch.metadata.hooks.requirements_txt]
 files = ["requirements.txt"]
