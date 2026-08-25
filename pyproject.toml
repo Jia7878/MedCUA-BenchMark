@@ -4,29 +4,40 @@ build-backend = "hatchling.build"
 
 [project]
 name = "browsergym-medgym"
-description = "Medical GUI CUA Benchmark for BrowserGym"
+description = "MedCUA-Bench clinical computer-use benchmark for BrowserGym"
 authors = [
-    {name = "MedGym Team"},
+    {name = "Jia Yu"},
+    {name = "Zilong Wang"},
+    {name = "Xinyang Jiang"},
+    {name = "Dongsheng Li"},
+    {name = "Shuo Wang"},
 ]
 readme = "README.md"
-requires-python = ">3.9"
-license = {text = "Apache-2.0"}
+requires-python = ">=3.10,<3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 version = "0.1.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+keywords = ["browsergym", "computer-use agents", "clinical software", "benchmark"]
 dynamic = ["dependencies"]
 
 [project.urls]
-homepage = "https://github.com/Jia7878/MedCUA-BenchMark"
-repository = "https://github.com/Jia7878/MedCUA-BenchMark"
+Homepage = "https://github.com/Jia7878/MedCUA-BenchMark"
+Repository = "https://github.com/Jia7878/MedCUA-BenchMark"
+Documentation = "https://github.com/Jia7878/MedCUA-BenchMark#readme"
 
 [tool.hatch.metadata.hooks.requirements_txt]
 files = ["requirements.txt"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/browsergym"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"scenarios" = "browsergym/medgym/scenario_apps"

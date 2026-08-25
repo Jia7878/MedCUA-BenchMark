@@ -10,11 +10,11 @@ evaluate Computer-Use Agents (CUA) on clinical GUI workflows.
 It does **not** ship model weights, agent implementations, run logs or
 result tables. The benchmark is meant to be used to evaluate *your* agent.
 
-- 17 clinical scenarios across 10 medical domains
+- 18 clinical scenarios across 10 medical domains
 - 216 base tasks × 2 goal settings = **432 registered gymnasium environments**
-- Pure CUA setup: agents see **only browser screenshots** and act via
-  pixel-coordinate operations (`mouse_click(x, y)`, `keyboard_type`, …) —
-  no DOM, no accessibility tree
+- Pure CUA setup: agents receive **only browser screenshots** and use
+  coordinate/keyboard and browser-control actions — no DOM, accessibility
+  tree, or element-ID actions
 - Safety-aware scoring (5 dimensions × 3 severities) so violations
   *reduce* the reward below what inaction would receive
   (Primum Non Nocere)
@@ -69,12 +69,18 @@ All tasks are graded with a safety-aware scoring system:
 
 - **5 Safety Dimensions** — Patient Identity, Data Accuracy, Information
   Fidelity, Record Integrity, Workflow Safety
-- **3 Severity Levels** — CRITICAL (−1.5), MAJOR (−0.5), MINOR (−0.1)
+- **3 Severity Levels** — CRITICAL (−1.0), MAJOR (−0.3), MINOR (−0.05)
 - **Primum Non Nocere** — safety violations can reduce the reward below
   what doing nothing would have scored
 
 See [SCENARIOS.md](SCENARIOS.md) for the per-scenario task list and
 checker logic.
+
+> [!IMPORTANT]
+> MedCUA-Bench is a research benchmark, not a clinical decision-support
+> system or a safety certification. It contains synthetic demonstration
+> patients only and must not be connected to production clinical systems or
+> real patient data.
 
 ---
 
@@ -85,8 +91,11 @@ MedCUA-BenchMark/
 ├── README.md
 ├── SCENARIOS.md                     # Per-scenario task & checker documentation
 ├── LICENSE                          # Apache-2.0
+├── NOTICE
 ├── pyproject.toml
 ├── requirements.txt
+├── CITATION.cff
+├── tests/test_release.py            # Registration, resource, and scoring checks
 │
 ├── scenarios/                       # HTML apps for the 15 self-contained scenarios
 │   ├── doctor_prescription/         # ← RPMS-EHR e-Prescribing (latest version)
@@ -95,6 +104,7 @@ MedCUA-BenchMark/
 │   ├── …
 │   └── ultrasound/
 │
+├── ohif/                            # Pinned OHIF data-source configuration
 ├── openemr/                         # OpenEMR deployment for inpatient EMR + CPOE
 │   ├── docker-compose.yml           #   Start:  docker compose up -d
 │   └── seed_demo_data.py            #   Seeds 5 demo patients with clinical data
@@ -103,6 +113,7 @@ MedCUA-BenchMark/
     ├── __init__.py                  # Task registration (all 432 IDs)
     ├── safety.py                    # SafetyEvalResult, SafetyViolation, dimensions
     ├── answer_match.py              # Free-text answer matching helpers
+    ├── protocol.py                  # Official screenshot-only protocol
     │
     ├── base_task.py                 # MedGymScenarioTask — base for HTML scenarios
     ├── ohif_task.py                 # MedGymOHIFTask     — base for OHIF scenarios
@@ -131,7 +142,8 @@ MedCUA-BenchMark/
 ```bash
 git clone https://github.com/Jia7878/MedCUA-BenchMark.git
 cd MedCUA-BenchMark
-pip install -e .
+python -m pip install -e .
+python -m playwright install chromium
 ```
 
 This installs `browsergym-medgym`, which pulls in
@@ -144,13 +156,13 @@ import browsergym.medgym
 print(len(browsergym.medgym.ALL_MEDGYM_TASK_IDS))   # → 432
 ```
 
-### 3. Launch any task
+### 3. Launch a benchmark-conformant task
 
 ```python
-import gymnasium as gym
 import browsergym.medgym
+from browsergym.medgym import make_env
 
-env = gym.make("browsergym/medgym.emergency_triage.login.intent", headless=True)
+env = make_env("medgym.emergency_triage.login.intent", headless=True)
 obs, info = env.reset(seed=42)
 # obs["screenshot"] — browser screenshot (numpy array)
 # obs["goal"]       — task description
@@ -159,14 +171,22 @@ obs, reward, done, truncated, info = env.step('mouse_click(350, 200)')
 env.close()
 ```
 
+Use `make_env` for reported benchmark results. BrowserGym's lower-level
+`gym.make(...)` entry point retains DOM, accessibility-tree, URL, and
+element-ID fields for debugging; `make_env` removes those fields and restricts
+the agent to one action per step from the paper's action set: coordinate and
+keyboard primitives, browser navigation/tab controls, user messaging, and
+infeasibility reporting. Element-ID actions such as `click(bid)` and
+`fill(bid, ...)` are excluded.
+
 ---
 
 ## Starting UI Backends
 
 ### Self-contained HTML scenarios (15)
 
-No server needed — pages are loaded via the `file://` protocol from
-`scenarios/<name>/index.html`.
+No server is needed. Pages are loaded via the `file://` protocol from the
+scenario resources included with the source checkout or installed wheel.
 
 ### OpenEMR (`openemr` scenario — requires Docker)
 
@@ -186,13 +206,28 @@ python seed_demo_data.py              # Seeds 5 demo patients
 
 ### OHIF Viewer (`pacs_radiology`, `pathology_viewer` — requires Node.js)
 
-The OHIF Viewer is fetched from upstream (not vendored):
+The OHIF Viewer is fetched from upstream (not vendored). The benchmark was
+validated against tag `v3.13.0-beta.56`. Its public DICOMweb endpoint is
+mutable, so MedCUA-Bench includes a local QIDO proxy that fixes the study list
+to the 30-study cohort used by the task definitions while forwarding image
+requests to the public endpoint.
+
+Start the QIDO proxy in one terminal:
 
 ```bash
-git clone https://github.com/OHIF/Viewers.git ohif-viewer
-cd ohif-viewer/platform/app
-yarn install
-APP_CONFIG=config/default.js yarn run dev   # serves on http://localhost:3001
+python ohif/qido_proxy.py
+```
+
+In a second terminal, start the pinned OHIF Viewer with the supplied
+configuration:
+
+```bash
+git clone --depth 1 --branch v3.13.0-beta.56 \
+  https://github.com/OHIF/Viewers.git ohif-viewer
+cp ohif/medcua.js ohif-viewer/platform/app/public/config/medcua.js
+cd ohif-viewer
+yarn install --frozen-lockfile
+OHIF_PORT=3001 APP_CONFIG=config/medcua.js yarn run dev
 # Override URL: export MEDGYM_OHIF_URL=http://localhost:3001
 ```
 
@@ -201,24 +236,45 @@ APP_CONFIG=config/default.js yarn run dev   # serves on http://localhost:3001
 ## Programmatic Examples
 
 ```python
-import gymnasium as gym
 import browsergym.medgym
+from browsergym.medgym import make_env
 
 # Self-contained HTML scenario
-env = gym.make("browsergym/medgym.emergency_triage.assign_esi.step", headless=True)
+env = make_env("medgym.emergency_triage.assign_esi.step", headless=True)
 
 # RPMS-EHR e-Prescribing
-env = gym.make("browsergym/medgym.doctor_prescription.new_prescription.step", headless=True)
+env = make_env("medgym.doctor_prescription.new_prescription.step", headless=True)
 
 # OpenEMR inpatient scenario (requires Docker — see above)
-env = gym.make("browsergym/medgym.openemr.find_patient.step", headless=True)
+env = make_env("medgym.openemr.find_patient.step", headless=True)
 
 # OHIF Viewer scenario (requires OHIF on localhost:3001)
-env = gym.make("browsergym/medgym.pacs_radiology.open_ct_study.step", headless=True)
+env = make_env("medgym.pacs_radiology.open_ct_study.step", headless=True)
 ```
 
 All registered task IDs are available as
 `browsergym.medgym.ALL_MEDGYM_TASK_IDS`.
+
+---
+
+## Reproducibility Checks
+
+The release supports Python 3.10--3.12 and is tested with
+`browsergym-core==0.14.2`.
+Before running an agent sweep, verify the package and all task definitions:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The OpenEMR credentials and database passwords in `openemr/docker-compose.yml`
+are intentionally fixed for the isolated benchmark deployment. Its published
+ports bind to `127.0.0.1` only. Do not expose this deployment to a public
+network.
+
+## Citation
+
+Please cite the EMNLP 2026 paper described in [CITATION.cff](CITATION.cff).
 
 ---
 

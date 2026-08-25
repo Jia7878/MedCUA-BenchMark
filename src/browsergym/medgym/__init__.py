@@ -1,7 +1,7 @@
 """
-MedGym — Medical GUI CUA Benchmark for BrowserGym
+MedCUA-Bench — Medical GUI CUA Benchmark for BrowserGym
 
-10 Scenes × 19 Sub-workflows × 12 Tasks × 2 Settings
+18 scenarios × 12 tasks × 2 goal settings = 432 environments
 
     # Outpatient (HTML)
     env = gym.make("browsergym/medgym.emergency_triage.login.intent")
@@ -49,7 +49,7 @@ for task_cfg in OEMR_TASK_CONFIGS:
         )
         ALL_MEDGYM_TASK_IDS.append(full_id)
 
-# --- 2) Self-contained HTML scenarios (14 modules) -------------------------
+# --- 2) Self-contained HTML scenarios (15 modules) -------------------------
 from .base_task import MedGymScenarioTask
 from .scenarios import ALL_SCENARIO_MODULES
 
@@ -91,7 +91,7 @@ for _mod in ALL_SCENARIO_MODULES:
             )
             ALL_MEDGYM_TASK_IDS.append(_full_id)
 
-# --- 3) OHIF Viewer scenarios (3 modules) ----------------------------------
+# --- 3) OHIF Viewer scenarios (2 modules) ----------------------------------
 from .ohif_task import MedGymOHIFTask
 
 for _ohif_id in sorted(_OHIF_SCENARIOS):
@@ -121,3 +121,6 @@ for _ohif_id in sorted(_OHIF_SCENARIOS):
                 task_kwargs={"task_id": _base_id, "setting": _setting},
             )
             ALL_MEDGYM_TASK_IDS.append(_full_id)
+
+
+from .protocol import make_env

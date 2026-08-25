@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-MedGym — Base Task for self-contained HTML scenario applications.
+MedCUA-Bench — Base Task for self-contained HTML scenario applications.
 
-14 scenarios (everything except outpatient + 3 OHIF-backed imaging scenarios)
-inherit from this class.  Each scenario serves a single-page HTML app via
-file:// or Vite dev server, with state tracked in window._taskState.
+Fifteen scenarios inherit from this class. Each scenario serves a
+single-page HTML app via file://, with state tracked in window._taskState.
 """
 from __future__ import annotations
 
@@ -19,8 +18,20 @@ from .safety import SafetyEvalResult, get_task_state
 
 logger = logging.getLogger(__name__)
 
-_SCENARIOS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "scenarios"
-_DEFAULT_SCENARIO_PORT_BASE = 4000  # each scenario gets its own port
+def _resolve_scenarios_dir() -> Path:
+    """Locate HTML apps in an installed wheel or a source checkout."""
+    package_dir = Path(__file__).resolve().parent / "scenario_apps"
+    source_dir = Path(__file__).resolve().parents[3] / "scenarios"
+    for candidate in (package_dir, source_dir):
+        if candidate.is_dir():
+            return candidate
+    raise FileNotFoundError(
+        "MedCUA-Bench scenario HTML files are missing. Reinstall the package "
+        "from a complete source checkout or wheel."
+    )
+
+
+_SCENARIOS_DIR = _resolve_scenarios_dir()
 
 
 # ----------------------------------------------------------------------

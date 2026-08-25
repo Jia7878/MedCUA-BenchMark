@@ -12,8 +12,6 @@
 # This setup uses the official OpenEMR Docker image with a MySQL backend.
 # It is configured for development/benchmarking use only.
 
-version: '3.8'
-
 services:
   mysql:
     image: mariadb:10.11
@@ -26,8 +24,6 @@ services:
       MYSQL_PASSWORD: openemr
     volumes:
       - openemr-db:/var/lib/mysql
-    ports:
-      - "3306:3306"
 
   openemr:
     image: openemr/openemr:7.0.2
@@ -35,8 +31,8 @@ services:
     depends_on:
       - mysql
     ports:
-      - "8300:80"
-      - "9300:443"
+      - "127.0.0.1:8300:80"
+      - "127.0.0.1:9300:443"
     environment:
       MYSQL_HOST: mysql
       MYSQL_ROOT_PASS: root
