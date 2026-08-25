@@ -274,7 +274,7 @@ network.
 
 ## Citation
 
-Please cite the EMNLP 2026 paper described in [CITATION.cff](CITATION.cff).
+Please cite the EMNLP 2026 paper (['https://arxiv.org/abs/2606.03203']).
 
 ---
 
