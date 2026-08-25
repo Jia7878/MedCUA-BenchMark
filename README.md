@@ -222,20 +222,6 @@ All registered task IDs are available as
 
 ---
 
-## What this repo does *not* contain
-
-To keep MedCUA-BenchMark a clean *benchmark standard*, the following are
-intentionally excluded:
-
-- Per-model evaluation runs, traces, screenshots or score tables
-- Agent implementations or proxy servers
-- Paper drafts, figures or analysis scripts
-- Any model weights, API keys or vendor-specific code
-
-Bring your own CUA agent, run it against the 432 environments, and report
-results.
-
----
 
 ## License
 
